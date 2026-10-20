@@ -1,0 +1,32 @@
+// New narrator lines for the sleeping and waking letters (Golan 20.10: when a letter wakes it says "בֹּקֶר טוֹב, אֲנִי הָאוֹת ...").
+// Same format as voice/lines.js. New words for the word bank: בֹּקֶר (ˈbo.keʁ), טוֹב (ˈtov), אֲנִי (a.ˈni). The letter names reuse the bank (as in lc_name_* / lc_fin_*).
+// Until Golan makes the MP3s in voice-maker (audio/<id>.mp3), the greeting stays silent. Never a browser voice.
+window.LETTER_WAKE_LINES = [
+  { id: "gm_alef", letter: "א", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת אָלֶף.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "אָלֶף": "ˈa.lef" } },
+  { id: "gm_bet", letter: "ב", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת בֵּית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "בֵּית": "ˈbet" } },
+  { id: "gm_gimel", letter: "ג", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת גִּימֶל.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "גִּימֶל": "ˈgi.mel" } },
+  { id: "gm_dalet", letter: "ד", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת דָּלֶת.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "דָּלֶת": "ˈda.let" } },
+  { id: "gm_he", letter: "ה", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת הֵא.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "הֵא": "ˈhej" } },
+  { id: "gm_vav", letter: "ו", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת וָו.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "וָו": "ˈvav" } },
+  { id: "gm_zayin", letter: "ז", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת זַיִן.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "זַיִן": "ˈza.jin" } },
+  { id: "gm_het", letter: "ח", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת חֵית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "חֵית": "ˈxet" } },
+  { id: "gm_tet", letter: "ט", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת טֵית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "טֵית": "ˈtet" } },
+  { id: "gm_yod", letter: "י", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת יוֹד.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "יוֹד": "ˈjod" } },
+  { id: "gm_kaf", letter: "כ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת כַּף.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "כַּף": "ˈkaf" } },
+  { id: "gm_lamed", letter: "ל", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת לָמֶד.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "לָמֶד": "ˈla.med" } },
+  { id: "gm_mem", letter: "מ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת מֵם.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "מֵם": "ˈmem" } },
+  { id: "gm_nun", letter: "נ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת נוּן.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "נוּן": "ˈnun" } },
+  { id: "gm_samekh", letter: "ס", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת סָמֶךְ.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "סָמֶךְ": "ˈsa.mex" } },
+  { id: "gm_ayin", letter: "ע", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת עַיִן.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "עַיִן": "ˈa.jin" } },
+  { id: "gm_pe", letter: "פ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת פֵּא.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "פֵּא": "ˈpej" } },
+  { id: "gm_tsadi", letter: "צ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת צָדִי.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "צָדִי": "ˈt͡sa.di" } },
+  { id: "gm_qof", letter: "ק", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת קוֹף.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "קוֹף": "ˈkof" } },
+  { id: "gm_resh", letter: "ר", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת רֵישׁ.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "רֵישׁ": "ˈʁeʃ" } },
+  { id: "gm_shin", letter: "ש", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת שִׁין.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "שִׁין": "ˈʃin" } },
+  { id: "gm_tav", letter: "ת", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת תָּו.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "תָּו": "ˈtav" } },
+  { id: "gm_fin_kaf", letter: "ך", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת כַף סוֹפִית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "כַף": "ˈxaf" } },
+  { id: "gm_fin_mem", letter: "ם", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת מֵם סוֹפִית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot" } },
+  { id: "gm_fin_nun", letter: "ן", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת נוּן סוֹפִית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "נוּן": "ˈnun" } },
+  { id: "gm_fin_pe", letter: "ף", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת פֵּא סוֹפִית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "פֵּא": "ˈpej" } },
+  { id: "gm_fin_tsadi", letter: "ץ", kind: "line", text: "בֹּקֶר טוֹב, אֲנִי הָאוֹת צָדִי סוֹפִית.", say: { "בֹּקֶר": "ˈbo.keʁ", "טוֹב": "ˈtov", "אֲנִי": "a.ˈni", "הָאוֹת": "ha.ˈʔot", "צָדִי": "ˈt͡sa.di" } },
+];

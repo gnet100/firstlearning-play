@@ -1,0 +1,1688 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>מרוץ השערים עם קול</title>
+<!-- local font, no internet needed (screens audit 16.10, ס8); the letters are drawn only after fontReady -->
+<link rel="stylesheet" href="../../games/shared/fonts/fonts.css">
+<style>
+  :root {
+    --sky: #bfe6ff;
+    --ink: #1d2a3a;
+    --card: #ffffffee;
+    --accent: #ff8a3d;
+    --accent-ink: #ffffff;
+    --good: #2bb673;
+    --muted: #5b6b7f;
+  }
+  /* single deliberate look (daylight world): same colours in light and dark */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+
+  .prompt {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 20px;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002;
+  }
+  .prompt .label { font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .prompt .target { font-size: 56px; font-weight: 800; line-height: 1; min-width: 64px; text-align: center; }
+  .round-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
+  }
+  .round-btn[hidden] { display: none; }
+  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+
+  .stars {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
+    background: var(--card); border-radius: 999px; padding: 8px 18px; font-size: 26px; font-weight: 800;
+    box-shadow: 0 4px 16px #0002;   /* filled by the shared FL.learner.starCounter: gold + count, silver + count (Golan 16.10) */
+  }
+  .dots { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #0002; }
+  .dots span.done { background: var(--good); }
+  .dots-wrap {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 88px); left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .gear {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink);
+    box-shadow: 0 4px 16px #0002;
+  }
+
+  /* settings gear: grey drawn icon, a bit bigger, on every screen (Golan, 15.10) */
+  .gear-ico { width: 1.3em; height: 1.3em; display: block; }
+  .ov-gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+  /* in the game the buttons stand in a column at the top left: door, settings (Golan, 14.10; no pause button since 16.10) */
+  .hud .gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+  /* settings button on the start screen too */
+  .start-gear { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; }
+  /* door = back to the previous screen (Golan, 14.10) */
+  /* exit door, ajar, opening toward the left edge; "יציאה" tip on mouse hover (Golan, 15.10) */
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { z-index: 30; }   /* tip above the FPS box */
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  .door-btn { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; font-size: 40px; }
+  /* car picker */
+  .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 4px; cursor: pointer; aspect-ratio: 1; }
+  .cars button img { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; display: block; }
+  .cars button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .cars button:active { transform: scale(.96); }
+  .cars button.flash { animation: carFlash 1s ease-in-out; }   /* slower, like the other games (Golan, 16.10) */
+  /* the chosen car grows while we wait (Golan, 15.10): #cars beats the mouse-hover rule, so it starts at once; slow grow */
+  #cars button.chosen { position: relative; z-index: 2; transform: scale(1.3); border-color: var(--accent); background: #fff3ea;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }   /* nag: quick grow, one car after another (Golan, 14.10) */
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+
+  .arrows {
+    position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 0; right: 0;
+    display: flex; justify-content: space-between; padding: 0 18px; pointer-events: none; direction: ltr;
+  }
+  .arrow {
+    pointer-events: auto; width: 96px; height: 96px; border-radius: 50%; border: 0;
+    background: #ffffffcc; color: var(--ink); font-size: 46px; font-weight: 800; box-shadow: 0 4px 0 #0003;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .arrow:active { transform: translateY(3px); box-shadow: 0 1px 0 #0003; }
+
+  .perf {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
+    direction: ltr; text-align: left; font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none;
+  }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+  .panel {
+    background: #fff; border-radius: 28px; padding: 28px 24px; max-width: 520px; width: 100%;
+    text-align: center; box-shadow: 0 10px 40px #0003;
+  }
+  .panel h1 { margin: 0 0 8px; font-size: 34px; }
+  .panel p { margin: 6px 0 18px; font-size: 19px; color: var(--muted); }
+  /* after 2 perfect rounds in a row: offer new letters (Golan, 14.10) */
+  .swap-ask { background: #fff3ea; border-radius: 20px; padding: calc(10px * var(--k, 1)) 12px calc(14px * var(--k, 1)); margin: 0; }
+  .swap-ask p { color: var(--ink); font-weight: 800; font-size: max(calc(24px * var(--k, 1)), 17px); margin: 4px 0 calc(10px * var(--k, 1)); }
+  .swap-ask .start-row { margin: 0; }
+  .swap-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 12px; }
+  .swap-ask p { margin: 0 !important; }
+  html[data-screen~="landscape"] .swap-ask { padding: calc(8px * var(--k, 1)) 12px; }
+  /* phone on its side: the question and its כן / לא in ONE line, so the shared panel still fits (Golan 17.10 two-button end popup) */
+  html[data-screen~="phone"][data-screen~="landscape"] .swap-ask { flex-wrap: nowrap; padding: 4px 10px; }
+  html[data-screen~="phone"][data-screen~="landscape"] .swap-long { display: none; }
+  html[data-screen~="phone"][data-screen~="landscape"] .swap-ask .big-btn { min-width: calc(var(--tap-s) * 1.2); padding: 0 14px; }
+  /* swap buttons shrink with the shared panel (--k) like everything else, never below the small touch size; "לא" is a pill too, not a tall circle */
+  html[data-screen] .swap-ask .big-btn { white-space: nowrap; font-size: max(calc(30 * var(--u) * var(--k, 1)), 18px); min-height: max(calc(var(--tap) * var(--k, 1)), var(--tap-s)); min-width: max(calc(var(--tap) * 1.5 * var(--k, 1)), calc(var(--tap-s) * 1.5)); padding: 0 calc(30 * var(--u)); }
+  .big-btn.small { font-size: 22px; padding: 10px 26px; min-height: 56px; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+  .big-btn {
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
+    box-shadow: 0 5px 0 #c45f1d;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
+  /* start screen: "יוצאים לדרך" in the middle, speaker at the end of the row, space between (Golan, 14.10) */
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  #start .start-row { margin: 0 -12px; }   /* speaker closer to the edge (Golan, 14.10) */
+  #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
+  @media (max-width: 480px) { #start .start-row { gap: 8px; } #start #go { font-size: 24px; padding: 14px 22px; } #start #hear { width: 54px; min-width: 54px; height: 54px; min-height: 0; font-size: 26px; } }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  /* the button reacts when pressed (Golan, 14.10): a bounce and a glow */
+  /* one soft, slow press (Golan, 14.10: less dramatic, not double) */
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  /* small hover hint with a mouse (computers only) */
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .arrow, .cars button, .seg button, .letters button { transition: transform .15s ease, filter .15s ease; }
+    .big-btn:hover, .round-btn:hover, .arrow:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .cars button:hover, .seg button:hover, .letters button:hover { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+  .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
+
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: 26px; text-align: center; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+  .seg { display: flex; gap: 6px; flex-shrink: 0; }
+  .row.stack { flex-wrap: wrap; }
+  .row.stack .seg { flex-shrink: 1; flex-wrap: wrap; }
+  .settings { max-height: 100%; overflow-y: auto; }
+  /* X close button: top right, stays in view while the panel scrolls (the scroll bar is on the left in RTL) */
+  /* the header row stays at the top while the rows scroll under it, never under the X (screens standard 4א) */
+  .settings { padding-top: 0; }
+  .set-head { position: relative; flex: 0 0 auto; z-index: 3; background: #fff; display: flex; align-items: center; gap: 10px;
+    padding: 14px 0 10px; margin-bottom: 4px; border-bottom: 1px solid #eef1f5; }
+  .set-head h2 { flex: 1; margin: 0; }
+  .set-head::after { content: ""; flex: 0 0 var(--x, 52px); }   /* RTL: X on the right, an equal space on the left keeps the title centred */
+  .set-head { --x: max(calc(52 * var(--u, 1px)), var(--tap-s, 48px)); }
+  .set-x { flex: 0 0 auto; --x: max(calc(52 * var(--u, 1px)), var(--tap-s, 48px)); width: var(--x); height: var(--x); margin: 0;
+    border: 2px solid #d5dde6; border-radius: 50%; background: #fff; color: var(--ink); font: 700 calc(var(--x) * .45) / 1 inherit;
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 8px #0002; }
+  .set-x:active { transform: scale(.94); }
+  /* the header row is fixed, only .set-body scrolls: nothing ever passes under the X (screens standard 4א, like detective) */
+  #settings .panel.settings { display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; max-height: 100%; }
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  .seg button {
+    min-width: 76px; min-height: 52px; border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 17px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters-row { align-items: flex-start; }
+  .letters-row > span { display: flex; flex-direction: column; gap: 4px; }
+  .letters-row small { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .letters { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; width: 100%; max-width: 420px; margin: 0 auto; direction: rtl; }   /* always 3 rows (Golan 16.10, all games): 22 letters + 5 finals = 27 = 3 x 9 */
+  .letters button { aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 8px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 800 clamp(16px, 3.2vw, 24px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .letters button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters button.final { border-style: dashed; }
+  /* Final letters get a writing line, so the tail below it shows (ן is not ו, ך is not ר) */
+  /* thin line, same length for every final letter (Golan, 15.10) */
+  .letters button.final, #target.final { background-image: linear-gradient(#9dbbdc, #9dbbdc); background-repeat: no-repeat; }
+  .letters button.final { background-size: 55% 1.5px; background-position: center 80%; }
+  #target.final { background-size: .8em 2px; background-position: center .69em; }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+  /* 3-2-1 countdown on the start line (Golan, 14.10): each circle appears big and fades away */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; }
+  .count span { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 110px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }   /* glowing green, like "יש נכון" (Golan, 15.10) */
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+  .toast {
+    position: absolute; top: 20%; left: 80%; transform: translate(-50%, -50%) scale(.6);   /* right side, above the trees, off the sign (Golan, 14.10) */ opacity: 0;
+    font-size: 64px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0004, 0 0 24px #0003;
+    transition: transform .25s ease, opacity .25s ease; pointer-events: none; white-space: nowrap;
+  }
+  .prompt .target.pulse { animation: pulse .6s ease-in-out 2; }
+  /* settings rows (Golan 16.10, all games): title above the buttons (or on their right when it fits), the long explanation on its own full line below them */
+  /* every settings item = 3 lines: title, the options, then the explanation (Golan 16.10, all games) */
+  .settings .row { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 8px; }
+  .settings .row > .row-title { font-weight: 700; }
+  .settings .row > .seg { flex-wrap: wrap; justify-content: flex-start; }
+  .settings .row-note { margin: 0; font-size: 14px; color: var(--muted); font-weight: 400; line-height: 1.45; }
+  .kid-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0 10px; }
+  .kid-tools button { font: inherit; font-size: 17px; border: 2px solid #e2e6ee; background: #fff; border-radius: 12px; padding: 6px 12px; cursor: pointer; }
+  .lvl-seg { display: inline-flex; gap: 4px; margin-inline-start: 6px; }
+  .lvl-seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .seg[data-key=gates] button.auto { width: auto; padding: 0 10px; }
+  @keyframes starPop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes pulse { 50% { transform: scale(1.35); color: var(--accent); } }
+  .toast.good { font-size: 52px; color: #10b947; text-shadow: 0 0 6px #fff, 0 0 18px #3dff7f, 0 0 36px #00e05a, 0 3px 0 #0a7a35; }
+  .toast .chk { display: inline-block; font-size: 80px; line-height: 1; vertical-align: -0.12em; filter: drop-shadow(0 0 8px #3dff7f) drop-shadow(0 3px 0 #0a7a35); }   /* bigger, mirrored check (Golan, 14.10) */
+  .toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  /* "יש נכון" sits centred just above the winning letter, wherever it is, and is a little smaller (Golan, 15.10) */
+  .toast.pinned { transform: translate(-50%, -50%) scale(.6); transform-origin: 50% 50%; will-change: transform, left, top; backface-visibility: hidden; line-height: 0; }
+  .toast.pinned.show { transform: translate(-50%, -50%) scale(1); }
+  .toast.pinned .chk { display: block; vertical-align: 0; filter: drop-shadow(0 3px 4px #0005); }   /* a star, not the green glowing check */
+  .toast.good.pinned { font-size: 40px; }
+  .toast.pinned .chk { font-size: 60px; }
+  @media (max-width: 720px) {
+    .toast, .toast.good { font-size: 40px; left: 68%; top: 27%; }
+    .toast .chk { font-size: 56px; }
+    .toast.good.pinned { font-size: 30px; }
+    .toast.pinned .chk { font-size: 44px; }
+    .prompt { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+    .dots-wrap { top: calc(max(12px, env(safe-area-inset-top)) + 160px); }
+  }
+  @media (max-width: 600px) {
+    .prompt .label { font-size: 17px; }
+    .prompt .target { font-size: 44px; }
+    .arrow { width: 84px; height: 84px; }
+  }
+  /* Phones (Golan, 14.10): smaller buttons so nothing stands on top of anything else. */
+  @media (max-width: 600px) {
+    .round-btn { width: 52px; height: 52px; font-size: 24px; }
+    .door-btn { font-size: 30px; }
+    /* settings fit the width, no sideways scrolling (Golan, 15.10) */
+    .settings { overflow-x: hidden; }
+    .row { gap: 8px; }
+    .seg { gap: 4px; flex-shrink: 1; min-width: 0; }
+    .seg button { min-width: 0; padding: 0 10px; font-size: 16px; }
+    .seg[data-key=gates] button { width: 44px; padding: 0; }
+    .hud .gear, .ov-gear { top: calc(max(12px, env(safe-area-inset-top)) + 62px); }
+    .perf { left: 78px; }
+    .prompt { top: calc(max(12px, env(safe-area-inset-top)) + 62px); left: 80px; right: 12px; transform: none; justify-content: center; gap: 10px; padding: 6px 8px 6px 14px; }
+    .dots-wrap { top: calc(max(12px, env(safe-area-inset-top)) + 136px); left: calc(50% + 34px); }
+    .arrow { width: 72px; height: 72px; font-size: 36px; }
+  }
+  /* Phone on its side (Golan, 14.10): the screen is low, so everything is smaller and the car picker shows 5 in a row. */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .overlay { padding: 8px; }
+    .panel { padding: 14px 18px; max-height: calc(100vh - 16px); overflow-y: auto; }
+    .panel h1 { font-size: 24px; margin-bottom: 4px; }
+    .round-btn { width: 48px; height: 48px; font-size: 22px; }
+    .door-btn { font-size: 28px; }
+    .hud .gear, .ov-gear { top: calc(max(8px, env(safe-area-inset-top)) + 56px); }
+    .door-btn, .start-gear { top: max(8px, env(safe-area-inset-top)); }
+    .perf { left: 74px; }
+    .prompt { top: max(8px, env(safe-area-inset-top)); gap: 10px; padding: 4px 8px 4px 14px; }
+    .prompt .label { font-size: 18px; }
+    .prompt .target { font-size: 40px; }
+    .dots-wrap { top: calc(max(8px, env(safe-area-inset-top)) + 60px); }
+    .stars { font-size: 20px; padding: 6px 14px; }
+    .arrow { width: 72px; height: 72px; font-size: 36px; }
+    #carPick .panel { max-width: 660px; }
+    .cars { grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 4px; }
+    #start .big-btn { padding-top: 12px; padding-bottom: 12px; }
+  }
+
+  /* ===== screens standard (16.10, from the screens thread's demo): every size and place from FL.screen variables, no device breakpoints ===== */
+  html[data-screen] {
+    --s: max(calc(72 * var(--u)), var(--tap-s));      /* door, settings */
+    --b: max(calc(84 * var(--u)), var(--tap));        /* main kid buttons: replay */
+    --g: max(calc(14 * var(--u)), var(--gap));        /* space between buttons */
+    --arrow: max(calc(132 * var(--u)), var(--tap));
+  }
+  html[data-screen] .round-btn { width: var(--s); height: var(--s); font-size: calc(var(--s) * .45); }
+  html[data-screen] .door-btn { font-size: calc(var(--s) * .6); }
+  html[data-screen] .door-btn, html[data-screen] .start-gear { top: var(--edge-t); left: var(--edge-l); }
+  html[data-screen] .hud .gear, html[data-screen] .ov-gear { top: calc(var(--edge-t) + var(--s) + var(--g)); left: var(--edge-l); }
+  /* top letter pill = the detective standard (Golan 16.10, all games; detective/letter-pill-spec.md "FIXED SIZE"):
+     white pill, letter + orange speaker (emoji 0.7x), dots at a fixed gap below; one size from the first frame to the end */
+  html[data-screen] {
+    --spk: max(calc(46 * var(--u)), var(--tap-s, 44px));
+    --pill-t: max(calc(56 * var(--u)), 40px);
+    --pill-lw: max(calc(64 * var(--u)), 48px);
+    --pill-h: calc(max(var(--pill-t), var(--spk)) + 16 * var(--u));
+    --pill-w: calc(var(--pill-lw) + var(--spk) + 46 * var(--u));
+    --pill-top: var(--edge-t);
+    --dots-gap: max(calc(8 * var(--u)), 6px);
+  }
+  html[data-screen~="portrait"] { --pill-top: calc(var(--edge-t) + var(--s) + 10 * var(--u)); }   /* standing: one row down, under the door */
+  html[data-screen] .prompt { box-sizing: border-box; top: var(--pill-top); left: 50%; right: auto; transform: translateX(-50%);
+    width: var(--pill-w); height: var(--pill-h); gap: calc(14 * var(--u)); padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u));
+    justify-content: space-between; border-radius: 999px; }
+  html[data-screen] .prompt .target { display: block; font-size: var(--pill-t); width: var(--pill-lw); min-width: 0; height: var(--pill-t); line-height: 1; overflow: visible; }
+  html[data-screen] .prompt .round-btn { width: var(--spk); height: var(--spk); font-size: calc(var(--spk) * .7); padding: 0; line-height: 1; overflow: hidden; }
+  /* phones: the settings panel uses the full width inside the safe edges, so the letter tiles get bigger (screens audit 16.10) */
+  html[data-screen~="phone"] #settings .panel.settings { width: 100%; max-width: none; padding-inline: max(calc(12 * var(--u)), 10px); }
+  html[data-screen~="phone"] .set-head h2 { font-size: 21px; }   /* one line beside the X */
+  html[data-screen~="phone"] .set-head::after { flex-basis: 0; }   /* narrow phone: the title takes the spare side too, so it stays on one line */
+  html[data-screen~="phone"] .set-head { padding: 8px 0 6px; }
+  html[data-screen] .prompt.listen { justify-content: center; padding: 0; }   /* speaker-only question: same pill, speaker centred */
+  html[data-screen] .prompt.listen .target { display: none; }
+  html[data-screen] .dots-wrap { top: calc(var(--pill-top) + var(--pill-h) + var(--dots-gap)); left: 50%; }
+  html[data-screen] .dots { margin-top: 0; gap: max(calc(6 * var(--u)), 4px); }
+  html[data-screen] .dots span { width: max(calc(12 * var(--u)), 9px); height: max(calc(12 * var(--u)), 9px); }
+  html[data-screen] .stars { top: var(--edge-t); right: var(--edge-r); font-size: max(calc(32 * var(--u)), 20px); padding: calc(8 * var(--u)) calc(18 * var(--u)); }
+  html[data-screen] .arrows { bottom: var(--edge-b); padding: 0; left: var(--edge-l); right: var(--edge-r); }
+  html[data-screen] .arrow { width: var(--arrow); height: var(--arrow); font-size: calc(var(--arrow) * .45); }
+  html[data-screen] .perf { top: var(--edge-t); left: calc(var(--edge-l) + var(--s) + var(--g)); }
+  html[data-screen] .overlay { padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+  html[data-screen] .panel { max-width: max(calc(640 * var(--u)), min(520px, 100%)); max-height: 100%; overflow-y: auto; }
+  html[data-screen] .panel h1 { font-size: max(calc(44 * var(--u)), 24px); }
+  html[data-screen] .panel p { font-size: max(calc(24 * var(--u)), 17px); }
+  html[data-screen] .big-btn { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--tap); padding: calc(16 * var(--u)) calc(44 * var(--u)); }
+  /* start-screen speaker: a circle as tall as the start button, icon centred inside (Golan 16.10, all games; same rule as detective) */
+  html[data-screen] #start #hear { --hb: max(calc(76 * var(--u)), var(--tap)); width: var(--hb); min-width: var(--hb); height: var(--hb); min-height: 0; padding: 0;
+    border-radius: 50%; display: grid; place-items: center; line-height: 1; font-size: calc(var(--hb) * .47); overflow: hidden; flex: 0 0 auto; }
+  html[data-screen] #start #go { min-height: max(calc(76 * var(--u)), var(--tap)); padding-top: 0; padding-bottom: 0; }
+  /* phone or narrow window standing up: the prompt moves below the button row, beside the column */
+  html[data-screen~="portrait"] .perf { display: none; }
+  /* the panel never sits under the door/gear column (audit 16.10: SE and iPhone landscape, the gear covered the first car) */
+  html[data-screen~="landscape"] :is(#start, #carPick, #end) { padding-left: calc(var(--edge-l) + var(--s) + var(--g)); padding-right: calc(var(--edge-r) + var(--s) + var(--g)); }
+  html[data-screen~="portrait"] :is(#start, #carPick, #end) { padding-top: calc(var(--edge-t) + 2 * (var(--s) + var(--g))); }
+  /* car picker = the shared picker layout (Golan 16.10, all games): white rounded card, title, 3x3 equal light tiles,
+     in both orientations; the tile is the largest that fits the free width and height */
+  html[data-screen] #carPick { --side: 0px; --top: 0px; }
+  html[data-screen~="landscape"] #carPick { --side: calc(2 * (var(--s) + var(--g))); }
+  html[data-screen~="portrait"] #carPick { --top: calc(2 * (var(--s) + var(--g))); }
+  html[data-screen] #carPick .panel { width: auto; max-width: none; padding: max(calc(18 * var(--u)), 12px) max(calc(22 * var(--u)), 14px); }
+  html[data-screen] #carPick h1 { margin: 0 0 max(calc(10 * var(--u)), 6px); line-height: 1.25; }
+  html[data-screen] #carPick .cars { --cg: max(calc(14 * var(--u)), 8px);
+    --ct: min(calc(190 * var(--u)),
+      calc((100dvh - var(--edge-t) - var(--edge-b) - var(--top) - 2 * max(calc(18 * var(--u)), 12px) - 1.25 * max(calc(44 * var(--u)), 24px) - max(calc(10 * var(--u)), 6px) - 2 * var(--cg) - 4px) / 3),
+      calc((100vw - var(--edge-l) - var(--edge-r) - var(--side) - 2 * max(calc(22 * var(--u)), 14px) - 2 * var(--cg)) / 3));
+    grid-template-columns: repeat(3, var(--ct)); grid-auto-rows: var(--ct); gap: var(--cg); margin: 0; justify-content: center; }
+  html[data-screen] #carPick .cars button { width: var(--ct); height: var(--ct); border-radius: max(calc(22 * var(--u)), 14px); }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="מרוץ השערים"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="prompt" role="status">
+    <!-- the "סְעוּ לַשַּׁעַר" caption was removed (Golan, 15.10): the letter and the speaker are enough -->
+    <span class="target" id="target"></span>
+    <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
+  </div>
+  <div class="dots-wrap"><div class="dots" id="dots"></div></div>
+  <!-- on-screen text: nikud only at 28px or more, else none (advisor ruling, Golan 16.10: literacy/text-size-ruling.md) -->
+<div class="stars" id="stars" data-fl-stars data-fl-title="מרוץ השערים"></div>
+  <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#6b7079" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.2.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.2l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.2l1.5 2.2-2.4 2.4-2.2-1.5a8.3 8.3 0 0 1-2.2.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.2-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.2l-2.6-.5v-3.4l2.6-.5c.2-.8.5-1.5.9-2.2L3.3 5.9l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.2-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="arrows">
+    <button class="arrow" id="left" aria-label="שמאלה">◀</button>
+    <button class="arrow" id="right" aria-label="ימינה">▶</button>
+  </div>
+  <div class="perf" id="perf"></div>
+  <div class="toast" id="toast"></div>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear ov-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#6b7079" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.2.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.2l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.2l1.5 2.2-2.4 2.4-2.2-1.5a8.3 8.3 0 0 1-2.2.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.2-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.2l-2.6-.5v-3.4l2.6-.5c.2-.8.5-1.5.9-2.2L3.3 5.9l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.2-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <div class="panel">
+    <h1>מרוץ השערים</h1>
+    <p><span id="startText">סעו עם המכונית דרך השער המתאים</span><br>אפשר להזיז את המכונית עם האצבע, העכבר או החצים</p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוען…</button>
+      <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="carPick" hidden>
+  <button class="round-btn gear ov-gear" id="gearCar" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#6b7079" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.2.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.2l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.2l1.5 2.2-2.4 2.4-2.2-1.5a8.3 8.3 0 0 1-2.2.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.2-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.2l-2.6-.5v-3.4l2.6-.5c.2-.8.5-1.5.9-2.2L3.3 5.9l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.2-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorCar" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="panel">
+    <h1 id="carTitle">בוחרים מכונית</h1>
+    <div class="cars" id="cars"></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn gear ov-gear" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#6b7079" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.2.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.2l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.2l1.5 2.2-2.4 2.4-2.2-1.5a8.3 8.3 0 0 1-2.2.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.2-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.2l-2.6-.5v-3.4l2.6-.5c.2-.8.5-1.5.9-2.2L3.3 5.9l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.2-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <!-- the panel itself is the shared FL.learner.endPanel (16.10, the same in every game); "רוצים להחליף אותיות?" goes in as its extra -->
+  <div class="swap-ask" id="swapAsk" hidden>
+    <p id="swapText">רוצים להחליף אותיות?</p>
+    <div class="start-row"><button class="big-btn small" id="swapYes">כן<span class="swap-long">, להחליף</span></button><button class="big-btn small ghost" id="swapNo">לא</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <!-- header row that does not scroll (screens standard 4א): the title and the X close button (Golan 16.10, all games) -->
+    <div class="set-head"><button class="set-x" id="settingsX" aria-label="סגירה" title="סגירה">✕</button><h2>הגדרות (להורה או למורה)</h2></div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
+    <div id="flForm"></div>
+    <div class="row" style="display:none"><span class="row-title">ניקוד</span>
+      <div class="seg" data-key="nikud">
+        <button data-v="uniform">אחיד</button><button data-v="mixed">מעורב</button><button data-v="kamatz">קמץ</button><button data-v="patah">פתח</button>
+      </div></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.27.1/babylonjs.loaders.min.js"></script>
+<script src="cars/cars.js"></script>
+<script src="trees/trees.js"></script>
+<!-- the child's shared letter card for every letter game (games/shared, 15.10). Never edit these copies here. -->
+<script src="../../games/shared/screen.js"></script>
+<script src="../../games/shared/letter-pairs.js"></script>
+<script src="../../games/shared/learner.js"></script>
+<script>
+(() => {
+  "use strict";
+  const T0 = performance.now();
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
+  const settings = { quality: "high", pace: "normal", gates: "age", nikud: "uniform", stress: "off", perf: "off", voice: "on", letters: [] };
+  // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
+  // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
+  // Waiting times, reaction times and the hourglass stay in real time.
+  let motionMs = 0;
+  const motionK = () => { try { const l = LRN; return l && l.speed ? l.speed("race") : 1; } catch (e) { return 1; } };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-race-settings") || "{}")); } catch (e) {}
+  // Every page load starts in "החלטת מערכת" (Golan 16.10, all games): a saved manual list is not played; taps in auto are handled by the picker
+  settings.letters = []; settings.lettersMode = "auto";
+  // Gates by age is the new default (advisor ruling 16.10: 2 up to age 4, 3 from 5); an older saved default moves to it once
+  if (settings.gatesV !== 2) { settings.gatesV = 2; if (settings.gates === "3") settings.gates = "age"; }
+  const saveSettings = () => { try { localStorage.setItem("fl-race-settings", JSON.stringify(settings)); } catch (e) {} };
+
+  // ---------- content (draft – not yet approved by the pedagogy advisor) ----------
+  // Open syllables with the "a" sound (spec, language stage 3). Kamatz and patah sound the same.
+  // Nikud setting (Golan, 12.10.2026): "uniform" (default) = one mark per question, kamatz or patah;
+  // "mixed" = the prompt and each gate get their own mark, so the child learns "מָ" and "מַ" are one sound;
+  // "kamatz" / "patah" = always that mark. Gates always differ by letter, so there is one right answer.
+  const KAMATZ = "\u05B8", PATAH = "\u05B7";
+  // All letters in alphabet order (Golan, 14.10 added א ב ט י כ ע פ צ ק שׂ). Letters that sound the same
+  // never stand on the gates of one question, so there is always exactly one right answer.
+  // Letter recognition uses the 22 letters א-ת without dagesh or shin/sin dots (Golan, 14.10).
+  const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
+  const SOUND_GROUPS = [["א", "ע", "ה"], ["ת", "ט"], ["כּ", "ק"], ["ח", "כ"], ["ו", "ב"], ["ס", "שׂ"]];
+  // Letter recognition (Golan, 14.10): the narrator says the letter's NAME, so letters that sound the same
+  // (ת and ט, for example) have different names and may stand together on the gates.
+  const sameSound = (a, b) => a === b;
+  const FINAL_BASE_OF = (l) => ({ "ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ" })[l] || l;
+  // Final letters (Golan, 14.10): shown without nikud; the narrator says the letter's name ("מֵם סוֹפִית").
+  // A final-letter question has only final letters on its gates. They join the game only when chosen in settings.
+  const FINALS = ["ך", "ם", "ן", "ף", "ץ"];
+  const FINAL_NAME = { "ך": "כף סופית", "ם": "מם סופית", "ן": "נון סופית", "ף": "פא סופית", "ץ": "צדי סופית" };
+  const isFinal = (l) => FINALS.includes(l);
+  const ALL_LETTERS = [...LETTERS, ...FINALS];   // letter recognition uses every letter, finals too (Golan, 14.10)
+  // Letters chosen by the parent/teacher (final letters count too). Fewer than 6 chosen: other regular letters
+  // are mixed in at random, but chosen letters still come up most of the time (70%). Nothing chosen = all regular letters.
+  // The first question of a round always uses a chosen letter (Golan, 14.10), so the game starts with them.
+  // auto = "החלטת מערכת"; an old saved list with no mode stays a manual choice
+  const lettersMode = () => settings.lettersMode || (chosenLetters().length ? "manual" : "auto");
+  function chosenLetters() { return [...new Set((settings.letters || []).map((l) => l.replace(/[\u05BC\u05C1\u05C2]/g, "")))].filter((l) => ALL_LETTERS.includes(l)); }
+  function pickTarget(prev, onlyChosen) {
+    const chosen = chosenLetters();
+    const all = chosen.length ? chosen : ALL_LETTERS;
+    const others = ALL_LETTERS.filter((l) => !all.includes(l));
+    for (let i = 0; i < 12; i++) {
+      const fromChosen = onlyChosen || !chosen.length || chosen.length >= 6 || !others.length || Math.random() < 0.7;
+      const src = fromChosen ? all : others;
+      const t = src[Math.floor(Math.random() * src.length)];
+      if (!sameSound(t, prev) || all.length + others.length < 2) return t;
+    }
+    return all[0];
+  }
+  const CONFUSABLE = { "ב": "כ", "כ": "ב", "ד": "ר", "ר": "ד", "ה": "ח", "ח": "ה", "ו": "ז", "ז": "ו", "מ": "ם", "ס": "ם",
+    "ם": "ס", "ן": "ו", "ך": "ר", "ץ": "צ", "צ": "ץ", "ף": "פ", "פ": "ף", "ת": "ח", "ט": "ת", "ע": "צ", "ג": "נ", "נ": "ג", "ק": "ה" };
+  // gates per round by the child's age (Golan 16.10, all games): 5 up to age 4, 7 at 5, 9 at 6-7, 7 with no age
+  const roundLen = () => (LRN && LRN.roundLength ? LRN.roundLength() : 7);
+  let QUESTIONS_PER_ROUND = 7;
+  function markPicker() {
+    const randomMark = () => (Math.random() < 0.5 ? KAMATZ : PATAH);
+    if (settings.nikud === "kamatz") return () => KAMATZ;
+    if (settings.nikud === "patah") return () => PATAH;
+    if (settings.nikud === "mixed") return randomMark;
+    const one = randomMark(); return () => one;
+  }
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // The shared learner card (games/shared/learner.js). Missing file = the game works as before, without it.
+  const LRN = window.FL && window.FL.learner ? window.FL.learner : null;
+  // "החלטת מערכת" practises a set sized for this game (Golan 16.10; advisor ruling literacy/practice-set-size.md):
+  // time pressure and listening only, so the smallest set: 3 letters at age 4, 4 at 5, 5 at 6-7 (4 with no age)
+  if (LRN && LRN.setGame) LRN.setGame("race", { autoCount: (age) => (age == null ? 4 : age <= 4 ? 3 : age === 5 ? 4 : 5) });
+  const VISIT = LRN && LRN.visit ? LRN.visit("race") : null;   // one visit per page load, kept across rounds
+  // hourglass (Golan 18.10): a round runs until the golden sand is out, not a set number of gates; no hourglass = the old count
+  const hg = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || settingsOpen() }) : null;
+  // "לפי הרמה" = the child's level decides (3 or 4 gates); a number chosen by the parent wins (README step 2).
+  // gates by age (advisor ruling 16.10, section 11): 2 up to 4, 3 at 5, 3 at 6-7 (4 at 6-7 only when the child's level is high)
+  const gatesByAge = () => { const a = LRN && LRN.age ? LRN.age() : null; if (a != null && a <= 4) return 2; if (a != null && a >= 6 && LRN.levelInfo().choices >= 4) return 4; return 3; };
+  // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = 2 / 3 / 4 gates
+  const laneCount = () => [2, 2, 3, 4][LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 2];
+  function makeQuestion(prevTarget, onlyChosen) {
+    const chosen0 = chosenLetters();
+    const lrnArgs = { mode: "recognize", prev: prevTarget, lastOk: state.lastOk !== false, lastLetter: state.lastLetter };
+    // The shared visit flow (Golan 16.10, all games): 3 perfect answers on a letter bring it back once as a speaker-only
+    // question (no letter in the pill), a perfect one makes it known; a known letter leaves the visit; never twice in a row.
+    const others = ALL_LETTERS.filter((l) => !chosen0.includes(l));
+    const suggest = () => (!LRN ? pickTarget(prevTarget, onlyChosen) : !chosen0.length ? LRN.nextLetter(lrnArgs)
+      : (onlyChosen || chosen0.length >= 6 || !others.length || Math.random() < 0.7) ? LRN.nextLetter({ ...lrnArgs, chosen: chosen0 })
+      : others[Math.floor(Math.random() * others.length)]);
+    const vq = VISIT ? VISIT.next({ suggest, pool: chosen0.length ? chosen0 : undefined }) : { letter: suggest(), listen: false };
+    const listen = !!vq.listen && settings.voice === "on";   // voice off (silent test mode): never a speaker-only question
+    // "רמת אתגר" decides the look-alike gates (Golan 17.10): level 1 none, level 2 up to one, level 3 up to two,
+    // and only when the child already knows both letters. The number of gates stays by age.
+    const maxLook = LRN && LRN.levelInfo ? LRN.levelInfo().lookalikes : 2;
+    const knows = (l) => !LRN || !LRN.card || ["known", "almost"].includes(((LRN.card(l) || {}).recognize || {}).state);
+    const isLook = (t, r) => (window.FL && FL.lookalikesOf ? FL.lookalikesOf(t, true).includes(r) : CONFUSABLE[t] === r);
+    let nLook = 0;
+    const lookOk = (t, r) => !isLook(t, r) || (nLook < maxLook && knows(t) && knows(r) && ++nLook);
+    if (LRN && !chosen0.length) {
+      // Nothing chosen by the parent: the child's card picks the letter and the look-alike gates.
+      const t = vq.letter;
+      // Gates (advisor ruling 16.10, section 11): mostly known letters, never an unmet one, a look-alike only when both are
+      // known. Name mode (advisor 16.10): the narrator says the letter's NAME, so ט/ת may share the gates (Golan 14.10)
+      // ask for a few spare letters, so a look-alike the level does not allow is replaced and the gate count holds
+      const cand = LRN.safeDistractors ? LRN.safeDistractors(t, laneCount() + 2, { mode: "recognize", sound: false, pool: LRN.autoLetters ? LRN.autoLetters() : [] })   /* the marked letters first (Golan 19.10) */ : LRN.distractors(t, laneCount() + 2);
+      const opts = [t]; for (const r of cand) if (opts.length < laneCount() && lookOk(t, r)) opts.push(r);
+      // fewer known letters than gates: fewer gates (learner 16.10), but always at least 2 so there is a choice
+      const fillTo = laneCount();   // the level's number of gates is kept (marked letters fill first)
+      const setLeft = shuffle((LRN.autoLetters ? LRN.autoLetters() : []).filter((r) => !opts.includes(r) && isFinal(r) === isFinal(t) && FINAL_BASE_OF(r) !== FINAL_BASE_OF(t) && !isLook(t, r)));
+      while (opts.length < fillTo && setLeft.length) opts.push(setLeft.shift());   // a filler gate: a marked letter first
+      while (opts.length < fillTo) { const r = ALL_LETTERS[Math.floor(Math.random() * ALL_LETTERS.length)]; if (!opts.includes(r) && isFinal(r) === isFinal(t) && (FINAL_BASE_OF(r) !== FINAL_BASE_OF(t)) && !isLook(t, r)) opts.push(r); }
+      const order = shuffle(opts.slice());
+      return { target: t, letter: t, order, lanes: order.slice(), correctLane: order.indexOf(t), listen };
+    }
+    // Letters chosen by the parent win; the card still decides which of them comes next.
+    const t = vq.letter;
+    const opts = [t];
+    const pool = ALL_LETTERS;
+    // The other gates use the chosen letters too (Golan, 14.10); other letters only when the chosen ones run out.
+    const mine = chosenLetters();
+    const fits = (r) => !opts.includes(r) && !opts.some((o) => sameSound(o, r));
+    if (CONFUSABLE[t] && (!mine.length || mine.includes(CONFUSABLE[t])) && fits(CONFUSABLE[t]) && lookOk(t, CONFUSABLE[t])) opts.push(CONFUSABLE[t]);
+    for (const r of shuffle(mine.slice())) if (opts.length < laneCount() && fits(r) && lookOk(t, r)) opts.push(r);
+    while (opts.length < laneCount()) { const r = pool[Math.floor(Math.random() * pool.length)]; if (fits(r) && !isLook(t, r)) opts.push(r); }
+    const mark = () => "";   // letter recognition: no nikud (Golan, 14.10)
+    const order = shuffle(opts.slice());
+    const lanes = order.map((l) => (isFinal(l) ? l : l + mark()));   // final letters never carry nikud
+    return { target: t + mark(), letter: t, order, lanes, correctLane: order.indexOf(t), listen };
+  }
+
+  // ---------- audio: synthesized tones + browser Hebrew voice as a placeholder for recordings ----------
+  let actx = null;
+  function unlockAudio() {
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {}
+  }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  const sfx = {
+    good: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.5),   // louder, to match the narrator (Golan, 13.10)
+    oops: () => tone([300, 220], 0.18, "sine", 0.6),   // louder (Golan, 14.10)
+    lane: () => tone([440], 0.05, "sine", 0.06),
+  };
+  let heVoice = null;
+  function pickVoice() {
+    if (!("speechSynthesis" in window)) return;
+    const he = speechSynthesis.getVoices().filter((v) => /^he|^iw/i.test(v.lang));
+    heVoice = he.find((v) => /hila/i.test(v.name)) || he.find((v) => !/avri|asaf/i.test(v.name)) || he[0] || null;   // narrator is Hila
+  }
+  if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  // Browser voice is a placeholder until real recordings exist; on by default (Golan, 12.10.2026). Off = the syllable pulses instead.
+  // With the voice off, the syllable on screen pulses instead.
+  function pulseTarget() {
+    const t = $("target"); t.classList.remove("pulse"); void t.offsetWidth; t.classList.add("pulse");
+  }
+  // Voice version (thread "קול"): play pre-made Azure clips from ../audio/<id>.mp3 (made with voice-maker.html).
+  // Kamatz and patah sound the same, so one clip per letter. If a clip is missing, fall back to the browser voice.
+  const CLIP_OF_LETTER = { "בּ": "syl_ba", "כּ": "syl_ka", "ד": "syl_da", "ר": "syl_ra", "ה": "syl_ha", "ח": "syl_cha", "ו": "syl_va", "ז": "syl_za",
+    "מ": "syl_ma", "ס": "syl_sa", "ל": "syl_la", "נ": "syl_na", "שׁ": "syl_sha", "ת": "syl_ta", "ג": "syl_ga", "פּ": "syl_pa" };
+  const CLIP_OF_TEXT = { "day_break": "day_break", "day_end": "day_end", "יש! נכון!": "fb_correct", "יש! סיימנו סיבוב": "fb_round_done", "הוראות": "ins_start",
+    "יש לבחור מכונית": "ins_car", "יש לעבור בשער": "ask_gate", "יוצאים לדרך!": "fb_go", "רוצים להחליף אותיות?": "ask_letters", "יופי של בחירה!": "fb_choice1", "בחירה מצוינת!": "fb_choice2" };
+  const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  // new letters: same-sounding ones reuse the existing clip; א/ע, י, צ, פ have their own
+  Object.assign(CLIP_OF_LETTER, { "ט": "syl_ta", "ק": "syl_ka", "כ": "syl_cha", "ב": "syl_va", "שׂ": "syl_sa",
+    "א": "syl_a", "ע": "syl_a", "י": "syl_ya", "צ": "syl_tsa", "פ": "syl_fa" });
+  Object.assign(CLIP_OF_LETTER, { "ך": "fin_kaf", "ם": "fin_mem", "ן": "fin_nun", "ף": "fin_pe", "ץ": "fin_tsadi" });
+  // Letter recognition (Golan, 14.10): each letter plays its name clip (name_*, made in voice-maker).
+  Object.assign(CLIP_OF_LETTER, { "א": "name_alef", "בּ": "name_bet", "ב": "name_vet", "ג": "name_gimel", "ד": "name_dalet", "ה": "name_he",
+    "ו": "name_vav", "ז": "name_zayin", "ח": "name_het", "ט": "name_tet", "י": "name_yod", "כּ": "name_kaf", "כ": "name_khaf",
+    "ל": "name_lamed", "מ": "name_mem", "נ": "name_nun", "ס": "name_samekh", "ע": "name_ayin", "פּ": "name_pe", "פ": "name_fe",
+    "צ": "name_tsadi", "ק": "name_qof", "ר": "name_resh", "שׁ": "name_shin", "שׂ": "name_sin", "ת": "name_tav" });
+  const LETTER_NAME = { "א": "אָלֶף", "בּ": "בֵּית", "ב": "בֵית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵיי", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית",
+    "ט": "טֵית", "י": "יוֹד", "כּ": "כַּף", "כ": "כַף", "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פּ": "פֵּא", "פ": "פֵא",
+    "צ": "צָדִי", "ק": "קוֹף", "ר": "רֵישׁ", "שׁ": "שִׁין", "שׂ": "שִׂין", "ת": "תָּו" };
+  Object.assign(CLIP_OF_LETTER, { "ב": "name_bet", "כ": "name_kaf", "פ": "name_pe", "ש": "name_shin" });
+  Object.assign(LETTER_NAME, { "ב": "בֵּית", "כ": "כַּף", "פ": "פֵּא", "ש": "שִׁין" });
+  // A line that speaks to the child plays the boy/girl clip when it exists, else the neutral one (learner README step 6).
+  const sayLine = (id) => say(id, 1);   // a line by its clip id (CLIP_OF_TEXT maps the id to itself)
+  function genderedId(id) {
+    const L = window.FL && window.FL.learner; if (!id || !L) return id;
+    for (const c of L.lineIds(id)) { const a = getClip(c); if (a._ok && !a._bad) return c; }
+    return id;
+  }
+  function clipFor(text) { return genderedId(CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text.replace(/[\u05B7\u05B8]/g, "")] || null); }
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio("../audio/" + id + ".mp3"); a.preload = "auto";
+      a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  [...Object.values(CLIP_OF_LETTER), ...Object.values(CLIP_OF_TEXT)].forEach(getClip);
+  function sayBrowser(text, rate) {
+    if (!("speechSynthesis" in window) || settingsOpen()) return;
+    if (/^[a-z_]+$/.test(text)) return;   // a clip id (day_break...): no clip = silence
+    if (!heVoice || !/hila/i.test(heVoice.name)) return;   // never another browser voice: a missing clip stays silent (Golan, 15.10)
+    if (text === "הוראות") text = $("startText").innerText;
+    if (FINAL_NAME[text]) text = FINAL_NAME[text];
+    if (LETTER_NAME[text]) text = LETTER_NAME[text];
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "he-IL"; u.rate = rate; if (heVoice) u.voice = heVoice;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  // Speaker tap (Golan, 15.10): the whole speaker sentence plays to its end; any other narration waits in line until it is done.
+  let spkLock = false, spkQueue = [], spkTimer = 0, spkTok = 0;
+  // Every screen change (door, back to start) silences everything and cancels any voice still waiting (Golan, 16.10, all games)
+  let navTok = 0;
+  // Settings open = silence: stop what plays and drop anything waiting, but keep the screen's state (Golan 16.10, all games)
+  const settingsOpen = () => !$("settings").hidden;
+  function hushVoice() {
+    if (clipNow) clipNow.pause(); try { speechSynthesis.cancel(); } catch (e) {}
+    spkQueue = []; spkLock = false; clearTimeout(spkTimer);
+    try { stopCarFlash(); } catch (e) {}
+  }
+  function hushAll() {
+    navTok++;
+    if (clipNow) clipNow.pause(); try { speechSynthesis.cancel(); } catch (e) {}
+    spkQueue = []; spkLock = false; clearTimeout(spkTimer);
+    try { clearTimeout(carNagT); stopCarFlash(); } catch (e) {}
+  }
+  function spkStart() { spkLock = true; clearTimeout(spkTimer); spkTimer = setTimeout(spkEnd, 9000); }   // safety: never block for long
+  function spkEnd() {
+    if (!spkLock) return; spkLock = false; clearTimeout(spkTimer);
+    const q = spkQueue; spkQueue = [];
+    q.forEach(([t, r]) => say(t, r));
+  }
+  function say(text, rate = 0.8, fromSpk = false) {
+    if (settings.voice !== "on") { pulseTarget(); return; }
+    if (settingsOpen()) return;   // no voice at all while settings is open (Golan 16.10, all games)
+    if (spkLock && !fromSpk) { if (!spkQueue.some(([t]) => t === text)) spkQueue.push([text, rate]); return; }
+    // Feedback ("יש! נכון!") is never cut off: the next clip waits for it to end, plus a short pause (Golan, 13.10)
+    if (clipNow && clipNow._fb && !clipNow.paused && !clipNow.ended) {
+      const waitFor = clipNow, tok = navTok;
+      waitFor.addEventListener("ended", () => setTimeout(() => { if (clipNow === waitFor && tok === navTok) say(text, rate, fromSpk); }, 450), { once: true });
+      return;
+    }
+    const id = clipFor(text), a = id && getClip(id);
+    if (!a || a._bad) return sayBrowser(text, rate);
+    a._fb = id.startsWith("fb_");
+    // reaction time is measured from the END of the question's letter (learner README step 3)
+    try { if (state.q && text === state.q.target && state.promptEndAt == null) a.addEventListener("ended", () => { if (state.q && text === state.q.target && state.promptEndAt == null) state.promptEndAt = performance.now(); }, { once: true }); } catch (e) {}
+    try {
+      if (clipNow) { clipNow.pause(); }
+      a.currentTime = 0; a.playbackRate = rate <= 0.6 ? 0.85 : 1;   // the replay hint plays a little slower
+      clipNow = a;
+      const p = a.play(); if (p && p.catch) p.catch(() => sayBrowser(text, rate));
+    } catch (e) { sayBrowser(text, rate); }
+  }
+  // Calls cb once nothing is being said (clip or browser voice); gives up waiting after ~6 s.
+  function whenQuiet(cb) {
+    const busy = () => spkLock || (clipNow && !clipNow.paused && !clipNow.ended) || ("speechSynthesis" in window && speechSynthesis.speaking);
+    let n = 0; const tok = navTok;
+    const tick = () => { if (tok !== navTok) return; if (busy() && n++ < 60) return setTimeout(tick, 100); cb(); };
+    setTimeout(tick, 200);
+  }
+  const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- engine & scene ----------
+  const canvas = $("game");
+  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false, antialias: true, powerPreference: "high-performance" }, false);
+  // render size: FL.screen (DPR cap + pixel budget, screens standard 16.10), re-applied on every screen change
+  const applyQuality = FL.screen.attachEngine(engine, () => settings.quality);
+
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = BABYLON.Color4.FromHexString("#BFE6FFFF");
+  scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+  scene.fogColor = BABYLON.Color3.FromHexString("#BFE6FF");
+  scene.fogStart = 60; scene.fogEnd = 140;
+  scene.skipPointerMovePicking = true;
+  scene.autoClear = true;
+
+  const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0.2, 1, -0.3), scene);
+  hemi.intensity = 0.85; hemi.groundColor = BABYLON.Color3.FromHexString("#7a8fa6");
+  const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.4, -1, 0.5), scene);
+  sun.intensity = 0.7;
+
+  const matCache = {};
+  function mat(hex) {
+    if (matCache[hex]) return matCache[hex];
+    const m = new BABYLON.StandardMaterial("m" + hex, scene);
+    m.diffuseColor = BABYLON.Color3.FromHexString(hex);
+    m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    m.freeze();
+    return (matCache[hex] = m);
+  }
+
+  const LANE_X = [-3.2, 0, 3.2];   // index 0 = left of screen; applyLanes fills it in for 2 to 5 gates
+  const world = new BABYLON.TransformNode("world", scene); // follows the car along z
+
+  // ground + road (flat colours, they follow the car so they never end)
+  const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 260, height: 300 }, scene);
+  ground.material = mat("#8BD07A"); ground.parent = world; ground.position.z = 100;
+  const road = BABYLON.MeshBuilder.CreateGround("road", { width: 10.4, height: 300 }, scene);
+  road.material = mat("#5E6B7A"); road.parent = world; road.position.set(0, 0.02, 100);
+  const curbs = [-5.5, 5.5].map((x) => {
+    const curb = BABYLON.MeshBuilder.CreateBox("curb", { width: 0.6, height: 0.25, depth: 300 }, scene);
+    curb.material = mat("#F4F1E8"); curb.parent = world; curb.position.set(x, 0.12, 100);
+    return curb;
+  });
+  let sideShift = 0;   // how much wider (or narrower) each road side is than with 3 gates; trees and grass move out by this much
+
+  // distant low-poly hills
+  const hillColors = ["#6CB86A", "#5AA65E", "#79C17A"];
+  for (let i = 0; i < 18; i++) {
+    const side = i % 2 ? 1 : -1;
+    const h = BABYLON.MeshBuilder.CreateCylinder("hill", { diameterTop: 0, diameterBottom: 26 + Math.random() * 20, height: 10 + Math.random() * 14, tessellation: 6 }, scene);
+    h.material = mat(hillColors[i % 3]); h.parent = world;
+    h.position.set(side * (45 + Math.random() * 40), 4, 30 + i * 9);
+  }
+
+  // recycled scenery: lane stripes, trees, flowers
+  const recycled = [];
+  const stripeBase = BABYLON.MeshBuilder.CreateBox("stripe", { width: 0.22, height: 0.02, depth: 2.4 }, scene);
+  stripeBase.material = mat("#FFFFFF"); stripeBase.isVisible = false;
+  const stripes = [];   // lane lines halfway between lanes (3 gates: -1.6, 1.6; 4: -3.2, 0, 3.2; 5: -4.8, -1.6, 1.6, 4.8)
+  for (let i = 0; i < 26; i++) for (const x of [-4.8, -3.2, -1.6, 0, 1.6, 3.2, 4.8]) {
+    const s = stripeBase.createInstance("s"); s.position.set(x, 0.04, i * 6); recycled.push({ m: s, span: 156 }); stripes.push(s);
+  }
+  const trunkBase = BABYLON.MeshBuilder.CreateCylinder("trunk", { diameter: 0.5, height: 1.6, tessellation: 6 }, scene);
+  trunkBase.material = mat("#8A5A3B"); trunkBase.isVisible = false;
+  const crownBase = BABYLON.MeshBuilder.CreateCylinder("crown", { diameterTop: 0, diameterBottom: 2.6, height: 3.4, tessellation: 7 }, scene);
+  crownBase.material = mat("#3E9E57"); crownBase.isVisible = false;
+  const roundCrownBase = BABYLON.MeshBuilder.CreateIcoSphere("rcrown", { radius: 1.5, subdivisions: 1, flat: true }, scene);
+  roundCrownBase.material = mat("#58B85F"); roundCrownBase.isVisible = false;
+  const flowerBase = BABYLON.MeshBuilder.CreateIcoSphere("flower", { radius: 0.28, subdivisions: 1, flat: true }, scene);
+  flowerBase.material = mat("#FF6FA5"); flowerBase.isVisible = false;
+
+  const treeNodes = [];
+  const BUSHES = 48;
+  function addTree(i, extra) {
+    const side = i % 2 ? 1 : -1;
+    const x = side * (7.5 + sideShift + Math.random() * (extra ? 30 : 26));
+    const z = Math.random() * 160;
+    const root = new BABYLON.TransformNode("tree", scene);
+    if (pineBases) putPine(root);
+    else {
+      const t = trunkBase.createInstance("t"); t.parent = root; t.position.y = 0.8;
+      const c = (Math.random() < 0.5 ? crownBase : roundCrownBase).createInstance("c"); c.parent = root; c.position.y = 2.9;
+    }
+    const s = 0.8 + Math.random() * 0.6; root.scaling.set(s, s, s);
+    root.position.set(x, 0, z);
+    addSway(root, 0.025, 0.9 + Math.random() * 0.5);
+    const item = { m: root, span: 160, extra };
+    recycled.push(item); treeNodes.push(item);
+  }
+  // Pine trees chosen by Golan (14.10, option 1: Kenney forest pines). They replace the simple trees once loaded;
+  // if loading fails, the simple trees stay.
+  let pineBases = null;
+  function putPine(root) {
+    const p = pineBases[Math.floor(Math.random() * pineBases.length)].createInstance("pine");
+    p.parent = root; p.rotation.y = Math.random() * Math.PI * 2;
+  }
+  // Wind (Golan, 14.10): trees and grass lean gently back and forth, each at its own moment.
+  const swaying = [];
+  function addSway(node, amp, speed) { node.metadata = { amp, speed, ph: Math.random() * 6.3 }; swaying.push(node); }
+  scene.onBeforeRenderObservable.add(() => {
+    const t = motionMs / 1000;
+    for (let i = swaying.length - 1; i >= 0; i--) if (swaying[i].isDisposed()) swaying.splice(i, 1);   // stress trees removed
+    for (const n of swaying) { const w = n.metadata; n.rotation.z = w.amp * Math.sin(t * w.speed + w.ph); n.rotation.x = w.amp * 0.5 * Math.sin(t * w.speed * 0.7 + w.ph * 1.3); }
+  });
+  async function loadModel(data) {
+    const r = await BABYLON.SceneLoader.ImportMeshAsync("", "", data, scene, null, ".glb");
+    const m = r.meshes.find((x) => x.getTotalVertices() > 0);
+    m.setParent(null); m.bakeCurrentTransformIntoVertices(); r.meshes[0].dispose();
+    m.isVisible = false; return m;
+  }
+  // Grass tufts (Golan, 14.10) along both sides of the road.
+  async function addGrass() {
+    const T = window.TREE_MODELS;
+    if (!T || !T.grass) return;
+    try {
+      const bases = [await loadModel(T.grass), await loadModel(T["grass-small"])];
+      for (let i = 0; i < 260; i++) {
+        const side = i % 2 ? 1 : -1;
+        const g = bases[i % 3 ? 0 : 1].createInstance("grass");
+        const k = 1.3 + Math.random() * 0.9; g.scaling.set(k, k, k);
+        g.position.set(side * (6.3 + sideShift + Math.random() * 30), 0, Math.random() * 160); g.rotation.y = Math.random() * Math.PI * 2;
+        addSway(g, 0.14, 2.2 + Math.random());
+        recycled.push({ m: g, span: 160 });
+      }
+    } catch (e) { console.warn("grass", e); }
+  }
+  async function usePines() {
+    const T = window.TREE_MODELS;
+    if (!T || !BABYLON.SceneLoader) return;
+    try {
+      const bases = [await loadModel(T["pine-tall"]), await loadModel(T["pine-short"])];
+      pineBases = bases;
+      for (const it of treeNodes) if (it.m.name === "tree") { it.m.getChildren().forEach((c) => c.dispose()); putPine(it.m); }
+    } catch (e) { console.warn("pine trees", e); }
+  }
+  for (let i = 0; i < 150; i++) addTree(i, false);   // more trees (Golan, 14.10)
+  usePines(); addGrass();
+  for (let i = 0; i < 70; i++) {
+    const f = flowerBase.createInstance("f"); const side = i % 2 ? 1 : -1;
+    f.position.set(side * (6.2 + sideShift + Math.random() * 10), 0.25, Math.random() * 160); recycled.push({ m: f, span: 160 });
+  }
+  // Stress mode: extra trees plus dense bushes, to bring the scene near the spec budget
+  // (about 100k triangles on screen) and see how the tablet copes.
+  let bushBase = null;
+  function applyStress() {
+    const want = settings.stress === "on";
+    const extras = treeNodes.filter((t) => t.extra);
+    if (want && extras.length === 0) {
+      for (let i = 0; i < 180; i++) addTree(i, true);
+      if (!bushBase) {
+        bushBase = BABYLON.MeshBuilder.CreateIcoSphere("bush", { radius: 0.9, subdivisions: 10 }, scene); // 2,000 triangles each
+        bushBase.material = mat("#4FAF5A"); bushBase.isVisible = false;
+      }
+      for (let i = 0; i < BUSHES; i++) {
+        const b = bushBase.createInstance("b"); const side = i % 2 ? 1 : -1;
+        b.position.set(side * (6.5 + sideShift + Math.random() * 9), 0.5, Math.random() * 160);
+        const item = { m: b, span: 160, extra: true }; recycled.push(item); treeNodes.push(item);
+      }
+    }
+    if (!want && extras.length) {
+      for (const t of extras) { t.m.dispose(); recycled.splice(recycled.indexOf(t), 1); treeNodes.splice(treeNodes.indexOf(t), 1); }
+    }
+  }
+
+  // ---------- the car (simple low-poly, built from primitives) ----------
+  const car = new BABYLON.TransformNode("car", scene);
+  const body = BABYLON.MeshBuilder.CreateBox("body", { width: 1.7, height: 0.6, depth: 3 }, scene);
+  body.material = mat("#FF5A4E"); body.parent = car; body.position.y = 0.65;
+  const cabin = BABYLON.MeshBuilder.CreateBox("cabin", { width: 1.4, height: 0.6, depth: 1.5 }, scene);
+  cabin.material = mat("#FFD24D"); cabin.parent = car; cabin.position.set(0, 1.2, -0.2);
+  const glass = BABYLON.MeshBuilder.CreateBox("glass", { width: 1.3, height: 0.45, depth: 0.05 }, scene);
+  glass.material = mat("#9BD8FF"); glass.parent = car; glass.position.set(0, 1.22, 0.56);
+  const wheels = [];
+  for (const [x, z] of [[-0.9, 1], [0.9, 1], [-0.9, -1], [0.9, -1]]) {
+    const w = BABYLON.MeshBuilder.CreateCylinder("wheel", { diameter: 0.75, height: 0.35, tessellation: 10 }, scene);
+    w.material = mat("#2B2F36"); w.rotation.z = Math.PI / 2; w.parent = car; w.position.set(x, 0.38, z); wheels.push(w);
+  }
+
+  // ---------- chosen car model (Kenney, CC0/MIT; Golan picked 9 on 14.10). The simple box car stays if a model can't load ----------
+  const CARS = ["race-car", "police-car", "hatchback", "truck-red", "truck-yellow", "firetruck", "ambulance", "tractor", "motorcycle"];
+  const primitiveParts = [body, cabin, glass, ...wheels];
+  let carModel = null, carModelId = null;
+  async function useCar(id) {
+    if (id === carModelId) return;
+    const data = window.CAR_MODELS && window.CAR_MODELS[id];
+    if (!data || !BABYLON.SceneLoader) return;
+    try {
+      const r = await BABYLON.SceneLoader.ImportMeshAsync("", "", data, scene, null, ".glb");
+      if (carModel) carModel.dispose();
+      const root = r.meshes[0];
+      r.meshes.forEach((m) => m.computeWorldMatrix(true));
+      const { min, max } = root.getHierarchyBoundingVectors(true);
+      const len = Math.max(max.x - min.x, max.z - min.z), k = 3.2 / len;   // about as long as the old car
+      const holder = new BABYLON.TransformNode("carModel", scene);
+      root.parent = holder;
+      root.position.set(-(min.x + max.x) / 2, -min.y, -(min.z + max.z) / 2);
+      holder.scaling.set(k, k, k);
+      if (max.x - min.x > max.z - min.z) holder.rotation.y = Math.PI / 2;   // models that lie sideways
+      holder.rotation.y += CAR_TURN[id] || 0;
+      holder.parent = car;
+      carModel = holder; carModelId = id;
+      primitiveParts.forEach((m) => m.setEnabled(false));
+    } catch (e) { console.warn("car model", id, e); }
+  }
+  const CAR_TURN = {};   // extra turn per model so every car faces down the road
+
+  // ---------- gates with Hebrew signs (text drawn by the browser into a texture, so nikud renders correctly) ----------
+  const GATE_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
+  const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const allGates = [-6.4, -3.2, 0, 3.2, 6.4].map((x, i) => {
+    const root = new BABYLON.TransformNode("gate" + i, scene);
+    const color = GATE_COLORS[i];
+    for (const px of [-1.45, 1.45]) {
+      const p = BABYLON.MeshBuilder.CreateBox("post", { width: 0.3, height: 3.6, depth: 0.3 }, scene);
+      p.material = mat(color); p.parent = root; p.position.set(px, 1.8, 0);
+      p.metadata = { gate: i };
+    }
+    const sign = new BABYLON.TransformNode("signRoot", scene); sign.parent = root; sign.position.y = 3.05;
+    const board = BABYLON.MeshBuilder.CreatePlane("sign", { width: 2.9, height: 1.9 }, scene);
+    board.parent = sign; board.metadata = { gate: i };
+    const tex = new BABYLON.DynamicTexture("signTex" + i, { width: 384, height: 256 }, scene, true);
+    tex.hasAlpha = true;
+    const m = new BABYLON.StandardMaterial("signMat" + i, scene);
+    m.diffuseTexture = tex; m.emissiveColor = new BABYLON.Color3(0.55, 0.55, 0.55); m.specularColor = BABYLON.Color3.Black();
+    m.useAlphaFromDiffuseTexture = true; m.backFaceCulling = true;
+    board.material = m;
+    root.position.x = x;
+    return { root, sign, board, tex, color, x, removed: false };
+  });
+  let gates = allGates.slice(0, 3);
+  // 2 to 5 gates (Golan, 15.10): lanes, road width, lane lines, gates and the scenery beside the road.
+  function applyLanes(count) {
+    const n = count || laneCount();
+    LANE_X.length = 0; for (let i = 0; i < n; i++) LANE_X.push((i - (n - 1) / 2) * 3.2);   // lanes 3.2 apart, centred
+    gates = allGates.slice(0, n);
+    allGates.forEach((g, i) => { g.root.setEnabled(i < n); if (i < n) { g.x = LANE_X[i]; g.root.position.x = LANE_X[i]; } });
+    const half = LANE_X[n - 1] + 2;
+    road.scaling.x = (half * 2) / 10.4; curbs[0].position.x = -half - 0.3; curbs[1].position.x = half + 0.3;
+    for (const st of stripes) st.setEnabled(LANE_X.slice(1).some((lx, i) => Math.abs((lx + LANE_X[i]) / 2 - st.position.x) < 0.01));
+    const shift = half - 5.2, d = shift - sideShift, edge = 5.2 + sideShift; sideShift = shift;
+    // scenery = everything beside the old road edge; lane lines are inside it
+    if (d) for (const it of recycled) { const x = it.m.position.x; if (Math.abs(x) > edge) it.m.position.x = x + Math.sign(x) * d; }
+    if (state.lane > n - 1) state.lane = n - 1;
+    fitCamera();
+  }
+
+  // Signs are drawn on a canvas, which does not wait for the web font. Without it the final letters'
+  // tails come out too short, so redraw the open question's signs once the font has arrived.
+  try { document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אךןץ").then(() => {
+    if (state.q && !state.resolved) gates.forEach((g, i) => drawSign(g, state.q.lanes[i], false)); }); } catch (e) {}
+  function drawSign(g, text, highlight) {
+    const ctx = g.tex.getContext();
+    g.text = text; g.hl = highlight;
+    const W = 384, H = 256, r = 40;
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.arcTo(W, 0, W, H, r); ctx.arcTo(W, H, 0, H, r); ctx.arcTo(0, H, 0, 0, r); ctx.arcTo(0, 0, W, 0, r); ctx.closePath();
+    ctx.fillStyle = g.removed ? "#d9dde2" : "#ffffff"; ctx.fill();
+    // no extra frame on the sign in the car's lane (Golan 18.10, all games: no highlight while hovering/near a letter)
+    ctx.lineWidth = highlight ? 26 : 14; ctx.strokeStyle = highlight ? "#FFC400" : g.color; ctx.stroke();
+    if (!g.removed) {
+      ctx.fillStyle = "#1d2a3a";
+      // Every letter stands on the same baseline, so all tops line up (Golan, 15.10: ך stood higher
+      // than the others). Taller letters (ל) rise above it and descenders (ק) go below, as in print.
+      const px = 170;
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
+      ctx.font = `800 ${px}px ${FONT}`;
+      const base = Math.round(H / 2 + ctx.measureText("ב").actualBoundingBoxAscent * 0.42);
+      { const mm = ctx.measureText(text); g.glyph = { x: W / 2 - mm.actualBoundingBoxLeft, y: base - mm.actualBoundingBoxAscent }; }   // where the check mark sits (Golan 18.10)
+      if (isFinal(text)) {
+        // A final letter alone looks like ו or ר (Golan, 14.10). So: a writing line, and the tail below it
+        // is stretched (up to about twice its length) into the room left under the line.
+        const m = ctx.measureText(text), up = m.actualBoundingBoxAscent, down = Math.max(1, m.actualBoundingBoxDescent);
+        const TAIL = Math.min(2.2, (H - 22 - base) / down);
+        const y0 = Math.ceil(up) + 6;
+        const off = document.createElement("canvas"); off.width = W; off.height = y0 + Math.ceil(down) + 8;
+        const o = off.getContext("2d"); o.font = ctx.font; o.fillStyle = ctx.fillStyle; o.textAlign = "center"; o.textBaseline = "alphabetic"; o.direction = "rtl";
+        o.fillText(text, W / 2, y0);
+        ctx.save(); ctx.strokeStyle = "#8fb3d9"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(44, base + 3); ctx.lineTo(W - 44, base + 3); ctx.stroke(); ctx.restore();
+        ctx.drawImage(off, 0, 0, W, y0, 0, base - y0, W, y0);
+        const th = off.height - y0; ctx.drawImage(off, 0, y0, W, th, 0, base, W, Math.min(th * TAIL, H - 14 - base));
+      } else ctx.fillText(text, W / 2, base);
+    }
+    g.tex.update(true);
+  }
+
+  // ---------- confetti (only after a correct answer) ----------
+  const dotTex = new BABYLON.DynamicTexture("dot", { width: 32, height: 32 }, scene, false);
+  { const c = dotTex.getContext(); c.fillStyle = "#fff"; c.fillRect(6, 6, 20, 20); dotTex.update(); dotTex.hasAlpha = true; }
+  const confetti = new BABYLON.ParticleSystem("confetti", 260, scene);
+  confetti.particleTexture = dotTex;
+  confetti.emitter = new BABYLON.Vector3(0, 3, 0);
+  confetti.minEmitBox = new BABYLON.Vector3(-1.2, 0, 0); confetti.maxEmitBox = new BABYLON.Vector3(1.2, 0.5, 0);
+  confetti.color1 = new BABYLON.Color4(1, 0.35, 0.4, 1); confetti.color2 = new BABYLON.Color4(0.3, 0.6, 1, 1);
+  confetti.colorDead = new BABYLON.Color4(1, 0.85, 0.2, 0);
+  confetti.minSize = 0.12; confetti.maxSize = 0.28; confetti.minLifeTime = 0.8; confetti.maxLifeTime = 1.5;
+  confetti.emitRate = 0; confetti.manualEmitCount = 0;
+  confetti.direction1 = new BABYLON.Vector3(-3, 4, 3); confetti.direction2 = new BABYLON.Vector3(3, 7, 7);
+  confetti.gravity = new BABYLON.Vector3(0, -12, 0);
+  confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6;
+  confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+  confetti.start();
+
+  // ---------- camera ----------
+  const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 4.6, -9), scene);
+  cam.minZ = 0.3; cam.maxZ = 180;
+  function fitCamera() {
+    // In portrait a fixed vertical FOV hides the side gates, so fix the horizontal one instead.
+    // Screens standard 16.10: one continuous rule, no jump at rotation. At least the landscape height and the
+    // portrait width Golan approved are always seen. More gates: the view widens only a little, so the letters
+    // stay big (Golan, 15.10); near the car the road's edges go off screen and the camera follows it sideways.
+    const portrait = canvas.clientWidth < canvas.clientHeight, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    const extra = laneCount() - 3;
+    const minV = 0.95 + extra * (extra > 0 ? 0.02 : 0.08), minH = 1.2 + extra * (extra > 0 ? 0.04 : 0.15);
+    cam.fovMode = BABYLON.Camera.FOVMODE_VERTICAL_FIXED;
+    cam.fov = Math.min(1.9, Math.max(minV, 2 * Math.atan(Math.tan(minH / 2) / aspect)));
+    state && (state.camHeight = portrait ? 5.6 : 4.6);
+  }
+  cam.inputs.clear();
+
+  // ---------- game state ----------
+  const GATE_AHEAD = 52;
+  const STOP_BACK = 6;   // a wrong lane stops this far before the gates (Golan, 15.10)
+  const state = {
+    mode: "intro", lane: 1, carX: 0, z: 0, speed: 0,
+    q: null, qIndex: 0, gateZ: GATE_AHEAD, wrongs: 0, stars: 0, starKinds: [], resolved: false,
+    blockedUntil: 0, bounce: 0, celebrate: null, celebAhead: 2, hintPulse: false, roundStart: 0,
+  };
+  const pace = () => {
+    const p = { cruise: 12, near: 6 };   // the speed slider acts on the frame time (motionK, Golan 19.10) //   // Golan 19.10: the shared speed slider (−30%..+30% around the challenge level) instead of slow/normal/fast
+    const k = LRN ? LRN.pace() : 1;   // the child's own pace (0.6-1.5), from how the game itself went in recent rounds
+    return { cruise: p.cruise * k, near: p.near * k };
+  };
+
+  function renderDots() {
+    if (hg) { $("dots").innerHTML = ""; return; }   // no progress dots with the hourglass (Golan 18.10)
+    $("dots").innerHTML = Array.from({ length: QUESTIONS_PER_ROUND }, (_, i) => `<span class="${i < state.qIndex ? "done" : ""}"></span>`).join("");
+  }
+  function showToast(text, kind, starKind) {
+    // a correct answer: only the green check, on the letter's top-left corner; no "יֵשׁ נָכוֹן" text, the voice still says it (Golan 18.10)
+    const t = $("toast"); t.textContent = kind === "good" ? "" : text; t.classList.toggle("good", kind === "good");
+    t.classList.toggle("pinned", kind === "good"); placeToast._s = null; if (kind !== "good") { t.style.left = ""; t.style.top = ""; }
+    if (kind === "good") { const c = document.createElement("span"); c.className = "chk";   // drawn, so it looks the same on every device
+      // the star this answer earned, gold or silver, instead of the check (Golan 18.10); the drawn check stays only without learner.js
+      c.innerHTML = LRN && LRN.starSvg ? LRN.starSvg(starKind || "gold", "1em") : '<svg viewBox="0 0 100 100" width="1em" height="1em"><polyline points="8,4 40,86 74,60" fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      t.append(c); }
+    t.classList.add("show");
+    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove("show"), kind === "good" ? 2400 : 900);   // "יש נכון" stays longer (Golan, 14.10)
+  }
+  // Keeps the earned star on the winning sign's top-left corner (Golan 18.10).
+  // Its size follows the sign on screen, so it shrinks with the sign as the letter flies away.
+  const _top = new BABYLON.Vector3(0, 0, 0), _side = new BABYLON.Vector3(0, 0, 0);
+  function placeToast(g) {
+    const t = $("toast"); if (!t.classList.contains("pinned")) return;
+    g.sign.computeWorldMatrix(true);
+    _top.set(-1.32, 0.82, 0);   // centred on the sign's top-left corner (Golan 18.10: "עוד שמאלה, כך שיחפוף את הפינה")
+    _side.set(_top.x + 1.16, _top.y, 0);   // star size on screen = 1.16 sign units (Golan 18.10: 25% smaller than the 1.55 he approved the look with)
+    const W = engine.getRenderWidth(), H = engine.getRenderHeight(), vp = cam.viewport.toGlobal(W, H), M = scene.getTransformMatrix(), wm = g.sign.getWorldMatrix();
+    const p = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(_top, wm), BABYLON.Matrix.Identity(), M, vp);
+    const q = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(_side, wm), BABYLON.Matrix.Identity(), M, vp);
+    const c = t.querySelector(".chk"); if (c) c.style.fontSize = Math.max(27, Math.round(Math.hypot(q.x - p.x, q.y - p.y) * canvas.getBoundingClientRect().width / W)) + "px";
+    const r = canvas.getBoundingClientRect(), box = (t.offsetParent || document.body).getBoundingClientRect();
+    const x = r.left - box.left + p.x * r.width / W, y = r.top - box.top + p.y * r.height / H;
+    // Smoothed and snapped to whole pixels, so the text and the check mark do not shimmer or tremble (Golan, 15.10)
+    const s = placeToast._s && placeToast._g === g ? placeToast._s : (placeToast._g = g, placeToast._s = { x, y });
+    const k = 1 - Math.exp(-26 * Math.min(engine.getDeltaTime() / 1000, 0.1));   // by time, not per frame: same at 60 and 120 Hz (0.35 per frame at 60)
+    s.x += (x - s.x) * k; s.y += (y - s.y) * k;
+    t.style.left = Math.round(s.x) + "px"; t.style.top = Math.round(s.y) + "px";
+  }
+  const MAX_READS = 2;   /* Golan 16.10 (all games): after 2 readings stop and frame the answer in yellow */
+  function askQuestion() {
+    if (LANE_X.length !== laneCount()) applyLanes();   // "לפי הרמה" gates: the level may have changed
+    state.q = makeQuestion(state.q && state.q.letter, state.qIndex === 0);
+    if (state.q.order.length !== LANE_X.length) applyLanes(state.q.order.length);   // fewer safe distractors = fewer gates
+    state.wrongs = 0; state.backTo = null; state.resolved = false; state.hintPulse = false; state.celebrate = null; state.nags = 0; state.flashAt = 0; state.reads = 0; state.nagAt = performance.now();   // automatic readings of this letter
+    for (const g of gates) { g.removed = false; g.hits = 0; g.shake = 0; g.sign.position.x = 0; g.sign.position.y = 3.05; g.sign.position.z = 0; g.sign.rotation.y = 0; g.sign.rotation.z = 0; g.sign.scaling.set(1, 1, 1); g.root.setEnabled(true); }
+    gates.forEach((g, i) => drawSign(g, state.q.lanes[i], false));
+    for (const g of gates) g.root.position.z = state.gateZ;
+    showTarget();
+    state.askAt = performance.now(); state.promptEndAt = settings.voice === "on" ? null : state.askAt;
+    state.firstPick = null; state.firstPassAt = null; state.laneMoves = 0; state.decidedAt = null;
+    say(state.q.target, 0.7); state.reads++;
+    renderDots();
+  }
+  // Apply a changed nikud setting to the question on screen, not only from the next one.
+  function remarkQuestion() {
+    const q = state.q; if (!q || state.resolved) return;
+    const markOf = isFinal(q.letter) ? () => "" : markPicker();
+    q.lanes = q.order.map((l) => l + markOf()); q.target = q.letter + markOf();
+    gates.forEach((g, i) => { if (!g.removed) drawSign(g, q.lanes[i], state.hintPulse && i === q.correctLane); });
+    showTarget();
+  }
+  // The letter in the top pill; a speaker-only question (visit flow) hides it and centres the speaker, same pill size
+  function showTarget() {
+    const q = state.q;
+    if (q && q.hear == null) q.hear = !!(LRN && LRN.hearOnly && LRN.hearOnly(q.letter));   // Golan 18.10: a letter already "מוכרת" is only said, not shown (decided once per question)
+    const listen = !!(q && (q.listen || q.hear));
+    $("target").textContent = q && !listen ? q.target : ""; $("target").classList.toggle("final", !!q && isFinal(q.letter));
+    document.querySelector(".prompt").classList.toggle("listen", listen);
+  }
+  function startRound() {
+    state.qIndex = 0; state.gateZ = state.z + GATE_AHEAD; state.mode = "drive"; state.roundStart = performance.now(); state.roundWrongs = 0;
+    state.stars = 0; state.starKinds = []; QUESTIONS_PER_ROUND = roundLen(); state.roundSlips = 0; const sc0 = starCount(); if (sc0) sc0.reset();
+    if (hg) hg.start();   // a full hourglass every round (Golan 18.10)
+    askQuestion();
+  }
+  const nearestLane = (x) => LANE_X.reduce((best, lx, i) => (Math.abs(lx - x) < Math.abs(LANE_X[best] - x) ? i : best), 0);
+  function setLane(l) {
+    l = Math.max(0, Math.min(LANE_X.length - 1, l));
+    if (l === state.lane) return;
+    state.lane = l; sfx.lane(); if (state.firstPick == null) { state.laneMoves = (state.laneMoves || 0) + 1; state.decidedAt = performance.now(); }
+    if (state.mode === "blocked") state.mode = "drive";
+  }
+
+  function onPassGate() {
+    const lane = nearestLane(state.carX), q = state.q;
+    state.lane = lane;
+    if (state.firstPick == null) { state.firstPick = q.order[lane]; state.firstPassAt = performance.now(); }
+    if (lane === q.correctLane) {
+      state.resolved = true;
+      const firstTry = !state.wrongs;
+      // Reaction time = from the end of the spoken letter to the child's last lane change before the first gate.
+      // The car needs a few seconds to reach the gates, so the pass time itself is not a reaction time.
+      // No lane change (the car was already in that lane): unknown, kept empty.
+      const rt = state.decidedAt == null ? null : Math.max(0, state.decidedAt - (state.promptEndAt != null ? state.promptEndAt : state.askAt));
+      if (!firstTry && rt != null && rt < 800) state.roundSlips = (state.roundSlips || 0) + 1;   // drove into a gate before really choosing
+      if (LRN) LRN.record({ game: "race", letter: q.letter, picked: state.firstPick, firstTry, opts: q.order.slice(), rtMs: rt,
+        changed: state.laneMoves >= 2, hint: state.wrongs >= 3 ? 2 : state.hintPulse ? 1 : 0, mode: "recognize", pace: LRN.pace(),
+        audioOnly: !!(q.listen || q.hear), perfect: firstTry && !state.hintPulse });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
+      if (VISIT) VISIT.result(q.letter, { perfect: firstTry && !state.hintPulse, listen: !!q.listen });
+      state.lastOk = firstTry; state.lastLetter = q.letter;
+      state.stars++; const kind = LRN ? LRN.star(firstTry) : firstTry ? "gold" : "silver"; state.starKinds.push(kind); const sc1 = starCount(); if (sc1) sc1.add(kind);   // every solved gate earns a star: gold on the first try, silver after a mistake; counted from 0 each round (Golan, 15.10)
+      sfx.good(); vibrate(40);
+      showToast("יֵשׁ נָכוֹן", "good", kind);   // the earned star beside the letter, no text (Golan 18.10)
+      say("יש! נכון!", 1);
+      const g = gates[lane];
+      placeToast(g);
+      drawSign(g, q.lanes[lane], false);   // keeps its own colour, no yellow (Golan, 15.10)
+      confetti.emitter = new BABYLON.Vector3(g.x, 2.2, state.gateZ + 3);
+      confetti.manualEmitCount = 160;
+      state.qIndex++;
+      renderDots();
+      // Celebration (Golan, 14.10): the letter rises off the posts while "יש! נכון!" plays, then moves away.
+      // The syllable is not said again and the letter does not grow or pulse.
+      const myQ = q;
+      state.celebrate = { phase: "rise", t: 0 };
+      state.celebAhead = Math.max(1.6, state.gateZ - car.position.z);   // the letter keeps this distance ahead of the car
+      whenQuiet(() => setTimeout(() => {
+        if (state.q !== myQ) return;
+        state.celebrate = { phase: "fly", t: 0 };
+        setTimeout(() => {
+          if (state.q !== myQ) return;
+          if (hg ? hg.done() : state.qIndex >= QUESTIONS_PER_ROUND) return endRound();   // sand out: the gate just solved ends the round (Golan 18.10)
+          state.gateZ = state.z + GATE_AHEAD; askQuestion();
+        }, 1100);
+      }, 250));
+    } else {
+      // no failing: stop, back off, and climb the hint ladder
+      state.wrongs++; state.roundWrongs = (state.roundWrongs || 0) + 1;
+      sfx.oops(); vibrate([30, 40, 30]);
+      // no on-screen "אוּפְּס" on a mistake, sound only: the children cannot read yet (Golan 16.10, all games)
+      state.mode = "blocked"; state.bounce = 1; state.speed = 0; state.nagAt = performance.now();
+      // A bump into the wrong sign (it shakes), then the car backs away slowly, far enough
+      // for all the gates to fit on screen (Golan, 15.10)
+      gates[lane].shake = 1;
+      state.backTo = state.gateZ - STOP_BACK; state.backAt = performance.now() + 300;
+      if (state.wrongs === 1 && state.reads < MAX_READS) { state.reads++; setTimeout(() => { if (state.q === q) say(q.target, 0.6); }, 500); }           // 1. replay
+      if (state.wrongs === 2 || (state.wrongs === 1 && state.reads >= MAX_READS && !state.hintPulse)) { state.hintPulse = true; drawSign(gates[q.correctLane], q.lanes[q.correctLane], true); } // 2. highlight
+      // 3. a wrong gate hit twice goes blank; each gate keeps its own count, reset every question (Golan, 16.10, all games)
+      gates[lane].hits = (gates[lane].hits || 0) + 1;
+      if (gates[lane].hits >= 2 && !gates[lane].removed) { gates[lane].removed = true; drawSign(gates[lane], "", false); }
+    }
+  }
+  // End of round = the shared panel (FL.learner.endPanel, Golan 16.10): title, stars in one row, the letters that lit up,
+  // the day note, "רוצים להחליף אותיות?", then לסיים / עוד סיבוב. It never scrolls; voice stays here.
+  let endUi = null;
+  // two buttons in every game (Golan 17.10): עוד סיבוב on the right, לסיים on the left (= the door; on a day-end a short goodbye first)
+  let dayEndNow = false;
+  const endButtons = () => [{ text: "לסיים", ghost: true, id: "finish", onClick: finishDay }, { text: "עוד סיבוב", primary: true, id: "again", onClick: againRound }];
+  function endRound() {
+    state.mode = "end"; if (hg) hg.stop();
+    // star icons only, one per star earned this round (Golan, 15.10): no text, no seconds, no gate count
+    let note = "", canFinish = false, dayLine = null;
+    if (LRN) { const r = LRN.roundEnd({ game: "race", skillIssue: (state.roundSlips || 0) >= 2 }) || {};
+      // Day length (learner, 16.10): a soft suggestion only. "עוד סיבוב" always stays.
+      // The text matches the voice line (literacy review voice/day-lines-review.md).
+      if (r.suggest === "break") { note = "זמן להתמתח! 🤸"; LRN.breakShown(); dayLine = "day_break"; }
+      else if (r.suggest === "end") { note = "שיחקנו יפה היום!"; canFinish = true; dayLine = "day_end"; } }
+    // Two rounds in a row with no mistake: ask if it's time for new letters (Golan, 14.10)
+    state.perfectRounds = state.roundWrongs ? 0 : (state.perfectRounds || 0) + 1;
+    const ask = state.perfectRounds >= 2;
+    $("swapAsk").hidden = !ask; if (ask) state.perfectRounds = 0;
+    $("end").hidden = false;   // shown first, so the panel can measure itself
+    const opts = { stars: state.starKinds.slice(), letters: true, note, extra: $("swapAsk"), buttons: endButtons() }; dayEndNow = canFinish;
+    if (endUi) endUi.set(opts); else endUi = LRN.endPanel($("end"), opts);
+    say("יש! סיימנו סיבוב", 1);
+    if (dayLine) sayLine(dayLine);
+    if (ask) say("רוצים להחליף אותיות?", 1);   /* clip: ask_letters_m/_f by the child */
+  }
+
+  // ---------- input: swipe, arrow buttons, keyboard ----------
+  // The car follows the finger continuously. On release it glides to the centre of the
+  // lane in the direction the finger was moving (or the nearest lane if it was still).
+  const drag = { active: false, id: null, startX: 0, startCarX: 0, lastX: 0, dir: 0, x: 0, lane: 1 };
+  // Screen point -> road x under the pointer: cast a ray from the camera and meet the road plane (y = 0).
+  // Lanes run straight ahead, so the hit's x says which lane the player pointed at, near or far.
+  function worldXAt(clientX, clientY) {
+    try {
+      const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
+      const ray = scene.createPickingRay((clientX - r.left) * k, (clientY - r.top) * k, BABYLON.Matrix.Identity(), cam);
+      if (ray.direction.y > -0.02) return null;   // pointing at the sky
+      return ray.origin.x + ray.direction.x * (-ray.origin.y / ray.direction.y);
+    } catch (err) { return null; }
+  }
+  function gateAt(clientX, clientY) {
+    try {
+      const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
+      const hit = scene.pick((clientX - r.left) * k, (clientY - r.top) * k,
+        (m) => m.metadata && m.metadata.gate != null && m.metadata.gate < gates.length && m.isEnabled(), false, cam);
+      return hit && hit.hit ? hit.pickedMesh.metadata.gate : null;
+    } catch (err) { return null; }
+  }
+  // Finger distance for one lane (Golan, 15.10: too sensitive on a phone on its side): 120-220 px, more on wide screens.
+  const pxToWorld = () => (LANE_X[1] - LANE_X[0]) / Math.max(120, Math.min(220, canvas.clientWidth * 0.22));
+  canvas.addEventListener("pointerdown", (e) => {
+    if (drag.active) return;
+    drag.active = true; drag.moved = false; drag.id = e.pointerId; drag.startX = drag.lastX = e.clientX;
+    // Pressing anywhere grabs the car at the pointer: it glides there and then follows, as if dragged (Golan, 13.10)
+    // Tapping a letter sign (or its gate) sends the car to that gate's lane (Golan, 15.10): the sign stands high,
+    // so the point on the road under the finger can be a lane away from the letter that was touched.
+    const gi = gateAt(e.clientX, e.clientY);
+    const px = gi != null ? LANE_X[gi] : worldXAt(e.clientX, e.clientY);
+    drag.startCarX = drag.x = px == null ? state.carX : Math.max(LANE_X[0], Math.min(LANE_X[LANE_X.length - 1], px));
+    drag.dir = Math.abs(drag.x - state.carX) > 0.3 ? Math.sign(drag.x - state.carX) : 0; drag.lane = nearestLane(state.carX);
+    if (state.mode === "blocked" && nearestLane(drag.x) !== state.lane) state.mode = "drive";
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag.active || e.pointerId !== drag.id) return;
+    const step = e.clientX - drag.lastX;
+    if (Math.abs(step) >= 2) drag.dir = Math.sign(step);
+    drag.lastX = e.clientX; if (Math.abs(e.clientX - drag.startX) >= 8) drag.moved = true;
+    drag.x = Math.max(LANE_X[0], Math.min(LANE_X[LANE_X.length - 1], drag.startCarX + (e.clientX - drag.startX) * pxToWorld()));
+    const l = nearestLane(drag.x);
+    if (l !== drag.lane) { drag.lane = l; sfx.lane(); if (state.firstPick == null) { state.laneMoves = (state.laneMoves || 0) + 1; state.decidedAt = performance.now(); } }
+    if (state.mode === "blocked" && l !== state.lane) state.mode = "drive";
+  });
+  function endDrag(e) {
+    if (!drag.active || e.pointerId !== drag.id) return;
+    drag.active = false;
+    const x = drag.x;
+    let l;
+    if (Math.abs(e.clientX - drag.startX) < 8) l = nearestLane(x);   // a click: the lane nearest to where it was pressed
+    // A small slide no longer jumps a whole lane: the car goes on to the next lane only after
+    // about a third of the way there; less than that and it slides back (Golan, 15.10).
+    else l = nearestLane(x + Math.sign(drag.dir) * 0.55);
+    state.lane = Math.max(0, Math.min(LANE_X.length - 1, l));
+    if (state.mode === "blocked" && Math.abs(LANE_X[state.lane] - x) > 0.3) state.mode = "drive";
+  }
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  $("left").addEventListener("click", () => setLane(state.lane - 1));
+  $("right").addEventListener("click", () => setLane(state.lane + 1));
+  // Keyboard arrows (also A/D). Caught first on the whole page, so a focused button can't swallow them (Golan, 14.10).
+  document.addEventListener("keydown", (e) => {
+    if (state.mode === "paused" || $("hud").hidden) return;
+    const k = e.key, c = e.code;
+    const dir = (k === "ArrowLeft" || k === "Left" || c === "ArrowLeft" || c === "KeyA" || c === "Numpad4") ? -1
+              : (k === "ArrowRight" || k === "Right" || c === "ArrowRight" || c === "KeyD" || c === "Numpad6") ? 1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    setLane(state.lane + dir);
+  }, true);
+  // The speaker says the whole request: "יֵשׁ לַעֲבוֹר בַּשַּׁעַר" and then the letter (Golan, 15.10).
+  // Until that sentence is recorded, it says only the letter (never the browser voice).
+  $("replay").addEventListener("click", () => {
+    const q = state.q; if (!q) return;
+    const a = getClip("ask_gate");
+    if (settings.voice !== "on" || !a._ok || a._bad) return say(q.target, 0.6);
+    const tok = ++spkTok; spkStart();
+    say("יש לעבור בשער", 1, true);
+    a.addEventListener("ended", () => setTimeout(() => {
+      if (tok !== spkTok) return;   // tapped again: the newer tap owns the line
+      if (state.q !== q || clipNow !== a) return spkEnd();
+      say(q.target, 0.6, true);
+      const l = clipNow;   // the letter clip: other narration may follow once it ends
+      if (l && l !== a && !l.ended) l.addEventListener("ended", () => setTimeout(() => { if (tok === spkTok) spkEnd(); }, 250), { once: true }); else spkEnd();
+    }, 120), { once: true });
+  });
+
+  // ---------- settings panel ----------
+  function syncSeg() {
+    document.querySelectorAll(".seg").forEach((seg) => {
+      seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(settings[seg.dataset.key] === b.dataset.v)));
+    });
+    $("perf").hidden = settings.perf !== "on";
+  }
+  document.querySelectorAll(".seg").forEach((seg) => seg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    settings[seg.dataset.key] = b.dataset.v; saveSettings(); syncSeg();
+    if (seg.dataset.key === "nikud") remarkQuestion();
+    if (seg.dataset.key === "gates") { applyLanes(); lettersChanged = true; }   // the open question is asked again with the new number of gates
+    applyQuality(); applyStress();
+  }));
+  let modeBeforeSettings = null;
+  function openSettings() {
+    modeBeforeSettings = state.mode; state.mode = "paused";
+    renderKid(); if (form && form.closeTech) form.closeTech(); $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0));   /* always opens at the top (Golan 19.10) */
+    hushVoice();
+  }
+  $("gear").addEventListener("click", openSettings);
+  addEventListener("fl:gear", openSettings);   // the gear on the shared "מי משחק?" popup opens these settings (learner.js, 16.10)
+  $("swapYes").addEventListener("click", () => {
+    $("swapAsk").hidden = true; if (endUi) endUi.fit(); openSettings();
+    $("letters").scrollIntoView({ block: "center" });   // straight to the letter picker
+  });
+  $("swapNo").addEventListener("click", () => { $("swapAsk").hidden = true; if (endUi) endUi.fit(); });
+  $("gearStart").addEventListener("click", (e) => { e.stopPropagation(); openSettings(); });
+  // door on the start screen too (Golan, 16.10, all games): back to the previous screen = "who plays?"
+  $("doorStart").addEventListener("click", (e) => { e.stopPropagation(); if (toHub()) return goHub(); hushAll();
+    if (LRN) LRN.chooseChild().then(() => { lettersChanged = true; renderKid(); }); else if (history.length > 1) history.back(); });
+  ["gearCar", "gearEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));   // gear on every screen (Golan, 15.10)   // settings before the game starts (Golan, 14.10)
+
+  // No pause button or pause screen (Golan 16.10, all games): the gear pauses the game and its voice while settings is open.
+  // Letters changed in settings: the open question is replaced at once with one from the new letters.
+  let lettersChanged = false;
+  function closeSettings() {
+    $("settings").hidden = true; if (state.mode === "paused") state.mode = modeBeforeSettings || "drive";
+    if (state.mode === "ready") countdown();   // settings opened during 3, 2, 1: the count starts again (Golan, 14.10)
+    if (lettersChanged && state.mode === "drive" && state.q && !state.resolved) { const n = state.qIndex; state.qIndex = 0; askQuestion(); state.qIndex = n; renderDots(); }
+    else if ((state.mode === "drive" || state.mode === "blocked") && state.q && !state.resolved && !$("hud").hidden) { state.nagAt = performance.now(); setTimeout(() => { if (!settingsOpen() && state.q) say(state.q.target, 0.8); }, 300); }   // back from settings: the letter is said once more (Golan 16.10)
+    if (!$("carPick").hidden && !picking) { setTimeout(() => { if (settingsOpen() || $("carPick").hidden || picking) return; say("יש לבחור מכונית", 1); whenQuiet(carNag); }, 400); }   // car picker: ask again, then the usual nag
+    lettersChanged = false;
+  }
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("settingsX").addEventListener("click", closeSettings);
+  // a touch or click outside the panel closes it (Golan, 14.10)
+  $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
+  // letter picker
+  // The shared picker (Golan 16.10, all games): the same tiles and colours as the child's table above, plus a check on chosen
+  // letters; a final letter goes with its base letter. The old own grid stays only as a fallback without learner.js.
+  let pk = null, form = null;
+  function renderLetters() {
+    if (form) return;
+    const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
+    form = LRN.settingsForm($("flForm"), { game: "race", lettersId: "letters",
+      levels: ["2 שערים, בלי אותיות דומות.", "3 שערים, יכולה להופיע אות דומה אחת.", "4 שערים, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],
+      onLevel: () => { applyLanes(); lettersChanged = true; },   // the open question is asked again with the new number of gates
+      picker: { onChange: (list, mode) => { settings.letters = mode === "auto" ? [] : list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
+      voice: seg("voice"), quality: seg("quality", () => applyQuality()),
+      tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
+    pk = form.picker;
+  }
+  renderLetters();
+  syncSeg(); applyStress();
+  // ---------- the child (shared learner card): who plays, level, parent table ----------
+  // On-screen text by the chosen child's gender (Golan, 16.10); no child = the neutral/plural wording.
+  const kidGender = () => { try { const p = LRN && LRN.profile(); return p && p.gender; } catch (e) { return null; } };
+  const byGender = (n, m, f) => { const g = kidGender(); return g === "m" ? m : g === "f" ? f : n; };
+  function genderText() {
+    $("startText").textContent = byGender("סעו עם המכונית דרך השער המתאים", "סע עם המכונית דרך השער המתאים", "סעי עם המכונית דרך השער המתאים");
+    $("carTitle").textContent = byGender("בוחרים מכונית", "בחר מכונית", "בחרי מכונית");
+    $("swapText").textContent = byGender("רוצים להחליף אותיות?", "רוצה להחליף אותיות?", "רוצה להחליף אותיות?");
+  }
+  function renderKid() { genderText(); if (form) form.refresh(); }
+  renderKid();
+  // "מי משחק?" on every entry to the game, even with one child (Golan, 15.10); not again between rounds (learner README step 1)
+  if (LRN) LRN.chooseChild().then(() => { lettersChanged = true; renderKid(); });
+
+  // ---------- performance meter ----------
+  const fpsSamples = [];
+  let worstFps = 999, lastPerfUpdate = 0, loadMs = 0;
+  function gpuName() {
+    try {
+      const gl = engine._gl; const ext = gl && gl.getExtension("WEBGL_debug_renderer_info");
+      return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : (engine.getGlInfo && engine.getGlInfo().renderer) || "?";
+    } catch (e) { return "?"; }
+  }
+  function countTris() {
+    let n = 0;
+    const active = scene.getActiveMeshes();
+    for (let i = 0; i < active.length; i++) { const m = active.data[i]; n += (m && m.getTotalIndices ? m.getTotalIndices() : 0) / 3; }
+    return Math.round(n);
+  }
+  function downloadedKB() {
+    try {
+      const kb = performance.getEntriesByType("resource").reduce((n, r) => n + (r.transferSize || 0), 0) / 1024;
+      return kb > 50 ? `${(kb / 1024).toFixed(1)} MB` : "n/a";
+    } catch (e) { return "n/a"; }
+  }
+  function diagnostics() {
+    const avg = fpsSamples.length ? fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length : 0;
+    return [
+      `FPS avg(10s): ${avg.toFixed(1)}   worst: ${worstFps === 999 ? "-" : worstFps.toFixed(0)}`,
+      `Load to ready: ${(loadMs / 1000).toFixed(1)}s   downloaded: ${downloadedKB()}`,
+      `JS memory: ${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + " MB" : "n/a"}`,
+      `Render: ${engine.getRenderWidth()}x${engine.getRenderHeight()}  dpr ${window.devicePixelRatio}`,
+      `Triangles on screen: ${countTris().toLocaleString()}`,
+      `GPU: ${gpuName()}`,
+      `WebGL: ${engine.webGLVersion}   Babylon ${BABYLON.Engine.Version}`,
+      `Voice clips: ${clipStatus.ok} loaded, ${clipStatus.missing} missing (../audio)`,
+      `Hebrew voice (fallback): ${heVoice ? heVoice.name : "not found"}`,
+      `Browser: ${navigator.userAgent}`,
+    ].join("\n");
+  }
+  function updatePerf(now) {
+    const fps = engine.getFps();
+    if (isFinite(fps) && fps > 0 && state.mode === "drive") {
+      fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift();
+      if (now - state.roundStart > 3000) worstFps = Math.min(worstFps, fps);
+    }
+    if (now - lastPerfUpdate < 500 || settings.perf !== "on") return;
+    lastPerfUpdate = now;
+    const cls = fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad";
+    $("perf").innerHTML =
+      `<b class="${cls}">${fps.toFixed(0)}</b> FPS<br>` +
+      `▲ ${countTris().toLocaleString()} · ${settings.quality === "eco" ? "eco" : "high"}${settings.stress === "on" ? " · stress" : ""}`;
+  }
+
+  // ---------- main loop ----------
+  scene.onBeforeRenderObservable.add(() => {
+    const dt = Math.min(engine.getDeltaTime() / 1000, 0.05) * motionK(); motionMs += dt * 1000; const mnow = motionMs;
+    const now = performance.now();
+    const p = pace();
+
+    // A lane change right after a bump used to switch to "drive" while the car was still past the gate line,
+    // so the gate never triggered and the round froze. The car now finishes backing up first.
+    const backing = state.backTo != null && state.z > state.backTo;
+    if ((state.mode === "drive" || state.mode === "intro") && !backing) {
+      let target = state.mode === "intro" ? 4 : p.cruise;
+      const dist = state.gateZ - state.z;
+      if (state.mode === "drive" && !state.resolved && dist < 16 && dist > 0) target = p.near; // slow down before the decision
+      if (state.celebrate) target = Math.min(target, p.near * 0.4);   // drive slowly through "יש! נכון!" and the celebration (Golan, 13.10)
+      state.speed += (target - state.speed) * Math.min(1, dt * 2.5);
+      const before = state.z;
+      state.z += state.speed * dt;
+      if (state.mode === "drive" && !state.resolved && before < state.gateZ - 1.6 && state.z >= state.gateZ - 1.6) onPassGate();
+    }
+    if (state.bounce > 0) state.bounce = Math.max(0, state.bounce - dt * 3);
+    if ((state.mode === "blocked" || state.mode === "drive") && backing && now > state.backAt) {
+      const v = Math.min(2.4, 0.8 + (now - state.backAt) / 400);   // eases into a slow reverse
+      const step = Math.min(v * dt, state.z - state.backTo);
+      state.z -= step; state.speed = 0;
+      for (const w of wheels) w.rotation.x -= step * 2.6;
+      if (state.z <= state.backTo + 1e-3) state.backTo = null;
+    }
+
+    // car
+    const tx = drag.active ? drag.x : LANE_X[state.lane];
+    // Golan 18.10: slower from lane to lane with the arrows, a tap or a mouse click, at one capped speed however far the lane is
+    // (a far lane no longer means a fast jump); a dragging finger is followed quickly
+    if (drag.active && drag.moved) state.carX += (tx - state.carX) * Math.min(1, dt * 18);
+    else { const d = tx - state.carX, gap = LANE_X.length > 1 ? Math.abs(LANE_X[1] - LANE_X[0]) : 3, v = Math.min(Math.abs(d) * 3.2, gap * 2.2); state.carX += Math.sign(d) * Math.min(Math.abs(d), v * dt); }
+    car.position.set(state.carX, Math.sin(state.bounce * Math.PI) * 0.25, state.z);
+    car.rotation.x = -Math.sin(state.bounce * Math.PI) * 0.12;   // the bump lifts the nose; the slow reverse does the backing off (no jump back)
+    car.rotation.y = (tx - state.carX) * 0.12;
+    for (const w of wheels) w.rotation.x += state.speed * dt * 2.6;
+
+    // world follows the car; recycled props wrap around
+    world.position.z = Math.floor(state.z / 50) * 50;
+    for (const r of recycled) if (r.m.position.z < state.z - 14) r.m.position.z += r.span;
+
+    // gates
+    // The sign in the car's lane is not highlighted (Golan 18.10, all games); only the yellow hint frame remains.
+    gates.forEach((g, i) => {
+      const pulse = state.hintPulse && state.q && i === state.q.correctLane ? 1 + Math.sin(mnow / 420) * 0.035 : 1;   /* gentle breathing */
+      g.sign.scaling.set(pulse, pulse, 1);
+      if (g.shake > 0) {   // knocked by the car
+        g.shake = Math.max(0, g.shake - dt * 1.4);
+        g.sign.rotation.z = Math.sin(mnow / 38) * 0.14 * g.shake * g.shake;
+        g.sign.position.x = Math.sin(mnow / 29) * 0.08 * g.shake;
+        if (g.shake === 0) { g.sign.rotation.z = 0; g.sign.position.x = 0; }
+      }
+    });
+    // Stuck in front of a wrong gate: say the right syllable again every 4 seconds (Golan, 14.10)
+    if (state.mode === "blocked" && state.q && now - (state.nagAt || 0) > 4000) {
+      state.nagAt = now;
+      const busy = (clipNow && !clipNow.paused && !clipNow.ended) || ("speechSynthesis" in window && speechSynthesis.speaking);
+      if (!busy) { if (state.reads < MAX_READS) { say(state.q.target, 0.7); state.reads++; } else if (!state.hintPulse) { state.hintPulse = true; drawSign(gates[state.q.correctLane], state.q.lanes[state.q.correctLane], true); } state.nags = (state.nags || 0) + 1; if (state.nags >= 1) state.flashAt = now; }   // after 4 readings only the letter keeps flashing (Golan, 15.10)   // from the 3rd reading: the question + the replay after the mistake came first
+    }
+    // From the 3rd reading, each reading lifts the right letter a little, slowly, and puts it back (Golan, 14.10)
+    if (state.flashAt && state.q && !state.resolved) {
+      const t = now - state.flashAt, g = gates[state.q.correctLane], FL = 2400;   /* slower, smaller hint lift (Golan 16.10, all games) */
+      g.sign.position.y = 3.05 + 0.18 * Math.sin(Math.PI * Math.min(1, t / FL));
+      if (t >= FL) { state.flashAt = 0; g.sign.position.y = 3.05; }
+    }
+    if (state.celebrate && state.q && state.mode !== "paused") {
+      const c = state.celebrate, g = gates[state.q.correctLane];
+      c.t += dt;
+      const k = Math.min(1, c.t / 0.6), e = 1 - (1 - k) * (1 - k);   // ease out
+      // keep the letter at a fixed distance ahead of the car, so the camera never reaches it (it looked huge, Golan 14.10)
+      g.sign.position.z = Math.max(0, car.position.z + state.celebAhead - state.gateZ);
+      const S = 0;   // the letter does not grow (Golan, 14.10)
+      if (c.phase === "rise") { g.sign.position.y = 3.05 + 1.0 * e; g.sign.scaling.set(1 + S * e, 1 + S * e, 1); g.sign.rotation.y = 0; }
+      // no spin (Golan, 14.10): while the syllable is said the letter grows and is emphasised with one soft pulse, then moves away
+      else if (c.phase === "spin") {
+        const b = Math.sin(Math.PI * Math.min(1, c.t / 0.9));
+        g.sign.position.y = 4.05 + 0.25 * b; g.sign.rotation.y = 0; g.sign.rotation.z = 0;
+        const z = 1 + S + 0.3 * b; g.sign.scaling.set(z, z, 1);
+      }
+      else { g.sign.position.y = 4.05 + c.t * 1.5; c.away = (c.away || 0) + c.t * 60 * dt; g.sign.position.z += c.away; g.sign.rotation.y = 0; g.sign.rotation.z = 0; g.sign.scaling.set(1 + S, 1 + S, 1); }
+      placeToast(g);
+    }
+
+    // camera (slight lag for a sense of speed)
+    // The camera moves sideways only as far as it must to show the outer gate, never past the road's
+    // edge: when all the gates fit on screen it stays in the middle (Golan, 15.10: with 5 gates the
+    // edge letter was cut off while grass beside the road filled the other side).
+    cam.position.y = state.camHeight || 4.6; cam.position.z = car.position.z - 9;
+    const vfov = cam.fovMode === BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED ? null : cam.fov;
+    const tanH = vfov == null ? Math.tan(cam.fov / 2) : Math.tan(vfov / 2) * engine.getAspectRatio(cam);
+    const gateDist = STOP_BACK + 9;   // fixed, so the camera does not slide sideways as a gate comes near (Golan, 15.10)
+    const edge = LANE_X[LANE_X.length - 1] + 2.0;          // outer post, with room for the bigger focused sign
+    const room = Math.max(0, edge - gateDist * tanH * 0.96);
+    const camX = Math.max(-room, Math.min(room, state.carX));
+    cam.position.x += (camX - cam.position.x) * Math.min(1, dt * 4);
+    cam.setTarget(new BABYLON.Vector3(cam.position.x, 1.4, car.position.z + 9));
+
+    updatePerf(now);
+  });
+
+  engine.runRenderLoop(() => scene.render());
+  applyLanes();   // calls fitCamera too
+  FL.screen.onChange(() => { engine.resize(); fitCamera(); });   // rotation, resize, zoom, another monitor (screens standard)
+
+  // ---------- start ----------
+  const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
+    Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בָּ"), document.fonts.load(`800 40px "Noto Sans Hebrew"`, "שָׁ")]),
+    new Promise((r) => setTimeout(r, 4000)),
+  ]) : Promise.resolve();
+  fontReady.then(() => {
+    allGates.forEach((g, i) => drawSign(g, ["מ", "ב", "ש", "ל", "ג"][i], false));   // letter recognition: no nikud
+    for (const g of allGates) g.root.position.z = GATE_AHEAD;
+    return scene.whenReadyAsync();
+  }).then(() => {
+    loadMs = performance.now() - T0;
+    $("go").disabled = false; $("go").textContent = "יוצאים לדרך";
+  });
+  // Read the start instructions aloud (clip ins_start). Browsers block sound before the first click,
+  // so we try on load, then again on the first touch of the start screen, and on the 🔊 button.
+  let heardIntro = false;
+  function sayIntro() { heardIntro = true; say("הוראות", 1); }
+  // In the phone app (Capacitor) autoplay is allowed, so this always plays there. In Edge it plays if autoplay is set to "Allow".
+  const introTok = navTok;   // a door before the intro plays cancels it for good (Golan, 16.10)
+  function autoIntro() {
+    if (settings.voice !== "on" || heardIntro || $("start").hidden || navTok !== introTok || $("go").classList.contains("pressed")) return;
+    if (document.querySelector(".fl-ov") || settingsOpen()) return setTimeout(autoIntro, 1500);   /* "who plays?" or settings open: wait */   /* "who plays?" still open: wait for it, then look first */
+    const a = getClip(genderedId("ins_start"));
+    if (a._bad) { heardIntro = true; return sayBrowser("הוראות", 0.8); }
+    if (!a._ok) return a.addEventListener("canplaythrough", autoIntro, { once: true });
+    if (clipNow) clipNow.pause();
+    a.currentTime = 0; clipNow = a; a.play().then(() => { heardIntro = true; }).catch(() => {});
+  }
+  setTimeout(autoIntro, 1500);   // let the child look at the screen first (Golan, 16.10)
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); sayIntro(); });
+  $("start").addEventListener("pointerdown", (e) => { if (!heardIntro && !e.target.closest("button")) sayIntro();   /* any button (door, gear, go, speaker) never starts the intro */ });
+  $("go").addEventListener("click", () => {
+    if (clipNow) clipNow.pause(); try { speechSynthesis.cancel(); } catch (e) {}
+    unlockAudio();
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    // React, say "יוצאים לדרך!", short pause, then the car screen (Golan, 14.10)
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); sfx.lane(); tone([523, 784], 0.12, "triangle", 0.35);
+    say("יוצאים לדרך!", 1); const tok = navTok;
+    setTimeout(() => { $("go").classList.remove("pressed"); if (tok !== navTok) return; $("start").hidden = true; openCarPick(); }, 1600);
+  });
+  // "לְסַיֵּם" (day end, the child's choice): a soft goodbye, then back to the start screen
+  function finishDay() {
+    if (!dayEndNow) { backToStart(); return; }
+    endUi.set({ note: "מחר ממשיכים 🌙", buttons: [] }); $("swapAsk").hidden = true;
+    setTimeout(() => { backToStart(); }, 1800);
+  }
+  function againRound() { $("end").hidden = true; $("hud").hidden = true; openCarPick(); }   // car choice before every round (Golan, 14.10)
+
+  // ---------- car picker (Golan, 14.10): "יש לבחור מכונית", then praise, then the round starts ----------
+  function openCarPick() {
+    const box = $("cars"); box.textContent = "";
+    for (const id of CARS) {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "false");   // no frame on the last car; frames only while a car grows (Golan, 14.10)
+      const img = document.createElement("img"); img.src = "cars/" + id + ".jpg"; img.alt = ""; b.append(img);
+      b.addEventListener("click", () => pickCar(id));
+      box.append(b);
+    }
+    $("carPick").hidden = false;
+    clearTimeout(carNagT);
+    carSays = 0; setTimeout(() => { if (!$("carPick").hidden && !picking) { say("יש לבחור מכונית", 1); carSays++; setTimeout(() => whenQuiet(carNag), 300); } }, 700);   // the pictures first, then the voice (Golan, 14.10)
+  }
+  // no car chosen for 4 s: say it again and flash all 9 cars one by one in random order (Golan, 14.10)
+  let carNagT = 0, carFlashTs = [], carSays = 0;   // "יש לבחור מכונית" is said at most twice, then the cars only flash (Golan, 15.10)
+  function stopCarFlash() {   // a pick in the middle stops the flashing at once (Golan, 14.10)
+    clearTimeout(carNagT); carFlashTs.forEach(clearTimeout); carFlashTs = [];
+    [...$("cars").children].forEach((b) => b.classList.remove("flash"));
+  }
+  function carNag() {
+    clearTimeout(carNagT);
+    carNagT = setTimeout(() => {
+      if ($("carPick").hidden || picking) return;
+      if (carSays < 2) { say("יש לבחור מכונית", 1); carSays++; }
+      const btns = [...$("cars").children].sort(() => Math.random() - 0.5);
+      btns.forEach((b, i) => carFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 420)));
+      carFlashTs.push(setTimeout(() => whenQuiet(carNag), btns.length * 420 + 1000));
+    }, 4000);
+  }
+  let picking = false;
+  async function pickCar(id) {
+    if (picking) return; picking = true; stopCarFlash(); const pickedAt = performance.now();
+    settings.car = id; saveSettings();
+    [...$("cars").children].forEach((b, i) => { b.setAttribute("aria-pressed", String(CARS[i] === id)); b.classList.toggle("chosen", CARS[i] === id); });
+    say(Math.random() < 0.5 ? "יופי של בחירה!" : "בחירה מצוינת!", 1);
+    await useCar(id);
+    // wait for the praise to end, then a short pause, then the start line (Golan, 14.10; pause shortened 15.10)
+    whenQuiet(() => setTimeout(() => { picking = false; if ($("carPick").hidden) return; $("carPick").hidden = true; $("hud").hidden = false; { const sc = starCount(); if (sc) sc.reset(); } countdown();   /* stars show at 0 as soon as the HUD appears (Golan 16.10) */ }, Math.max(250, 1800 - (performance.now() - pickedAt))));   /* wait for the 1.8 s grow to finish (Golan, 16.10) */
+  }
+  if (settings.car) useCar(settings.car);   // the last chosen car is ready at once
+
+  // ---------- start line + 3, 2, 1 (Golan, 14.10): the car waits on the line, then the round starts ----------
+  const startLine = (() => {
+    const t = new BABYLON.DynamicTexture("startTex", { width: 512, height: 64 }, scene, false);
+    const c = t.getContext(), n = 16;
+    for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) { c.fillStyle = (i + j) % 2 ? "#1d2a3a" : "#ffffff"; c.fillRect(i * 32, j * 32, 32, 32); }
+    t.update();
+    const m = new BABYLON.StandardMaterial("startMat", scene); m.diffuseTexture = t; m.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5); m.specularColor = BABYLON.Color3.Black();
+    const line = BABYLON.MeshBuilder.CreateGround("startLine", { width: 10.4, height: 1.3 }, scene);
+    line.material = m; line.setEnabled(false);
+    return line;
+  })();
+  let countToken = 0;
+  // HUD counter: the number and the same shared gold star as every game (Golan 16.10)
+  function starCount() { return LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null; }   // shared HUD counter, same one every call (Golan 16.10)
+  function countdown() {
+    const my = ++countToken;
+    state.mode = "ready"; state.speed = 0; state.q = null;
+    $("target").textContent = ""; document.querySelector(".prompt").classList.remove("listen"); renderDots();
+    startLine.position.set(0, 0.04, state.z + 2.2); startLine.setEnabled(true);
+    const box = $("count"), steps = [["3", "#10b947"], ["2", "#10b947"], ["1", "#10b947"]];   // all glowing green (Golan, 15.10)
+    steps.forEach(([n, col], i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = n; sp.style.background = col; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      startRound();
+      setTimeout(() => startLine.setEnabled(false), 6000);
+    }, 700 + 3 * 1000);
+  }
+
+  // ---------- door = back to the previous screen; here always the start screen (Golan, 14.10) ----------
+  // Opened from the central hub: every door in the game goes back to the hub's game list (Golan 16.10, all games)
+  const toHub = () => !!(LRN && LRN.fromHub && LRN.hubUrl);
+  function goHub() { hushAll(); countToken++; if (hg) hg.stop(); location.href = LRN.hubUrl.split("#")[0] + "#games"; }
+  function backToStart() {
+    if (toHub()) return goHub();
+    hushAll(); if (hg) hg.stop();
+    state.q = null; state.celebrate = null; state.resolved = true; state.mode = "intro"; state.flashAt = 0;
+    countToken++; $("count").innerHTML = ""; startLine.setEnabled(false);
+    for (const g of gates) { g.sign.position.set(0, 3.05, 0); g.sign.scaling.set(1, 1, 1); }
+    ["hud", "end", "carPick", "settings"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));   // door + gear on every screen, the pause screen too (Golan 16.10)
+  // a tap outside the "change letters?" question closes it (Golan 16.10: outside a popup = back one step)
+  $("end").addEventListener("pointerdown", (e) => { if (!$("swapAsk").hidden && !e.target.closest("#swapAsk") && !e.target.closest("button")) { $("swapAsk").hidden = true; if (endUi) endUi.fit(); } });
+
+  // test hook for automated checks
+  window.__race = { state, setLane, drawSign, get gates() { return gates; }, drag, makeQuestion, endRound };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1776 @@
+<script>document.documentElement.lang = "he"; document.documentElement.dir = "rtl";</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>משחקים ביחד</title>
+<!-- local font, no internet needed (screens audit ס8): the shared copy on the PC, the copy next to the page in the artifact -->
+<link rel="stylesheet" href="../shared/fonts/fonts.css">
+<link rel="stylesheet" href="fonts/fonts.css">
+<!--
+  "תגיד לי!" (concept ג in games/letter-recognition/concepts.md), 15.10.2026.
+  A big letter floats in to the balloon. The child says its NAME aloud, the adult next to them taps
+  "נכון" or "עוד לא", and the narrator always says the name, so the child hears the answer.
+  No speech recognition and no recording (concepts.md, Apple Kids Category).
+  Screens, buttons, timings, settings and voice rules copy the car/gates game
+  (voice/race-gates-voice, documented in games/letter-recognition/shared-from-race.md). Where this game
+  differs, a comment says why. Content is a draft until the language advisor approves it.
+-->
+<style>
+  :root {
+    --sky: #bfe6ff;
+    --ink: #1d2a3a;
+    --card: #ffffffee;
+    --accent: #ff8a3d;
+    --accent-ink: #ffffff;
+    --good: #2bb673;
+    --muted: #5b6b7f;
+    --later: #ffb020;
+  }
+  /* single deliberate look (daylight world): same colours in light and dark, as in the car game */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html, body {
+    margin: 0; position: fixed; inset: 0; overscroll-behavior: none; overflow: hidden; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+
+  .prompt {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 20px;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002;
+  }
+  .prompt .label { font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .prompt .label { display: none; }
+  #replay.pulse { animation: pulse .6s ease-in-out 2; }
+  @keyframes pulse { 50% { transform: scale(1.12); color: var(--accent); } }
+  .round-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
+  }
+  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+
+  .stars {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
+    background: var(--card); border-radius: 999px; padding: 8px 18px; font-size: 26px; font-weight: 800;
+    box-shadow: 0 4px 16px #0002;
+  }
+  .dots { display: flex; gap: 6px; justify-content: center; margin-top: 6px; flex-wrap: wrap; max-width: 300px; }
+  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #0002; }
+  .dots span.done { background: var(--good); }
+  .dots span.later { background: var(--later); }   /* "עוד לא": the letter comes back later in the round */
+  .dots.many span { width: 9px; height: 9px; }   /* 22-letter check */
+  .dots-wrap {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 88px); left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .gear {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink);
+    box-shadow: 0 4px 16px #0002;
+  }
+  /* buttons stand in a column at the top left: door, settings, pause (as in the car game) */
+  .hud .gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+  .hud .pause-btn { display: none !important; }   /* no pause button in this game (Golan 15.10) */
+  /* settings on every screen, slightly bigger, darker grey icon (Golan 15.10) */
+  .round-btn.gear:not(.pause-btn) { width: 72px; height: 72px; }
+  .gear-ico { width: 42px; height: 42px; display: block; }
+  /* round end: no pause button behind the end card, only the live settings gear (Golan 15.10) */
+  body:has(#end:not([hidden])) #pause, body:has(#end:not([hidden])) .hud .gear { visibility: hidden; }
+  .overlay-gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); z-index: 30; }
+  .start-gear { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; }
+  .door-btn { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; font-size: 40px; }
+  /* balloon picker (instead of the car picker) */
+  .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 6px; cursor: pointer; aspect-ratio: 1; display: grid; place-items: center; }
+  .cars button svg { width: 94%; height: 94%; display: block; }
+  .cars button[aria-pressed="true"] { border-color: var(--good); background: #eafaf1; }   /* green when chosen (Golan 15.10) */
+  .cars button:active { transform: scale(.96); }
+  .cars button.flash { animation: carFlash 1s ease-in-out; }   /* slower, as in the waking-letter game (Golan 16.10) */
+  /* the chosen balloon grows at once, slowly, while the praise plays (as in the car game, Golan 15.10) */
+  .pick-count { display: flex; gap: 8px; justify-content: center; margin: 2px 0 4px; }
+  .pick-count span { width: 16px; height: 16px; border-radius: 50%; border: 3px solid #d5dde6; background: #fff; transition: background .3s, border-color .3s; }
+  .pick-count span.on { border-color: var(--good); background: var(--good); }
+  #cars button.chosen { position: relative; z-index: 2; transform: scale(1.12); border-color: var(--good); background: #eafaf1;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  /* exit door, ajar, opening toward the left edge; "יציאה" tip on mouse hover (as in the car game, Golan 15.10) */
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { z-index: 30; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  /* green continue button with space before the arrow (as in the car game, Golan 15.10) */
+  #resume { background: var(--good); color: #fff; box-shadow: 0 5px 0 #1d8a55; display: inline-flex; align-items: center; gap: 22px; }
+  #resume:active { box-shadow: 0 2px 0 #1d8a55; }
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  .panel.pause-panel { background: none; box-shadow: none; width: auto; }
+  .pause-panel .big-btn { font-size: 34px; padding: 18px 48px; }
+
+  /* The adult's two buttons stand where the car game has its arrows. They wake up only after the letter has
+     arrived and the question was asked, so a quick child tap does not count (shared-from-race.md, 11.1). */
+  .judge {
+    position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-end; padding: 0 18px; pointer-events: none; direction: ltr;
+  }
+  .judge .who { align-self: center; font-size: 16px; font-weight: 700; color: var(--ink); background: #ffffffb3;
+    padding: 4px 12px; border-radius: 999px; direction: rtl; white-space: nowrap; }
+  .jbtn {
+    pointer-events: auto; min-width: 150px; height: 84px; border-radius: 999px; border: 0; padding: 0 22px;
+    font: 800 26px "Noto Sans Hebrew", system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer; direction: rtl; transition: opacity .25s ease, transform .15s ease;
+  }
+  .jbtn.yes { background: #34b36b; color: #fff; box-shadow: 0 5px 0 #1f8048; }
+  .jbtn.no { background: #ffffffe6; color: var(--ink); box-shadow: 0 5px 0 #0003; }
+  .jbtn:active { transform: translateY(3px); }
+  .jbtn:disabled { opacity: .35; cursor: default; transform: none; }
+  .jbtn.flash { animation: jFlash 1.4s ease-in-out; }   /* nobody tapped yet: the buttons lift a little, slowly */
+  @keyframes jFlash { 50% { transform: translateY(-14px); } }
+  .jbtn svg { width: 1.1em; height: 1.1em; }
+
+  .perf {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
+    direction: ltr; text-align: left; font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none;
+  }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px; }
+  #settings { z-index: 10000; }   /* opens above the shared "מי משחק?" popup too (fl:gear) */
+  .overlay[hidden] { display: none; }
+  .panel {
+    background: #fff; border-radius: 28px; padding: 28px 24px; max-width: 520px; width: 100%;
+    text-align: center; box-shadow: 0 10px 40px #0003;
+  }
+  .panel h1 { margin: 0 0 8px; font-size: 34px; }
+  .panel p { margin: 6px 0 18px; font-size: 19px; color: var(--muted); }
+  .swap-ask { background: #fff3ea; border-radius: 20px; padding: 10px 12px 14px; margin: 0 0 16px; }
+  .swap-ask p { color: var(--ink); font-weight: 800; font-size: 24px; margin: 4px 0 10px; }
+  .big-btn.small { font-size: 22px; padding: 10px 26px; min-height: 56px; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+  .big-btn {
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
+    box-shadow: 0 5px 0 #c45f1d;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  /* mother and child playing together, top-left of the start card (Golan 15.10; placeholder art) */
+  .start-panel { position: relative; }
+  .mom-kid { position: absolute; top: 8px; left: 12px; width: 150px; height: auto; pointer-events: none; }
+  .together { display: inline-block; background: #eafaf1; color: #1f8048; font-weight: 800; font-size: 17px; border-radius: 999px; padding: 4px 14px; margin-bottom: 4px; }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .jbtn, .cars button, .seg button, .letters button:not(.fl-cell):not(.fl-pbtn) { transition: transform .15s ease, filter .15s ease, opacity .25s ease; }
+    .big-btn:hover, .round-btn:hover, .jbtn:not(:disabled):hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .cars button:hover, .seg button:hover, .letters button:not(.fl-cell):not(.fl-pbtn):hover { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+  .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
+
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: 26px; text-align: center; }
+  .how { background: #f3f8fd; border-radius: 16px; padding: 10px 14px; font-size: 16px; line-height: 1.55; color: var(--ink); margin-bottom: 6px; }
+  .how b { font-weight: 800; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+  .row > span small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+  /* Golan 16.10 (all games): title beside or above the buttons, the long explanation on its own full line below them */
+  .row { flex-wrap: wrap; }
+  /* Golan 16.10: every row is 3 lines: title, then the options, then the explanation */
+  .row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .row > span { font-weight: 700; }
+  .row > small.row-note { flex-basis: 100%; order: 99; font-size: 14px; color: var(--muted); font-weight: 400; margin-top: -4px; }
+  .seg { display: flex; gap: 6px; flex-shrink: 0; }
+  .row.stack { flex-wrap: wrap; }
+  .row.stack .seg { flex-shrink: 1; flex-wrap: wrap; }
+  #childCard { flex: 1 1 100%; width: 100%; min-width: 0; align-self: stretch; }   /* the parent table fills the row like the picker (no overflow on a phone) */
+  .settings { max-height: 100%; overflow-y: auto; }
+  .seg button {
+    min-width: 76px; min-height: 52px; border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 17px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters-row { align-items: flex-start; }
+  .letters-row > span { display: flex; flex-direction: column; gap: 4px; }
+  .letters-row small { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .letters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .letters button:not(.fl-cell):not(.fl-pbtn), .rep-grid span { width: 52px; height: 52px; border-radius: 12px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 800 26px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .letters button:not(.fl-cell):not(.fl-pbtn)[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters button:not(.fl-cell):not(.fl-pbtn).final, .rep-grid span.final { border-style: dashed; }
+  .letters button:not(.fl-cell):not(.fl-pbtn).final, .rep-grid span.final { text-decoration: underline; text-decoration-color: #8fb3d9; text-decoration-thickness: 3px; text-underline-offset: 1px; text-decoration-skip-ink: none; }
+  .letters-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  /* Golan 16.10: the practice picker is the child card's own table (FL.learner.letterPicker) plus selection */
+  .letters { display: block; }
+  .letters-tools button, .link-btn { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 700 15px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+
+  /* parent summary */
+  .report { text-align: right; }
+  .report h2 { margin: 0 0 6px; font-size: 26px; text-align: center; }
+  .report .score { font-size: 22px; font-weight: 800; text-align: center; margin: 6px 0 2px; }
+  .report .sub { font-size: 16px; color: var(--muted); text-align: center; margin: 0 0 12px; }
+  .rep-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+  .rep-grid span { display: grid; place-items: center; cursor: default; }
+  .rep-grid span.ok { background: #e3f7ec; border-color: var(--good); }
+  .rep-grid span.later { background: #fff4dc; border-color: var(--later); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 16px; color: var(--muted); margin: 4px 0 10px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; vertical-align: -2px; margin-inline-end: 4px; }
+  .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
+
+  /* 3-2-1 before take-off, as on the car game's start line */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; }
+  .count span { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 110px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }   /* glowing green (Golan, 15.10) */
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+  .toast {
+    position: absolute; top: 20%; left: 80%; transform: translate(-50%, -50%) scale(.6); opacity: 0;
+    font-size: 64px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0004, 0 0 24px #0003;
+    transition: transform .25s ease, opacity .25s ease; pointer-events: none; white-space: nowrap;
+  }
+  .toast.good { font-size: 52px; color: #10b947; text-shadow: 0 0 6px #fff, 0 0 18px #3dff7f, 0 0 36px #00e05a, 0 3px 0 #0a7a35; }
+  .toast .chk { display: inline-block; font-size: 80px; line-height: 1; vertical-align: -0.12em; filter: drop-shadow(0 0 8px #3dff7f) drop-shadow(0 3px 0 #0a7a35); }
+  .toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  /* a correct answer: only the earned star, centred on the card's top-left corner and moving with it (Golan 18.10, as in the car game) */
+  .toast.pinned { transform: translate(-50%, -50%) scale(.6); transform-origin: 50% 50%; will-change: transform, left, top; backface-visibility: hidden; line-height: 0; }
+  .toast.pinned.show { transform: translate(-50%, -50%) scale(1); }
+  .toast.pinned .chk { display: block; vertical-align: 0; filter: drop-shadow(0 3px 4px #0005); }
+  .toast.good.pinned { font-size: 40px; }
+  .toast.pinned .chk { font-size: 60px; }
+
+  /* ===== screens standard (screens/screens-standard.md, 16.10): every size and place from FL.screen variables =====
+     --u = one pixel of a 1280x720 board (720x1280 standing); floors in mm: --tap-s 10, --tap 15, --tap-play 20, --gap 5.
+     No width breakpoints: only standing or lying (html[data-screen~="portrait"]). */
+  html[data-screen] {
+    --s: max(calc(72 * var(--u)), var(--tap-s));      /* door, settings */
+    --b: max(calc(84 * var(--u)), var(--tap));        /* the child's main buttons: 🔊 */
+    --g: max(calc(14 * var(--u)), var(--gap));        /* space between buttons */
+    --col: calc(var(--edge-l) + var(--s) + var(--g)); /* the door/settings column */
+  }
+  html[data-screen] .round-btn, html[data-screen] .round-btn.gear:not(.pause-btn) { width: var(--s); height: var(--s); font-size: calc(var(--s) * .45); }
+  html[data-screen] .gear-ico { width: calc(var(--s) * .58); height: calc(var(--s) * .58); }
+  html[data-screen] .door-btn { font-size: calc(var(--s) * .56); }
+  html[data-screen] .door-btn, html[data-screen] .start-gear { top: var(--edge-t); left: var(--edge-l); }
+  html[data-screen] .hud .gear, html[data-screen] .overlay-gear { top: calc(var(--edge-t) + var(--s) + var(--g)); left: var(--edge-l); }
+  /* top letter pill = detective's in every game (Golan 16.10, games/letter-recognition/detective/letter-pill-spec.md, FIXED SIZE):
+     a white pill with the letter and the orange 🔊 (emoji 0.7x), one size from the first frame to the end; the dots sit at a
+     fixed gap under it (pure CSS, nothing measured). The big letter card stays as it is. */
+  html[data-screen] {
+    --spk: max(calc(46 * var(--u)), var(--tap-s));
+    --pill-t: max(calc(56 * var(--u)), 40px); --pill-lw: max(calc(64 * var(--u)), 48px);
+    --pill-h: calc(max(var(--pill-t), var(--spk)) + 16 * var(--u)); --pill-w: calc(var(--pill-lw) + var(--spk) + 46 * var(--u));
+    --pill-top: var(--edge-t); --dots-gap: max(calc(8 * var(--u)), 6px); }
+  html[data-screen~="portrait"] { --pill-top: calc(var(--edge-t) + var(--s) + 10 * var(--u)); }   /* standing phone: under the door */
+  html[data-screen] .hud .prompt { box-sizing: border-box; top: var(--pill-top); left: 50%; right: auto; transform: translateX(-50%);
+    height: var(--pill-h); width: var(--pill-w); gap: 0; padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); justify-content: space-between; }
+  html[data-screen] .prompt .target { display: block; width: var(--pill-lw); height: var(--pill-t); font-size: var(--pill-t);
+    font-weight: 800; line-height: 1; text-align: center; color: var(--ink); overflow: visible; }
+  html[data-screen] .prompt #replay { width: var(--spk); height: var(--spk); font-size: calc(var(--spk) * 0.7); padding: 0; line-height: 1; overflow: hidden; }
+  /* hear only (Golan 18.10): a letter already מוכרת/known shows the 🔊 alone, centred in the same pill (as detective's listen) */
+  .prompt.listen .target { display: none; }
+  html[data-screen] .hud .prompt.listen { justify-content: center; padding: 0; }
+  html[data-screen] .dots-wrap { top: calc(var(--pill-top) + var(--pill-h) + var(--dots-gap)); }
+  html[data-screen] .dots { margin-top: 0; }
+  html[data-screen] .dots span { width: max(calc(14 * var(--u)), 9px); height: max(calc(14 * var(--u)), 9px); }
+  html[data-screen] .stars { top: var(--edge-t); right: var(--edge-r); font-size: max(calc(30 * var(--u)), 20px); padding: calc(8 * var(--u)) calc(18 * var(--u)); }   /* stars follow the pill font (learner --fl-star) */
+  html[data-screen] .perf { top: var(--edge-t); left: var(--col); }
+  html[data-screen] .judge { bottom: var(--edge-b); padding: 0 var(--edge-r) 0 var(--edge-l); }
+  html[data-screen] .jbtn { height: max(calc(96 * var(--u)), var(--tap)); min-width: max(calc(170 * var(--u)), calc(var(--tap) * 1.6)); padding: 0 calc(26 * var(--u));
+    font-size: max(calc(30 * var(--u)), 20px); }
+  html[data-screen] .judge .who { font-size: max(calc(16 * var(--u)), 16px); }
+  html[data-screen] .count span { width: max(calc(180 * var(--u)), 120px); height: max(calc(180 * var(--u)), 120px); left: calc(max(calc(180 * var(--u)), 120px) / -2);
+    top: calc(max(calc(180 * var(--u)), 120px) / -2); font-size: max(calc(110 * var(--u)), 72px); }
+  html[data-screen] .toast, html[data-screen] .toast.good { font-size: max(calc(52 * var(--u)), 34px); }
+  html[data-screen] .toast .chk { font-size: max(calc(80 * var(--u)), 50px); }
+  html[data-screen] .toast.good.pinned { font-size: max(calc(40 * var(--u)), 28px); }
+  html[data-screen] .toast.pinned .chk { font-size: max(calc(60 * var(--u)), 40px); }
+  /* screens: the panel keeps clear of the door/settings column; it never runs past the screen (no 100vh) */
+  html[data-screen] .overlay { padding: var(--edge-t) var(--col) var(--edge-b) var(--col); }
+  html[data-screen] .panel { max-width: max(calc(600 * var(--u)), min(520px, 100%)); max-height: 100%; overflow-y: auto;
+    padding: max(calc(28 * var(--u)), 14px) max(calc(28 * var(--u)), 16px); border-radius: max(calc(28 * var(--u)), 18px); }
+  /* settings = a header row that never scrolls (X on the right, the title in the middle) over a body that scrolls
+     (Golan 16.10 X in all games; screens-standard 4א: no content ever passes under the X) */
+  .panel.settings { --x: 48px; --pt: 20px; --pr: 20px; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+  .set-head { flex: none; display: grid; grid-template-columns: var(--x) 1fr var(--x); align-items: center; gap: 6px;
+    padding: 8px 8px 6px; border-bottom: 1px solid #eee; }
+  .set-head h2 { margin: 0; }
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px var(--pr) var(--pt); }
+  .x-close { width: var(--x); height: var(--x); border: 0; border-radius: 50%; background: #eef3f8; color: var(--ink);
+    font: 800 24px/1 "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px #0002; }
+  .x-close:active { transform: scale(.94); }
+  html[data-screen] .panel.settings { --x: max(var(--tap-s), calc(52 * var(--u))); --pt: max(calc(28 * var(--u)), 14px); --pr: max(calc(28 * var(--u)), 16px);
+    padding: 0; overflow: hidden; }
+  html[data-screen] .x-close { font-size: calc(var(--x) * .48); }
+  /* phone standing: the panel spans the screen minus --edge, with a thin side padding, so the letter tiles are as big as can be (screens audit 16.10) */
+  html[data-screen~="portrait"] .panel.settings { --pr: 10px; }
+  html[data-screen] .seg { flex-wrap: wrap; flex-shrink: 1; max-width: 100%; }   /* 5 count buttons wrap on a narrow phone instead of running off the panel */
+  html[data-screen] .panel h1 { font-size: max(calc(40 * var(--u)), 24px); }
+  html[data-screen] .panel p { font-size: max(calc(22 * var(--u)), 17px); }
+  html[data-screen] .big-btn { font-size: max(calc(34 * var(--u)), 22px); min-height: var(--tap); padding: calc(16 * var(--u)) max(calc(44 * var(--u)), 22px); }
+  /* start-screen 🔊: a circle as tall as the start button, emoji centred inside (Golan 16.10, all games; as detective) */
+  html[data-screen] .big-btn.spk { --sp: max(calc(76 * var(--u)), var(--tap)); width: var(--sp); min-width: var(--sp); height: var(--sp);
+    padding: 0; min-height: 0; border-radius: 50%; display: grid; place-items: center; line-height: 1; font-size: calc(var(--sp) * .47); overflow: hidden; }
+  html[data-screen] #replay { padding: 0; line-height: 1; }
+  html[data-screen] .big-btn.small { font-size: max(calc(24 * var(--u)), 18px); min-height: var(--tap-s); padding: calc(10 * var(--u)) max(calc(26 * var(--u)), 16px); }
+  html[data-screen] #start .start-row { gap: max(calc(24 * var(--u)), 8px); }
+  html[data-screen] #start #hear { width: var(--b); min-width: var(--b); height: var(--b); font-size: calc(var(--b) * .45); }
+  html[data-screen] .mom-kid { width: max(calc(150 * var(--u)), 84px); top: calc(8 * var(--u)); left: calc(12 * var(--u)); }
+  html[data-screen] .together { font-size: max(calc(18 * var(--u)), 16px); }
+  .end-report { margin-top: calc(6 * var(--u, 1px)); text-align: center; }
+  .end-confirm { margin-top: calc(8 * var(--u, 1px)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; padding: 6px 12px; border-radius: 16px; background: #f5f9ff; box-shadow: inset 0 0 0 2px #9cc8f5; }
+  .end-confirm .ec-t { font-weight: 800; font-size: max(15px, calc(17 * var(--u, 1px))); }
+  .end-confirm.done { background: #e3f7ec; box-shadow: inset 0 0 0 2px #2bb673; } .end-confirm.no { background: #f3f4f6; box-shadow: inset 0 0 0 2px #d5dde6; }
+  html[data-screen] #reportEnd { min-height: var(--tap-s); font-size: max(calc(20 * var(--u)), 16px); padding: 0 max(calc(18 * var(--u)), 14px); }
+  html[data-screen] .pause-panel .big-btn { font-size: max(calc(34 * var(--u)), 24px); }
+  /* the balloon picker: 5 in a row lying down, 3 standing; it scrolls inside the screen if the window is very low */
+  /* balloon picker = detective's card in every game (Golan 16.10, games/letter-recognition/detective/balloon-picker-spec.md):
+     3x3 on every screen; on a low window the grid is capped by the height, so the tiles shrink instead of wrapping
+     (height minus edges, panel padding, title, the 4 dots and a margin) */
+  html[data-screen] #carPick .panel { width: min(100%, max(calc(520 * var(--u)), 340px)); max-width: none; }
+  html[data-screen] .cars { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-inline: auto;
+    width: min(100%, calc(100dvh - var(--edge-t) - var(--edge-b) - 2 * max(calc(28 * var(--u)), 14px) - 1.4 * max(calc(40 * var(--u)), 24px) - 56px)); }
+  /* standing: the panel sits under the door/settings column instead of beside it; 🔊 and the dots move below the door row */
+  html[data-screen~="portrait"] .overlay { padding: calc(var(--edge-t) + 2 * var(--s) + 2 * var(--g)) var(--edge-r) var(--edge-b) var(--edge-l); }
+  html[data-screen~="portrait"] .jbtn { min-width: 0; flex: 0 1 44%; }
+  html[data-screen~="portrait"] .toast, html[data-screen~="portrait"] .toast.good { left: 68%; top: 27%; }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+</style>
+<canvas id="game" aria-label="משחקים ביחד"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="prompt" role="status">
+    <span class="label" id="label">איך קוראים לאות?</span>
+    <span class="target" id="target" aria-hidden="true"></span>
+    <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
+  </div>
+  <div class="dots-wrap"><div class="dots" id="dots"></div></div>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="משחקים ביחד"></div>
+  <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5f6672" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.1.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.1l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.1l1.5 2.2-2.4 2.4-2.2-1.5c-.7.4-1.4.7-2.1.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.1-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.1l-2.6-.5v-3.4l2.6-.5c.2-.7.5-1.4.9-2.1L3.3 6.3l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.1-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="judge">
+    <button class="jbtn no" id="notYet" disabled>נסו שוב</button>
+    <span class="who">המבוגר מסמן</span>
+    <button class="jbtn yes" id="said" disabled>נכון <svg viewBox="0 0 100 100" aria-hidden="true"><polyline points="10,52 40,80 90,18" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="perf" id="perf"></div>
+  <div class="toast" id="toast"></div>
+  <div class="count" id="count"></div>
+</div>
+
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5f6672" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.1.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.1l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.1l1.5 2.2-2.4 2.4-2.2-1.5c-.7.4-1.4.7-2.1.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.1-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.1l-2.6-.5v-3.4l2.6-.5c.2-.7.5-1.4.9-2.1L3.3 6.3l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.1-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <div class="panel start-panel">
+    <svg class="mom-kid" viewBox="0 0 100 100" role="img" aria-label="אמא וילד בכדור פורח"><!-- placeholder: Golan will draw the real art -->
+      <g transform="translate(50 0) scale(.78) translate(-50 0)">
+        <path d="M50 3 C25 3 14 20 18 37 C21 48 34 53 40 58 L60 58 C66 53 79 48 82 37 C86 20 75 3 50 3 Z" fill="#FF5A4E"/>
+        <path d="M50 3 C40 4 34 20 36 37 C37 48 40 53 43 58 L57 58 C60 53 63 48 64 37 C66 20 60 4 50 3 Z" fill="#fff"/>
+        <path d="M50 3 C46 7 45 22 46 37 C46.5 48 48 53 48.5 58 L51.5 58 C52 53 53.5 48 54 37 C55 22 54 7 50 3 Z" fill="#FF5A4E"/>
+        <ellipse cx="37" cy="17" rx="4.5" ry="8" fill="#fff" opacity=".35" transform="rotate(20 37 17)"/>
+      </g>
+      <path d="M41 45 L30 70 M59 45 L70 70" stroke="#7A4E27" stroke-width="1.4"/>
+      <circle cx="40" cy="55" r="11" fill="#6b3a1e"/><circle cx="31" cy="48" r="4.5" fill="#6b3a1e"/>
+      <ellipse cx="40" cy="74" rx="12" ry="8" fill="#7C5CFF"/>
+      <ellipse cx="62" cy="76" rx="8.5" ry="6" fill="#3DA5FF"/>
+      <circle cx="40" cy="57" r="9" fill="#f6cba5"/>
+      <path d="M31 56 Q33 46 42 47 Q49 48 49 55 Q42 51 31 56 Z" fill="#6b3a1e"/>
+      <circle cx="37" cy="58.5" r="1.2" fill="#3a2a22"/><circle cx="43" cy="58.5" r="1.2" fill="#3a2a22"/>
+      <path d="M37.3 62 Q40 64.5 42.7 62" stroke="#b5533c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <circle cx="34.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/><circle cx="45.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/>
+      <path d="M68 74 Q74 64 71 54" stroke="#f6cba5" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <circle cx="62" cy="64" r="7" fill="#f6cba5"/>
+      <path d="M55 63 Q55.5 55.5 62.5 56 Q69.5 56.5 69 63 Q63 59 55 63 Z" fill="#8a5a2b"/>
+      <circle cx="59.6" cy="65" r="1" fill="#3a2a22"/><circle cx="64.4" cy="65" r="1" fill="#3a2a22"/>
+      <path d="M60 68 Q62 70 64 68" stroke="#b5533c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <path d="M48 75 Q53 71 57 74" stroke="#f6cba5" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+      <path d="M24 74 H76 L72 96 Q50 99 28 96 Z" fill="#C98A4B"/>
+      <rect x="22" y="71" width="56" height="6" rx="3" fill="#8A5A2B"/>
+      <path d="M33 80 V95 M43 80 V97 M57 80 V97 M67 80 V95" stroke="#A8743F" stroke-width="1.5"/>
+    </svg>
+    <h1 id="gTitle">משחקים ביחד</h1>
+    <p><span id="startText">רואים אות ואומרים את השם שלה</span><br>המבוגר שלידכם מסמן אם אמרתם נכון</p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוען…</button>
+      <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="carPick" hidden>
+  <button class="round-btn door-btn" id="doorCar" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearPick" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5f6672" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.1.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.1l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.1l1.5 2.2-2.4 2.4-2.2-1.5c-.7.4-1.4.7-2.1.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.1-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.1l-2.6-.5v-3.4l2.6-.5c.2-.7.5-1.4.9-2.1L3.3 6.3l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.1-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <div class="panel">
+    <h1>בוחרים 4 כדורים פורחים</h1>
+    <div class="pick-count" id="pickCount" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="cars" id="cars"></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5f6672" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.1.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.1l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.1l1.5 2.2-2.4 2.4-2.2-1.5c-.7.4-1.4.7-2.1.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.1-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.1l-2.6-.5v-3.4l2.6-.5c.2-.7.5-1.4.9-2.1L3.3 6.3l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.1-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <!-- the panel itself is the shared end panel (FL.learner.endPanel, Golan 16.10 all games); these two go in as its extras -->
+  <div id="endExtras" hidden>
+    <div class="swap-ask" id="swapAsk" hidden>
+      <p>רוצים להחליף אותיות?</p>
+      <div class="start-row"><button class="big-btn small" id="swapYes">כן, להחליף</button><button class="big-btn small ghost" id="swapNo">לא</button></div>
+    </div>
+    <!-- Golan 20.10: the parent decides whether this round's answers also count in the other games (behind a times-table lock) -->
+    <div class="end-confirm" id="endConfirm" hidden><span class="ec-t">אישור רמת הידע גם ליתר המשחקים</span><span id="ecGate"></span></div>
+    <div class="end-report"><button class="link-btn" id="reportEnd">📋 סיכום להורה</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="report" hidden>
+  <button class="round-btn door-btn" id="doorReport" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearReport" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5f6672" fill-rule="evenodd" d="M10.3 1.5h3.4l.5 2.6a8.3 8.3 0 0 1 2.1.9l2.2-1.5 2.4 2.4-1.5 2.2c.4.7.7 1.4.9 2.1l2.6.5v3.4l-2.6.5a8.3 8.3 0 0 1-.9 2.1l1.5 2.2-2.4 2.4-2.2-1.5c-.7.4-1.4.7-2.1.9l-.5 2.6h-3.4l-.5-2.6a8.3 8.3 0 0 1-2.1-.9l-2.2 1.5-2.4-2.4 1.5-2.2a8.3 8.3 0 0 1-.9-2.1l-2.6-.5v-3.4l2.6-.5c.2-.7.5-1.4.9-2.1L3.3 6.3l2.4-2.4 2.2 1.5c.7-.4 1.4-.7 2.1-.9zM12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg></button>
+  <div class="panel report">
+    <h2>סיכום להורה</h2>
+    <div class="score" id="repScore"></div>
+    <div class="sub" id="repSub"></div>
+    <div class="rep-grid" id="repGrid"></div>
+    <div class="legend"><span><i style="border-color:#2bb673;background:#e3f7ec"></i><span id="gLegOk">אמר נכון</span></span><span><i style="border-color:#ffb020;background:#fff4dc"></i>נסו שוב, נתרגל</span><span><i style="border-color:#d5dde6"></i>עוד לא הופיעה</span></div>
+    <div class="note" id="repNote"></div>
+    <div style="text-align:center;margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="big-btn small" id="closeReport">חזרה</button>
+      <button class="big-btn small ghost" id="resetReport">איפוס הסיכום</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <div class="set-head"><button class="x-close" id="setX" aria-label="סגירה">✕</button><h2>הגדרות (להורה או למורה)</h2><i aria-hidden="true"></i></div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
+    <div id="flForm"></div>
+    <!-- this game's own rows for the adult, shown in the shared form under "רמת קושי" -->
+    <div id="tellExtras" hidden>
+    <div class="how" id="gHow"><b>איך משחקים:</b> הילד אומר בקול את <b>שם</b> האות. אתם מקישים <b>נכון</b> אם אמר נכון, או <b>נסו שוב</b>. בכל מקרה הקריינית אומרת את השם, כך שהילד תמיד שומע את התשובה. אות שעוד לא הצליח חוזרת שוב בהמשך הסבב<br><b>מה נחשב נכון</b> (כמו במבדק של כיתה א'): השם, וגם הצליל של האות (למשל "בּ" במקום "בית"). גם "כף" בלי דגש נכון, וגם ילד שטעה ותיקן את עצמו</div>
+    <div class="row"><span>סבב בדיקה: 22 האותיות</span>
+      <div class="seg" data-key="check">
+        <button data-v="off">כבוי</button><button data-v="on">פועל</button>
+      </div><small class="row-note">כמו המבדק בתחילת כיתה א': כל אות פעם אחת, בלי סופיות</small></div>
+    <div class="row"><span>סיכום להורה</span><button class="link-btn" id="reportSettings">📋 פתיחה</button></div>
+    </div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.27.1/babylonjs.loaders.min.js"></script>
+<script src="trees/trees.js"></script>
+<!-- shared child card (games/shared, owned by the scoring thread). Published copies sit next to index.html. -->
+<script src="../shared/screen.js"></script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/learner.js"></script>
+<script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');
+if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js"><\/script>');</script>
+<script>
+(() => {
+  "use strict";
+  const T0 = performance.now();
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
+  const settings = { quality: "high", pace: "normal", count: "auto", check: "off", stress: "off", perf: "off", voice: "on", letters: [], lettersMode: null, balloon: null };
+  // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
+  // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
+  // Waiting times, reaction times and the hourglass stay in real time.
+  let motionMs = 0;
+  const motionK = () => { try { const l = (window.FL && FL.learner); return l && l.speed ? l.speed("tellme") : 1; } catch (e) { return 1; } };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-tellme-settings") || "{}")); } catch (e) {}
+  // Golan 16.10: round length by age is the default; the old default "6" moves to it once
+  if (!settings.perfOff) { settings.perf = "off"; settings.perfOff = 1; }   // the FPS box is a developer tool: off by default (screens audit ס9)
+  if (!settings.countAuto) { if (settings.count === "6") settings.count = "auto"; settings.countAuto = 1; }
+  // "החלטת מערכת" practises a set sized for this game (advisor ruling literacy/practice-set-size.md, Golan 16.10):
+  // 4 / 5 / 6 letters at ages up to 4 / 5 / 6-7 (5 with no age), at most 1 / 1 / 2 not yet known (ruling sec 8-9);
+  // the shared code picks which letters.
+  if (window.FL && FL.learner && FL.learner.setGame) FL.learner.setGame("tellme", { mode: "name", autoCount: (age) => (age == null ? 5 : age <= 4 ? 4 : age <= 5 ? 5 : 6),
+    unknownMax: (age) => (age != null && age >= 6 ? 2 : 1) });
+  settings.lettersMode = "auto";   // Golan 16.10 (all games): every page load starts in "החלטת מערכת"; a saved manual list is not played
+  // the hub's "סבב בדיקת אותיות" opens this game with ?check=1 (Golan 20.10): ONE 22-letter check round, then back to the
+  // saved setting; the flag leaves the address at once, so a reload does not start another check
+  let checkOnce = false; const checkSaved = settings.check;
+  try { const u = new URL(location.href); if (u.searchParams.get("check") === "1") { checkOnce = true; settings.check = "on"; u.searchParams.delete("check"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch (e) {}
+  const saveSettings = () => { try { localStorage.setItem("fl-tellme-settings", JSON.stringify(checkOnce ? { ...settings, check: checkSaved } : settings)); } catch (e) {} };
+
+  // ---------- content (draft – not yet approved by the language advisor) ----------
+  // Same 27 letters as the car game: 22 letters א-ת without dagesh or shin/sin dots, plus 5 finals. No nikud.
+  const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
+  const FINALS = ["ך", "ם", "ן", "ף", "ץ"];
+  const FINAL_NAME = { "ך": "כף סופית", "ם": "מם סופית", "ן": "נון סופית", "ף": "פא סופית", "ץ": "צדי סופית" };
+  const isFinal = (l) => FINALS.includes(l);
+  const ALL_LETTERS = [...LETTERS, ...FINALS];
+  // Golan 16.10 (all games): "החלטת מערכת" = the system picks the letters every round (lettersMode "auto", no list).
+  // An old saved list means a manual choice; an old empty list (it meant "all letters") now means the system decides.
+  const lettersAuto = () => (settings.lettersMode || ((settings.letters || []).length ? "manual" : "auto")) === "auto";
+  function chosenLetters() { return lettersAuto() ? [] : [...new Set(settings.letters || [])].filter((l) => ALL_LETTERS.includes(l)); }
+  // the pool "החלטת מערכת" works with right now (the child's level pool); without the model: all letters
+  const autoPool = () => { const p = window.FL && FL.learner && FL.learner.autoLetters ? FL.learner.autoLetters("name") : null;
+    const ok = (p || []).filter((l) => ALL_LETTERS.includes(l)); return ok.length ? ok : ALL_LETTERS; };
+  // Same rule as the car game: fewer than 6 chosen -> about 70% from the chosen ones, the rest at random;
+  // the first question of a round always uses a chosen letter; never the same letter twice in a row.
+  function pickLetter(prev, onlyChosen, avoid) {
+    const chosen = chosenLetters();
+    const all = chosen.length ? chosen : autoPool();   // nothing marked (auto, or manual after ניקוי): the system's pool
+    const others = ALL_LETTERS.filter((l) => !all.includes(l));
+    for (let i = 0; i < 20; i++) {
+      const fromChosen = onlyChosen || !chosen.length || chosen.length >= 6 || !others.length || Math.random() < 0.7;
+      const src = fromChosen ? all : others;
+      const t = src[Math.floor(Math.random() * src.length)];
+      if (t !== prev && (!avoid.includes(t) || i > 12)) return t;
+    }
+    return all.find((l) => l !== prev) || all[0];
+  }
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const roundSize = () => (settings.check === "on" ? 22 : settings.count === "auto" ? (window.FL && FL.learner && FL.learner.roundLength ? FL.learner.roundLength() : 7)
+    : ({ "4": 4, "6": 6, "8": 8, "10": 10 }[settings.count] || 7));
+  // Golan 18.10: a practice round runs on the shared golden hourglass, not a letter count; the 22-letter check stays count-based.
+  // Without FL.learner.hourglass: the old count (roundSize).
+  const hgOn = () => settings.check !== "on" && !!(window.FL && FL.learner && FL.learner.hourglass);
+  let hg = null;
+  const hgGet = () => hg || (hg = FL.learner.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden }));
+  const hgStop = () => { if (hg) hg.stop(); };
+
+  // ---------- the record of every answer (for the parent summary) ----------
+  // One row per tap: letter, said right or not yet, ms from "question asked" to the tap, a second try in the
+  // same round, check round. Kept on this device only. The time is only a rough sign: it is the adult's tap.
+  let log = [];
+  try { log = JSON.parse(localStorage.getItem("fl-tellme-log") || "[]"); } catch (e) {}
+  const saveLog = () => { try { localStorage.setItem("fl-tellme-log", JSON.stringify(log.slice(-2000))); } catch (e) {} };
+  // A letter's state = its last FIRST try (a second try in the same round right after hearing it is practice, not knowing).
+  const kidId = () => { try { const p = window.FL && FL.learner && FL.learner.profile(); return p ? p.id : null; } catch (e) { return null; } };
+  const kidName = () => { try { const p = window.FL && FL.learner && FL.learner.profile(); return p && p.name ? p.name + " " : ""; } catch (e) { return ""; } };   // "מירה זיהתה ואמרה 13 מתוך 22" (Golan 20.10)
+  function letterState() {
+    const s = {};
+    const k = kidId(); for (const r of log) if (!r.re && (!r.k || !k || r.k === k)) s[r.l] = r.ok ? "ok" : "later";   // this child's rows (rows from before 20.10 carry no child)
+    return s;
+  }
+
+  // ---------- audio: synthesized tones + Hila's clips, browser voice when a clip is missing ----------
+  let actx = null;
+  function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  const sfx = {
+    good: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.5),   // same as the car game
+    // "נסו שוב" (was "עוד לא", renamed by Golan 15.10) is the adult's call, not the child's wrong choice, so no "oops" sound: one soft, warm note
+    later: () => tone([392, 494], 0.16, "sine", 0.22),
+    tap: () => tone([440], 0.05, "sine", 0.06),
+    whoosh: () => tone([330, 392, 523], 0.07, "sine", 0.08),   // the letter arrives
+  };
+  let heVoice = null;
+  function pickVoice() {
+    if (!("speechSynthesis" in window)) return;
+    const he = speechSynthesis.getVoices().filter((v) => /^he|^iw/i.test(v.lang));
+    heVoice = he.find((v) => /hila/i.test(v.name)) || he.find((v) => !/avri|asaf/i.test(v.name)) || he[0] || null;   // narrator is Hila
+  }
+  if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function pulsePrompt() { const t = $("replay"); t.classList.remove("pulse"); void t.offsetWidth; t.classList.add("pulse"); }
+
+  // Clips from the car game (audio/<id>.mp3). New lines for this game are listed in NEW_LINES; until the voice
+  // thread makes them they stay silent (no browser voice, Golan 15.10).
+  const NEW_LINES = {
+    ins_tellme: "רוֹאִים אוֹת וְאוֹמְרִים אֶת הַשֵּׁם שֶׁלָּהּ.",
+    ins_balloon: "יֵשׁ לִבְחוֹר כַּדּוּר פּוֹרֵחַ.",
+    ask_name: "אֵיךְ קוֹרְאִים לָאוֹת הַזֹּאת?",
+    this_is: "זֹאת הָאוֹת",
+    say_too: "עַכְשָׁו תַּגִּידוּ אַתֶּם!",
+    // more ways to ask, so the question changes from letter to letter (Golan 15.10); sent to the voice thread
+    ask_name2: "וְלָאוֹת הַזֹּאת אֵיךְ קוֹרְאִים?",
+    ask_name3: "וּמָה הַשֵּׁם שֶׁל הָאוֹת הַזּוֹ?",
+    ask_name4: "וּמִי זוֹ?",
+    ins_balloon4: "יֵשׁ לִבְחוֹר אַרְבָּעָה כַּדּוּרִים פּוֹרְחִים.",
+    day_break: "זְמַן לְהִתְמַתֵּחַ! קוּמוּ רֶגַע, וְנַמְשִׁיךְ.",   // 16.10 day length: sent to the voice thread
+    day_end: "שִׂחַקְנוּ יָפֶה הַיּוֹם! אֶפְשָׁר לְסַיֵּם, וְאֶפְשָׁר עוֹד סִבּוּב.",   // Golan 15.10: 4 balloons; sent to the voice thread
+  };
+  const CLIP_OF_TEXT = { "יש! נכון!": "fb_correct", "יש! סיימנו סיבוב": "fb_round_done", "יוצאים לדרך!": "fb_go",
+    "רוצים להחליף אותיות?": "ask_letters", "יופי של בחירה!": "fb_choice1", "בחירה מצוינת!": "fb_choice2",
+    "שם המשחק": "hub_g_together", "הוראות": "ins_tellme", "יש לבחור כדור פורח": "ins_balloon", "איך קוראים?": "ask_name", "זאת האות": "this_is", "עכשיו אתם": "say_too",
+    "ולאות הזאת?": "ask_name2", "מה השם?": "ask_name3", "ומי זו?": "ask_name4", "יש לבחור ארבעה כדורים": "ins_balloon4",
+    "זמן להתמתח! קומו רגע, ונמשיך.": "day_break", "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.": "day_end" };
+  const TEXT_OF_CLIP = Object.fromEntries(Object.entries(NEW_LINES));
+  // Same letter -> clip and name table as the car game (plain ב כ פ ש = בֵּית כַּף פֵּא שִׁין; ה = "הֵיי").
+  const CLIP_OF_LETTER = { "א": "name_alef", "ב": "name_bet", "ג": "name_gimel", "ד": "name_dalet", "ה": "name_he", "ו": "name_vav",
+    "ז": "name_zayin", "ח": "name_het", "ט": "name_tet", "י": "name_yod", "כ": "name_kaf", "ל": "name_lamed", "מ": "name_mem",
+    "נ": "name_nun", "ס": "name_samekh", "ע": "name_ayin", "פ": "name_pe", "צ": "name_tsadi", "ק": "name_qof", "ר": "name_resh",
+    "ש": "name_shin", "ת": "name_tav", "ך": "fin_kaf", "ם": "fin_mem", "ן": "fin_nun", "ף": "fin_pe", "ץ": "fin_tsadi" };
+  const LETTER_NAME = { "א": "אָלֶף", "ב": "בֵּית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵיי", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית",
+    "ט": "טֵית", "י": "יוֹד", "כ": "כַּף", "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פ": "פֵּא",
+    "צ": "צָדִי", "ק": "קוֹף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו",
+    "ך": "כַף סוֹפִית", "ם": "מֵם סוֹפִית", "ן": "נוּן סוֹפִית", "ף": "פֵּא סוֹפִית", "ץ": "צָדִי סוֹפִית" };
+  const CLIP_END = { this_is: 1.0 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (Golan 15.10: gap too long)
+  // Lines that speak to the child alone get a boy and a girl version (<id>_m / <id>_f, by the child's card);
+  // until those are recorded the neutral clip plays. Co-play lines stay plural.
+  const GENDERED = ["say_too", "day_break", "ins_tellme", "ins_balloon4", "ins_balloon", "ask_letters"];   // Golan 16.10: spoken lines to the child follow boy/girl too
+  function preloadGendered() { if (window.FL && FL.learner) GENDERED.forEach((id) => FL.learner.lineIds(id).forEach(getClip)); }
+  function genderedId(id) {
+    if (!id || !GENDERED.includes(id) || !(window.FL && FL.learner)) return id;
+    return FL.learner.lineIds(id).find((x) => { const a = clipCache[x]; return x === id || (a && a._ok && !a._bad); }) || id;
+  }
+  const clipFor = (text) => CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text] || null;
+  const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio("../../voice/audio/" + id + ".mp3"); a.preload = "auto";
+      a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  [...Object.values(CLIP_OF_LETTER), ...Object.values(CLIP_OF_TEXT)].forEach(getClip);
+  function browserText(text) {
+    const id = clipFor(text);
+    if (id && TEXT_OF_CLIP[id]) return TEXT_OF_CLIP[id];
+    if (LETTER_NAME[text]) return LETTER_NAME[text];
+    return text;
+  }
+  // Speak one line; resolves when it has ended (or after a safety timeout). Pausing the game pauses the clip,
+  // so "ended" waits for the pause too.
+  let voiceToken = 0;
+  // A line the child asked for with 🔊 always plays to the end; any other line waits for it (Golan 15.10, all games).
+  let spkLine = null;
+  function speakerSay(text, rate) {
+    const p = speak(text, rate, true); spkLine = p;
+    p.then(() => { if (spkLine === p) spkLine = null; });
+    return p;
+  }
+  // Golan 16.10 (all games): no voice while settings is open. A line asked for then waits until it closes.
+  let settingsWaiters = [];
+  const settingsOpen = () => !$("settings").hidden;
+  function speak(text, rate = 0.8, fromSpeaker = false, fallback = null) {
+    if (settingsOpen()) { const tok = voiceToken; return new Promise((r) => settingsWaiters.push(r)).then(() => (tok === voiceToken ? speak(text, rate, fromSpeaker, fallback) : undefined)); }
+    if (!fromSpeaker && spkLine) { const tok = voiceToken; return spkLine.then(() => (tok === voiceToken ? speak(text, rate, false, fallback) : undefined)); }
+    return new Promise((resolve) => {
+      if (settings.voice !== "on") { pulsePrompt(); return later(resolve, 700); }
+      const my = voiceToken;
+      let done = false; const finish = () => { if (!done) { done = true; resolve(); } };
+      const id = genderedId(clipFor(text)), a = id && getClip(id);
+      // Golan (15.10): the phone's own voice is a man's voice, so it is never used. A line without a clip stays
+      // silent: the question line pulses instead, and the game goes on after a short beat.
+      const viaBrowser = () => {
+        if (fallback && my === voiceToken) return speak(fallback, rate, fromSpeaker).then(finish);   // a question not recorded yet: the recorded one
+        pulsePrompt(); later(finish, 600);
+      };
+      if (!a || a._bad) return viaBrowser();
+      try {
+        if (clipNow && clipNow !== a) clipNow.pause();
+        a.currentTime = 0; a.playbackRate = rate <= 0.6 ? 0.85 : 1;   // the replay hint plays a little slower
+        clipNow = a;
+        a.onended = () => { if (my === voiceToken) finish(); };
+        // some clips end with a long silence: stop at the end of the speech so the next word follows quickly
+        a._endT = CLIP_END[id] ? later(() => { if (my === voiceToken && !done) { a.pause(); finish(); } }, CLIP_END[id] / a.playbackRate * 1000) : null;
+        a._endMs = a._endT ? a._endT.left : 0;
+        const p = a.play(); if (p && p.catch) p.catch(() => { if (!done) viaBrowser(); });
+        a._safeT = later(finish, 8000);
+      } catch (e) { viaBrowser(); }
+    });
+  }
+  // A short pause after feedback, as in the car game ("יש! נכון!" is never cut off; the next line waits 0.45 s).
+  const gap = (ms) => new Promise((r) => later(r, ms));
+  function hush() {
+    voiceToken++; spkLine = null;
+    if (clipNow) clipNow.pause();
+    try { speechSynthesis.cancel(); } catch (e) {}
+  }
+  const busy = () => (clipNow && !clipNow.paused && !clipNow.ended) || ("speechSynthesis" in window && speechSynthesis.speaking);
+  const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- game clock: timers that stop while the game is paused ----------
+  const timers = [];
+  function later(fn, ms) { const t = { left: ms, fn }; timers.push(t); return t; }
+  function tickTimers(dtMs) {
+    for (let i = 0; i < timers.length; i++) {
+      const t = timers[i]; t.left -= dtMs;
+      if (t.left <= 0) { timers.splice(i--, 1); try { t.fn(); } catch (e) { console.error(e); } }
+    }
+  }
+
+  // ---------- engine & scene ----------
+  const canvas = $("game");
+  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false, antialias: true, powerPreference: "high-performance" }, false);
+  // render size: FL.screen (DPR cap 2 + pixel budget, screens standard sec 6), re-applied on every screen change
+  const applyQuality = FL.screen.attachEngine(engine, () => settings.quality);
+
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = BABYLON.Color4.FromHexString("#BFE6FFFF");
+  scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+  scene.fogColor = BABYLON.Color3.FromHexString("#BFE6FF");
+  scene.fogStart = 45; scene.fogEnd = 130;
+  scene.skipPointerMovePicking = true;
+
+  const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0.2, 1, -0.3), scene);
+  hemi.intensity = 0.85; hemi.groundColor = BABYLON.Color3.FromHexString("#7a8fa6");
+  const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.4, -1, 0.5), scene);
+  sun.intensity = 0.7;
+
+  const matCache = {};
+  function mat(hex, emissive) {
+    const key = hex + (emissive || "");
+    if (matCache[key]) return matCache[key];
+    const m = new BABYLON.StandardMaterial("m" + key, scene);
+    m.diffuseColor = BABYLON.Color3.FromHexString(hex);
+    m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    if (emissive) m.emissiveColor = BABYLON.Color3.FromHexString(emissive);
+    m.freeze();
+    return (matCache[key] = m);
+  }
+
+  // The "rig" is the point the balloon, the letter and the camera move with. It flies forward slowly.
+  const rig = { x: 0, y: 0, z: 0 };
+  const CRUISE_Y = 7;
+  const LEAVE_S = 1.4;   // the letter shrinks away in 1.4 s (Golan 20.10: slower)
+  const BALLOON_X = -0.6;   // on the home island, before take-off
+  const world = new BABYLON.TransformNode("world", scene);
+  const sea = BABYLON.MeshBuilder.CreateGround("sea", { width: 400, height: 400 }, scene);
+  sea.material = mat("#8FD3EC"); sea.parent = world; sea.position.set(0, -26, 120);
+
+  // Floating islands with pine trees and grass (the balloon-islands world, world-directions.md).
+  const recycled = [];
+  // Wind: trees and grass lean gently, each at its own moment (as in the car game).
+  const swaying = [];
+  function addSway(node, amp, speed) { node.metadata = { amp, speed, ph: Math.random() * 6.3 }; swaying.push(node); }
+  const SPAN = 200;
+  const pineFallback = (() => {
+    const trunk = BABYLON.MeshBuilder.CreateCylinder("trunk", { diameter: 0.5, height: 1.6, tessellation: 6 }, scene);
+    trunk.material = mat("#8A5A3B"); trunk.isVisible = false;
+    const crown = BABYLON.MeshBuilder.CreateCylinder("crown", { diameterTop: 0, diameterBottom: 2.6, height: 3.4, tessellation: 7 }, scene);
+    crown.material = mat("#3E9E57"); crown.isVisible = false;
+    return { trunk, crown };
+  })();
+  const islandTop = BABYLON.MeshBuilder.CreateCylinder("iTop", { diameterTop: 2, diameterBottom: 1.9, height: 0.7, tessellation: 9 }, scene);
+  islandTop.material = mat("#8BD07A"); islandTop.isVisible = false;
+  const islandRock = BABYLON.MeshBuilder.CreateCylinder("iRock", { diameterTop: 1.9, diameterBottom: 0, height: 2.2, tessellation: 9 }, scene);
+  islandRock.material = mat("#B5875E"); islandRock.isVisible = false;
+  const islands = [];
+  let pineBases = null, grassBases = null;
+  function dressIsland(isl) {
+    for (const t of isl.trees) t.dispose(); isl.trees = [];
+    const n = Math.max(2, Math.round(isl.size * 1.1));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * isl.size * 0.38;
+      const holder = new BABYLON.TransformNode("tree", scene); holder.parent = isl.root;
+      holder.position.set(Math.cos(a) * r, 0.35, Math.sin(a) * r);
+      const k = (0.7 + Math.random() * 0.5) / isl.size * 1.0; holder.scaling.set(k, k, k);
+      if (pineBases) { const p = pineBases[Math.floor(Math.random() * pineBases.length)].createInstance("pine"); p.parent = holder; p.rotation.y = Math.random() * 6.3; }
+      else { const t = pineFallback.trunk.createInstance("t"); t.parent = holder; t.position.y = 0.8; const c = pineFallback.crown.createInstance("c"); c.parent = holder; c.position.y = 2.9; }
+      addSway(holder, 0.03, 0.9 + Math.random() * 0.5);
+      isl.trees.push(holder);
+      if (grassBases) for (let g = 0; g < 3; g++) {
+        const gg = grassBases[g % 2].createInstance("grass"); gg.parent = isl.root;
+        const ga = Math.random() * 6.3, gr = Math.random() * 0.45 * 1;
+        const gk = 1.4 / isl.size; gg.scaling.set(gk, gk, gk);
+        gg.position.set(Math.cos(ga) * gr, 0.35, Math.sin(ga) * gr); addSway(gg, 0.14, 2.2 + Math.random());
+        isl.trees.push(gg);
+      }
+    }
+  }
+  function addIsland(x, y, z, size, extra) {
+    const root = new BABYLON.TransformNode("island", scene);
+    const top = islandTop.createInstance("top"); top.parent = root;
+    const rock = islandRock.createInstance("rock"); rock.parent = root; rock.position.y = -1.45;
+    root.scaling.set(size, size * 0.8, size);
+    root.position.set(x, y, z); root.rotation.y = Math.random() * 6.3;
+    const isl = { root, size, trees: [], extra };
+    dressIsland(isl);
+    islands.push(isl); recycled.push({ m: root, span: SPAN, extra, isl });
+    return isl;
+  }
+  for (let i = 0; i < 26; i++) {
+    const side = i % 2 ? 1 : -1;
+    addIsland(side * (12 + Math.random() * 34), -6 + Math.random() * 14, Math.random() * SPAN, 2.5 + Math.random() * 4, false);
+  }
+  // the island the balloon takes off from
+  const homeIsland = addIsland(BALLOON_X, -2.75, 0, 3.2, false);
+  recycled.splice(recycled.findIndex((r) => r.isl === homeIsland), 1);   // it stays behind once we fly
+
+  // Clouds: soft white puffs, some below and some above the balloon.
+  const puff = BABYLON.MeshBuilder.CreateIcoSphere("puff", { radius: 1, subdivisions: 2, flat: true }, scene);
+  puff.material = mat("#FFFFFF", "#C9D6E2"); puff.isVisible = false;
+  function addCloud(x, y, z, k) {
+    const root = new BABYLON.TransformNode("cloud", scene);
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const p = puff.createInstance("p"); p.parent = root;
+      p.position.set((i - (n - 1) / 2) * 1.3 + Math.random() * 0.4, Math.random() * 0.5, Math.random() * 0.8);
+      const s = 0.9 + Math.random() * 0.7; p.scaling.set(s * 1.2, s * 0.8, s);
+    }
+    root.scaling.set(k, k, k); root.position.set(x, y, z);
+    recycled.push({ m: root, span: SPAN });
+  }
+  for (let i = 0; i < 28; i++) { const side = i % 2 ? 1 : -1; addCloud(side * (11 + Math.random() * 40), -4 + Math.random() * 22, Math.random() * SPAN, 0.9 + Math.random() * 1.6); }
+
+  async function loadModel(data) {
+    const r = await BABYLON.SceneLoader.ImportMeshAsync("", "", data, scene, null, ".glb");
+    const m = r.meshes.find((x) => x.getTotalVertices() > 0);
+    m.setParent(null); m.bakeCurrentTransformIntoVertices(); r.meshes[0].dispose();
+    m.isVisible = false; return m;
+  }
+  (async () => {
+    const T = window.TREE_MODELS;
+    if (!T || !BABYLON.SceneLoader) return;
+    try {
+      pineBases = [await loadModel(T["pine-tall"]), await loadModel(T["pine-short"])];
+      grassBases = [await loadModel(T.grass), await loadModel(T["grass-small"])];
+      for (let i = swaying.length - 1; i >= 0; i--) swaying.splice(i, 1);
+      for (const isl of islands) dressIsland(isl);
+    } catch (e) { console.warn("pine trees", e); }
+  })();
+
+  // Stress mode: extra islands and dense high-poly bushes, to bring the scene near the spec budget (~100k triangles).
+  let bushBase = null;
+  function applyStress() {
+    const want = settings.stress === "on";
+    const extras = recycled.filter((r) => r.extra);
+    if (want && !extras.length) {
+      for (let i = 0; i < 24; i++) { const side = i % 2 ? 1 : -1; addIsland(side * (8 + Math.random() * 30), -8 + Math.random() * 14, Math.random() * SPAN, 2 + Math.random() * 3, true); }
+      if (!bushBase) { bushBase = BABYLON.MeshBuilder.CreateIcoSphere("bush", { radius: 0.9, subdivisions: 10 }, scene); bushBase.material = mat("#4FAF5A"); bushBase.isVisible = false; }
+      for (let i = 0; i < 48; i++) {
+        const b = bushBase.createInstance("b"); const side = i % 2 ? 1 : -1;
+        b.position.set(side * (5 + Math.random() * 12), -3 + Math.random() * 6, Math.random() * SPAN);
+        recycled.push({ m: b, span: SPAN, extra: true });
+      }
+    }
+    if (!want && extras.length) for (const r of extras) {
+      r.m.dispose(); recycled.splice(recycled.indexOf(r), 1);
+      if (r.isl) islands.splice(islands.indexOf(r.isl), 1);
+    }
+  }
+
+  // ---------- the balloon (simple low-poly placeholder; Golan will draw the real characters) ----------
+  // The same 9 balloons as the detective game and the letter circle (Golan 16.10: one set for all games).
+  // One painter draws each pattern for the picker picture ("flat") and for the 3D skin ("uv"). Copied from games/letter-recognition/detective.
+  const BALLOONS = [
+    { id: "gores", c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { id: "dots", c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { id: "zigzag", c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { id: "stars", c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { id: "checks", c: ["#16B6A8", "#7C5CFF"], pat: "checks", shape: "wide", basket: "#7a5230" },
+    { id: "rings", c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { id: "hearts", c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { id: "waves", c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { id: "rainbow", c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
+  ];
+  const PICK_SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+  function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
+  // flat: a W x H picture of the balloon front (the caller clips it to the balloon outline). uv: W x H skin, x = around, y = top to bottom.
+  function paintBalloon(ctx, W, H, d, uv) {
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
+    const S = uv ? H / 256 : W / 100;   // size unit
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = uv ? (d.pat === "rainbow" ? 12 : 16) : (d.pat === "rainbow" ? 6 : 8);
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = cols[i % cols.length];
+        if (uv) { ctx.fillRect(i * W / n, 0, W / n + 1, H); continue; }
+        // flat: curved gores, wide in the middle and meeting at the top and bottom
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill();
+      }
+    } else if (d.pat === "dots") grid(uv ? W / 14 : W / 4, uv ? H / 6 : H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, (uv ? 11 : 7) * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => starPath(ctx, x, y, (uv ? 16 : 10) * S));
+    else if (d.pat === "hearts") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => heartPath(ctx, x, y, (uv ? 13 : 8) * S));
+    else if (d.pat === "checks") { const n = uv ? 16 : 6, m = uv ? 8 : 7; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) if ((i + j) % 2) ctx.fillRect(i * W / n, j * H / m, W / n + 1, H / m + 1); }
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
+    else if (d.pat === "zigzag" || d.pat === "waves") {
+      const teeth = uv ? 16 : 5, amp = 9 * S;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
+        ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
+          const yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S; ctx.lineJoin = "round"; ctx.stroke();
+      }
+    }
+  }
+  const SHAPE = { round: [1, 1], tall: [0.8, 1.15], wide: [1.2, 0.86] };   // [width, height]
+  const balloon = new BABYLON.TransformNode("balloon", scene);
+  const envelopeBase = [[0.32, 0], [0.75, 0.45], [1.4, 1.3], [1.85, 2.3], [1.95, 3.0], [1.75, 3.7], [1.25, 4.25], [0.6, 4.55], [0.01, 4.62]];
+  function buildEnvelope(scheme, node = balloon) {
+    const md = node.metadata || (node.metadata = { parts: [] });
+    md.parts.forEach((m) => m.dispose(false, false)); md.parts = [];
+    const decoParts = md.parts;
+    const [sw, sh] = SHAPE[scheme.shape] || SHAPE.round, top = 4.62 * sh;
+    const shape = envelopeBase.map(([x, y], i) => new BABYLON.Vector3(i ? x * sw : x, y * sh, 0));
+    const envelope = BABYLON.MeshBuilder.CreateLathe("envelope", { shape, tessellation: 24, cap: BABYLON.Mesh.NO_CAP }, scene);
+    const tex = md.tex || (md.tex = new BABYLON.DynamicTexture("envTex" + node.name, { width: 512, height: 256 }, scene, true));
+    paintBalloon(tex.getContext(), 512, 256, scheme, true); tex.update(true);
+    const m = md.mat || (md.mat = new BABYLON.StandardMaterial("envMat" + node.name, scene));
+    m.diffuseTexture = tex; m.specularColor = new BABYLON.Color3(0.08, 0.08, 0.08); m.backFaceCulling = false;
+    envelope.material = m; envelope.parent = node; envelope.position.y = 0.4; decoParts.push(envelope);
+    if (scheme.flag) {
+      const pole = BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07, height: 0.9, tessellation: 5 }, scene);
+      pole.material = mat("#5B4632"); pole.parent = node; pole.position.y = 0.4 + top + 0.4; decoParts.push(pole);
+      const flag = BABYLON.MeshBuilder.CreateDisc("flag", { radius: 0.32, tessellation: 3, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+      flag.material = mat(scheme.flag); flag.parent = node; flag.position.set(0.3, 0.4 + top + 0.62, 0); flag.scaling.set(1.1, 0.7, 1); decoParts.push(flag);
+    }
+    if (md.basket) md.basket.diffuseColor = BABYLON.Color3.FromHexString(scheme.basket || "#A8743F");
+  }
+  function buildBasket(node) {
+    const basket = BABYLON.MeshBuilder.CreateBox("basket", { width: 0.9, height: 0.65, depth: 0.9 }, scene);
+    basket.material = mat("#A8743F"); basket.parent = node; basket.position.y = -1.15;
+    (node.metadata || (node.metadata = { parts: [] })).basket = basket.material;
+    const rim = BABYLON.MeshBuilder.CreateBox("rim", { width: 1.0, height: 0.12, depth: 1.0 }, scene);
+    rim.material = mat("#7A4E27"); rim.parent = node; rim.position.y = -0.82;
+    for (const [x, z] of [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]]) {
+      const rope = BABYLON.MeshBuilder.CreateCylinder("rope", { diameter: 0.04, height: 1.35, tessellation: 4 }, scene);
+      rope.material = mat("#5B4632"); rope.parent = node; rope.position.set(x * 0.7, -0.15, z * 0.7);
+    }
+  }
+  buildBasket(balloon);
+  // Golan 15.10: the child picks 4 balloons, and all 4 drift freely around the letter, nearer and farther.
+  // balloon (the first pick) takes off from the island; the other 3 rise with it.
+  const flyers = [balloon];
+  for (let i = 0; i < 3; i++) { const n = new BABYLON.TransformNode("flyer" + i, scene); buildBasket(n); n.setEnabled(false); flyers.push(n); }
+  const flame = BABYLON.MeshBuilder.CreateCylinder("flame", { diameterTop: 0, diameterBottom: 0.22, height: 0.45, tessellation: 6 }, scene);
+  flame.material = mat("#FFB020", "#FF8A3D"); flame.parent = balloon; flame.position.y = 0.05; flame.setEnabled(false);
+  const DEFAULT_FOUR = ["gores", "dots", "stars", "rainbow"];
+  function useBalloons(ids) {
+    ids = (ids || []).filter((id) => BALLOONS.some((b) => b.id === id));
+    for (const d of DEFAULT_FOUR) if (ids.length < 4 && !ids.includes(d)) ids.push(d);
+    ids.slice(0, 4).forEach((id, i) => buildEnvelope(BALLOONS.find((b) => b.id === id), flyers[i]));
+    settings.balloons = ids.slice(0, 4);
+  }
+  useBalloons(settings.balloons || (settings.balloon ? [settings.balloon] : DEFAULT_FOUR));
+  // Each balloon drifts on its own slow path around the letter (x, y, z from the rig; amplitudes; speeds).
+  // All paths stay behind the letter, so the letter hides a balloon passing behind it and never the other way.
+  const WANDER = {
+    wide: [
+      { c: [-6, 0, 5.5], a: [2.5, 1.2, 2.5], w: [0.17, 0.31, 0.12], p: 0 },
+      { c: [4.5, 2.0, 9], a: [3, 1.2, 4], w: [0.13, 0.27, 0.15], p: 1.7 },
+      { c: [-1, -1.5, 12], a: [5, 1, 4], w: [0.11, 0.23, 0.09], p: 3.1 },
+      { c: [1.5, 2.2, 8], a: [6, 1.2, 3], w: [0.15, 0.29, 0.17], p: 4.4 } ],
+    tall: [
+      { c: [-1.2, -6.6, 3], a: [1.2, 0.7, 1.2], w: [0.17, 0.31, 0.12], p: 0 },
+      { c: [1.3, -5.6, 5], a: [1.4, 0.9, 2], w: [0.13, 0.27, 0.15], p: 1.7 },
+      { c: [0.8, 5, 8], a: [2, 0.8, 2.5], w: [0.11, 0.23, 0.09], p: 3.1 },
+      { c: [-0.5, -1.5, 7], a: [2.5, 2.5, 2.5], w: [0.15, 0.29, 0.17], p: 4.4 } ],
+  };
+  // Golan 20.10: the four balloons never hide one another, rising at the start and drifting after: on screen two envelopes
+  // may overlap by at most 10% of the smaller one. The farther balloon gets a soft nudge (sep), which eases back when free.
+  const sep = flyers.map(() => new BABYLON.Vector3(0, 0, 0));
+  function screenBox(f) {
+    if (!f.isEnabled() || !(f.metadata && f.metadata.parts && f.metadata.parts.length)) return null;
+    const { min, max } = f.getHierarchyBoundingVectors(true, (m) => m.isEnabled() && m.name !== "flame");   // the whole balloon: envelope, ropes, basket
+    const W = engine.getRenderWidth(), H = engine.getRenderHeight(), vp = cam.viewport.toGlobal(W, H), tm = cam.getViewMatrix().multiply(cam.getProjectionMatrix());
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let c = 0; c < 8; c++) { const v = new BABYLON.Vector3(c & 1 ? max.x : min.x, c & 2 ? max.y : min.y, c & 4 ? max.z : min.z), q = BABYLON.Vector3.Project(v, BABYLON.Matrix.IdentityReadOnly, tm, vp);
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const d = BABYLON.Vector3.Distance(cam.position, min.add(max).scale(0.5));
+    return { x0, y0, x1, y1, d, wpp: (2 * d * Math.tan(cam.fov / 2)) / H };
+  }
+  // Golan 20.10 (2): no shaking. Two balloons that come near each other on screen swerve away softly: each has a small
+  // side offset (sep) with its own speed (sepV); nearness pushes the speed, a damper smooths it, and a weak spring brings
+  // the balloon back to its path when it is free. Coming closer also turns the farther one back along its path.
+  const kT = flyers.map(() => 0), spd = flyers.map(() => 1), dirT = flyers.map(() => 1), cool = flyers.map(() => 0);
+  const sepV = flyers.map(() => new BABYLON.Vector3(0, 0, 0));
+  function keepApart(dt) {
+    if (!(dt > 0)) return;
+    const bx = flyers.map(screenBox);
+    for (let i = 0; i < cool.length; i++) cool[i] = Math.max(0, cool[i] - dt);
+    const acc = flyers.map(() => [0, 0]);
+    for (let i = 0; i < bx.length; i++) for (let j = i + 1; j < bx.length; j++) {
+      const a = bx[i], b = bx[j]; if (!a || !b) continue;
+      const m = 0.18 * Math.min(a.x1 - a.x0, a.y1 - a.y0, b.x1 - b.x0, b.y1 - b.y0);   // start swerving a little before they touch
+      const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) + m, iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) + m; if (ix <= 0 || iy <= 0) continue;
+      let ux = (b.x0 + b.x1 - a.x0 - a.x1) / 2, uy = (b.y0 + b.y1 - a.y0 - a.y1) / 2; const n = Math.hypot(ux, uy) || 1; ux /= n; uy /= n;
+      const pen = Math.min(ix, iy), far = a.d > b.d ? j : i, wf = 0.65;   // the farther one swerves more
+      for (const [k, sgn, w, B] of [[i, -1, far === i ? wf : 1 - wf, a], [j, 1, far === j ? wf : 1 - wf, b]]) {
+        const f = pen * (1 + pen / m) * w * B.wpp * 140;   // grows fast when they get really close (the rise at the start)
+        acc[k][0] += sgn * ux * f; acc[k][1] -= sgn * uy * f;   // screen y runs down
+      }
+      if (pen > 1.5 * m && cool[far] === 0) { dirT[far] = -dirT[far]; cool[far] = 3; }   // really close: the farther one also turns back
+    }
+    const damp = Math.exp(-6 * dt);   // well damped: no swinging back and forth
+    flyers.forEach((f, k) => {
+      const o = sep[k], v = sepV[k];
+      v.x = (v.x + (acc[k][0] - 0.6 * o.x) * dt) * damp; v.y = (v.y + (acc[k][1] - 0.6 * o.y) * dt) * damp;
+      o.x += v.x * dt; o.y += v.y * dt;
+    });
+  }
+
+
+  // Layout: the letter is the big thing in the middle; the balloon flies beside it (left on a wide screen,
+  // low on the left on a tall phone), so it never hides the letter.
+  const LAYOUT = {
+    wide: { bal: [-4.9, -0.6, 4.5], balS: 0.8, card: [0.6, 1.25, 1.2], cardS: 1.7, cam: [0, 1.5, -8.5], look: [0, 1.6, 6] },
+    tall: { bal: [-1.6, -5.2, 5], balS: 0.95, card: [0.15, 1.9, 1.2], cardS: 1.75, cam: [0, 0.9, -8.5], look: [0, 0.5, 6] },
+  };
+  const lay = () => (portrait ? LAYOUT.tall : LAYOUT.wide);
+
+  // ---------- the letter card (drawn by the browser into a texture, like the gate signs) ----------
+  const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const card = new BABYLON.TransformNode("card", scene);
+  const cardSign = new BABYLON.TransformNode("cardSign", scene); cardSign.parent = card;
+  const board = BABYLON.MeshBuilder.CreatePlane("board", { width: 3.0, height: 2.25 }, scene); board.parent = cardSign;
+  const cardTex = new BABYLON.DynamicTexture("cardTex", { width: 512, height: 384 }, scene, true); cardTex.hasAlpha = true;
+  const cardMat = new BABYLON.StandardMaterial("cardMat", scene);
+  cardMat.diffuseTexture = cardTex; cardMat.emissiveColor = new BABYLON.Color3(0.6, 0.6, 0.6); cardMat.specularColor = BABYLON.Color3.Black();
+  cardMat.useAlphaFromDiffuseTexture = true; board.material = cardMat;
+  board.renderingGroupId = 1;   // Golan 20.10: from the moment it shows, the letter is always in front, over the balloons
+  // a little cloud carries the letter
+  const cardCloud = new BABYLON.TransformNode("cardCloud", scene); cardCloud.parent = cardSign; cardCloud.position.set(0, -1.45, 0.7);   // behind the card: the whole letter shows in front of its cloud (Golan 20.10)
+  [[-0.9, 0, 0.6], [0, -0.12, 0.75], [0.9, 0, 0.6], [-0.45, 0.08, 0.45], [0.45, 0.08, 0.45]].forEach(([x, y, s]) => {
+    const p = puff.createInstance("cp"); p.parent = cardCloud; p.position.set(x, y, 0); p.scaling.set(s * 1.25, s * 0.7, s * 0.8);
+  });
+  card.setEnabled(false);
+  const CARD_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
+  let cardColor = CARD_COLORS[0];
+  try { document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אךןץ").then(() => { if (state.q) drawCard(state.q.letter, state.cardGlow); }); } catch (e) {}
+  function drawCard(text, glow) {
+    const ctx = cardTex.getContext();
+    const W = 512, H = 384, r = 56;
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.arcTo(W, 0, W, H, r); ctx.arcTo(W, H, 0, H, r); ctx.arcTo(0, H, 0, 0, r); ctx.arcTo(0, 0, W, 0, r); ctx.closePath();
+    ctx.fillStyle = "#ffffff"; ctx.fill();
+    ctx.lineWidth = glow ? 30 : 18; ctx.strokeStyle = glow ? "#FFC400" : cardColor; ctx.stroke();
+    ctx.fillStyle = "#1d2a3a";
+    // Every letter stands on the same baseline at the same size, so all the tops are level (Golan, 15.10:
+    // a final letter must not sit higher than the others). Room is kept below the line for the tails of
+    // ך ן ף ץ, which are stretched 2.2x as in the car game, so ן is not ו and ך is not ר.
+    const TAIL = 2.2, room = H - 50;
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
+    let px = 320; ctx.font = `800 ${px}px ${FONT}`;
+    const fit = () => { const up = ctx.measureText("ל").actualBoundingBoxAscent, down = ctx.measureText("ך").actualBoundingBoxDescent * TAIL; return [up, down]; };
+    let [up, down] = fit();
+    if (up + down > room) { px = Math.floor(px * room / (up + down)); ctx.font = `800 ${px}px ${FONT}`; [up, down] = fit(); }
+    const base = Math.round((H - (up + down)) / 2 + up);
+    if (isFinal(text)) {
+      const m = ctx.measureText(text), a = Math.ceil(m.actualBoundingBoxAscent) + 6, d = Math.ceil(m.actualBoundingBoxDescent) + 8;
+      const off = document.createElement("canvas"); off.width = W; off.height = a + d;
+      const o = off.getContext("2d"); o.font = ctx.font; o.fillStyle = ctx.fillStyle; o.textAlign = "center"; o.textBaseline = "alphabetic"; o.direction = "rtl";
+      o.fillText(text, W / 2, a);
+      ctx.save(); ctx.strokeStyle = "#8fb3d9"; ctx.lineWidth = 8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(64, base + 4); ctx.lineTo(W - 64, base + 4); ctx.stroke(); ctx.restore();
+      ctx.drawImage(off, 0, 0, W, a, 0, base - a, W, a);                 // the part above the line, unchanged
+      ctx.drawImage(off, 0, a, W, d, 0, base, W, d * TAIL);              // the tail, stretched down
+    } else ctx.fillText(text, W / 2, base);
+    cardTex.update(true);
+  }
+
+  // ---------- confetti (only after "נכון") ----------
+  const dotTex = new BABYLON.DynamicTexture("dot", { width: 32, height: 32 }, scene, false);
+  { const c = dotTex.getContext(); c.fillStyle = "#fff"; c.fillRect(6, 6, 20, 20); dotTex.update(); dotTex.hasAlpha = true; }
+  const confetti = new BABYLON.ParticleSystem("confetti", 260, scene);
+  confetti.particleTexture = dotTex;
+  confetti.emitter = new BABYLON.Vector3(0, 3, 0);
+  confetti.minEmitBox = new BABYLON.Vector3(-1.2, 0, 0); confetti.maxEmitBox = new BABYLON.Vector3(1.2, 0.5, 0);
+  confetti.color1 = new BABYLON.Color4(1, 0.35, 0.4, 1); confetti.color2 = new BABYLON.Color4(0.3, 0.6, 1, 1);
+  confetti.colorDead = new BABYLON.Color4(1, 0.85, 0.2, 0);
+  confetti.minSize = 0.12; confetti.maxSize = 0.28; confetti.minLifeTime = 0.8; confetti.maxLifeTime = 1.5;
+  confetti.emitRate = 0; confetti.manualEmitCount = 0;
+  confetti.direction1 = new BABYLON.Vector3(-3, 4, 3); confetti.direction2 = new BABYLON.Vector3(3, 7, 7);
+  confetti.gravity = new BABYLON.Vector3(0, -12, 0);
+  confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6;
+  confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+  confetti.start();
+
+  // ---------- camera ----------
+  const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 2, -9), scene);
+  cam.minZ = 0.3; cam.maxZ = 200;
+  cam.inputs.clear();
+  let portrait = false;
+  function fitCamera() {
+    // screens standard sec 5: one continuous rule, no jump between standing and lying. At least the approved
+    // landscape height (0.95 vertical) and the approved portrait width (1.05 horizontal) are always seen.
+    portrait = canvas.clientWidth < canvas.clientHeight;
+    const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    cam.fovMode = BABYLON.Camera.FOVMODE_VERTICAL_FIXED;
+    cam.fov = Math.min(1.9, Math.max(0.95, 2 * Math.atan(Math.tan(1.05 / 2) / aspect)));
+  }
+
+  // ---------- game state ----------
+  // modes: intro (start screen), pick, ready (3-2-1), play, end, paused
+  const state = { mode: "intro", q: null, qIndex: 0, queue: [], stars: 0, roundStart: 0, open: false, cardAnim: null, cardGlow: false,
+    askedAt: 0, nagAt: 0, nags: 0, flow: 0, roundLater: 0, perfectRounds: 0, climb: 0, results: [] };
+  // Pace: how fast the letter comes in, how long to wait before the gentle reminder, and how long the child gets
+  // to say the name after hearing it. The slower pace gives more time everywhere.
+  // The reminder comes after about 5 s (the "4-second time delay" teaching method waits 4 s before helping).
+  const pace = () => { const k = 1;   // the speed slider acts on the frame time (motionK, Golan 19.10) //   // Golan 19.10: the shared speed slider (−30%..+30% around the challenge level) instead of slow/normal/fast
+    return { arrive: 2.2 / k, nag: 5000 / k, repeat: 3000 / k, cruise: 3.2 * k }; };
+
+  function renderDots() {
+    $("dots").style.display = hgOn() ? "none" : "";   // the dots counted the old round length (hidden with the hourglass, Golan 18.10)
+    const n = state.queue.length;
+    $("dots").classList.toggle("many", n > 12);
+    $("dots").innerHTML = state.results.map((r) => `<span class="${r === "ok" ? "done" : r === "later" ? "later" : ""}"></span>`).join("");
+  }
+  function showToast(text, kind, starKind) {
+    // a correct answer: only the star it earned (gold first try, silver after "נסו שוב"), no "יֵשׁ נָכוֹן" text; the voice still says it (Golan 18.10)
+    const t = $("toast"); t.textContent = kind === "good" ? "" : text; t.classList.toggle("good", kind === "good");
+    t.classList.toggle("pinned", kind === "good"); placeToast._s = null; if (kind !== "good") { t.style.left = ""; t.style.top = ""; }
+    if (kind === "good") { const c = document.createElement("span"); c.className = "chk";
+      c.innerHTML = window.FL && FL.learner && FL.learner.starSvg ? FL.learner.starSvg(starKind || "gold", "1em")
+        : '<svg viewBox="0 0 100 100" width="1em" height="1em"><polyline points="8,4 40,86 74,60" fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      t.append(c); }
+    t.classList.add("show");
+    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove("show"), kind === "good" ? 2400 : 900);
+  }
+  // Keeps the star on the card's top-left corner, half on it and half outside, the same size as in the car game:
+  // 40% of the card's width on screen (min 27px), so it shrinks with the card as it flies away (Golan 18.10).
+  const _top = new BABYLON.Vector3(0, 0, 0), _side = new BABYLON.Vector3(0, 0, 0);
+  function placeToast() {
+    const t = $("toast"); if (!t.classList.contains("pinned") || !card.isEnabled()) return;
+    board.computeWorldMatrix(true);
+    _top.set(-1.37, 1.0, 0); _side.set(_top.x + 1.2, _top.y, 0);
+    const W = engine.getRenderWidth(), H = engine.getRenderHeight(), vp = cam.viewport.toGlobal(W, H), M = scene.getTransformMatrix(), wm = board.getWorldMatrix();
+    const p = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(_top, wm), BABYLON.Matrix.Identity(), M, vp);
+    const q = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(_side, wm), BABYLON.Matrix.Identity(), M, vp);
+    const r = canvas.getBoundingClientRect(), box = (t.offsetParent || document.body).getBoundingClientRect();
+    const c = t.querySelector(".chk"); if (c) c.style.fontSize = Math.max(27, Math.round(Math.hypot(q.x - p.x, q.y - p.y) * r.width / W)) + "px";
+    const x = r.left - box.left + p.x * r.width / W, y = r.top - box.top + p.y * r.height / H;
+    // smoothed by time and snapped to whole pixels, so the star does not tremble (as in the car game)
+    const s = placeToast._s || (placeToast._s = { x, y });
+    const k = 1 - Math.exp(-26 * Math.min(engine.getDeltaTime() / 1000, 0.1));
+    s.x += (x - s.x) * k; s.y += (y - s.y) * k;
+    t.style.left = Math.round(s.x) + "px"; t.style.top = Math.round(s.y) + "px";
+  }
+
+  function setJudge(on) {
+    state.open = on; $("said").disabled = !on; $("notYet").disabled = !on;
+    if (on) { state.askedAt = performance.now(); state.nagAt = state.askedAt; state.waitFrom = state.askedAt; state.nags = 0; }
+  }
+
+  // The round's letters. Practice: chosen letters as in the car game. Check: the 22 letters א-ת once each, shuffled.
+  function buildQueue() {
+    if (settings.check === "on") return shuffle(LETTERS.slice()).map((l) => ({ letter: l, re: false }));
+    const n = roundSize(), L = window.FL && FL.learner;
+    // Golan 16.10 (uniformity): with the shared model each practice letter is picked when it is asked, by the shared
+    // visit flow (FL.learner.visit): never the same letter twice in a row (also across rounds), and a letter that
+    // became known this visit is not asked again. Tell-me shows the letter, so never a speaker-only item (listen:false).
+    if (L && L.visit) return Array.from({ length: n }, () => ({ letter: null, re: false }));
+    const q = [];
+    for (let i = 0; i < n; i++) {
+      const prev = q.length ? q[q.length - 1].letter : null;
+      // the shared model picks by the child's card (hard and learning letters first, known ones for review);
+      // the parent's chosen letters still win (passed as its pool). Without the model: the old way.
+      let l = null;
+      for (let k = 0; L && k < 6; k++) { l = L.nextLetter({ chosen: chosenLetters(), prev, mode: "name" }); if (!q.some((x) => x.letter === l)) break; }   // a letter once per round if possible
+      if (!l || l === prev || !ALL_LETTERS.includes(l)) l = pickLetter(prev, i === 0, q.map((x) => x.letter));
+      q.push({ letter: l, re: false });
+    }
+    return q;
+  }
+  const visitFlow = () => (window.FL && FL.learner && FL.learner.visit ? FL.learner.visit("tellme", { listen: false }) : null);
+  function visitLetter() {
+    const v = visitFlow(), L = FL.learner, chosen = chosenLetters();
+    const inRound = new Set(state.queue.filter((x) => x.letter && !x.re).map((x) => x.letter));
+    const prev = v.last();
+    // the model picks by the child's card (hard and learning letters first, known ones for review); the parent's
+    // chosen letters still win (passed as its pool); a letter once per round if possible
+    const suggest = () => { let l = null; for (let k = 0; k < 6; k++) { l = L.nextLetter({ chosen, prev, mode: "name" }); if (!inRound.has(l)) break; } return ALL_LETTERS.includes(l) ? l : null; };
+    const l = v.next({ suggest, pool: chosen.length ? chosen : null }).letter;
+    return ALL_LETTERS.includes(l) ? l : pickLetter(prev, true, [...inRound]);
+  }
+  function startRound() {
+    dropUnconfirmed();   // the last round's answers were not confirmed
+    $("target").textContent = ""; state.queue = buildQueue(); state.results = state.queue.map(() => "");
+    state.qIndex = 0; state.roundStart = performance.now(); state.roundT0 = Date.now(); state.roundLater = 0; state.mode = "play";
+    state.stars = 0; state.starRow = []; state.recorded = new Set(); if (sc) sc.reset();   // this round's stars only
+    if (!hgOn()) hgStop(); else if (!hgGet().running) hg.start();   // a rebuilt round (settings) keeps the sand that is left
+    renderDots(); askQuestion();
+  }
+  // hourglass: one more letter after the queue ran out (picked as buildQueue picks them)
+  function moreItem(prev) {
+    const L = window.FL && FL.learner;
+    if (L && L.visit) return { letter: null, re: false };   // picked when asked, by the visit flow
+    let l = L ? L.nextLetter({ chosen: chosenLetters(), prev, mode: "name" }) : null;
+    if (!l || l === prev || !ALL_LETTERS.includes(l)) l = pickLetter(prev, false, [prev]);
+    return { letter: l, re: false };
+  }
+  const ASKS = ["איך קוראים?", "ולאות הזאת?", "מה השם?", "ומי זו?"];
+  let lastAsk = null;
+  function askText() {
+    if (state.qIndex === 0) return (lastAsk = ASKS[0]);
+    const pool = ASKS.filter((t) => t !== lastAsk && !getClip(clipFor(t))._bad);
+    return (lastAsk = pool.length ? pool[Math.floor(Math.random() * pool.length)] : ASKS[0]);
+  }
+  async function askQuestion() {
+    const my = ++state.flow;
+    state.q = state.queue[state.qIndex]; state.cardGlow = false;
+    if (!state.q.letter) state.q.letter = visitLetter();          // picked now, by the shared visit flow
+    else { const v = visitFlow(); if (v) v.setLast(state.q.letter); }   // a re-ask or a check letter still counts as the last one asked
+    cardColor = CARD_COLORS[state.qIndex % CARD_COLORS.length];
+    drawCard(state.q.letter, false); $("target").textContent = state.q.letter;   // the pill shows the same letter as the card
+    // hear only (Golan 18.10): decided once per question; the card still shows the letter, only the pill drops it
+    state.q.hearOnly = !!(window.FL && FL.learner && typeof FL.learner.hearOnly === "function" && FL.learner.hearOnly(state.q.letter));
+    document.querySelector(".prompt").classList.toggle("listen", state.q.hearOnly);
+    card.setEnabled(true); cardSign.position.set(0, 0, 0); cardSign.scaling.set(1, 1, 1);
+    state.cardAnim = { phase: "arrive", t: 0 };
+    sfx.whoosh(); renderDots();
+    const arrived = gap(pace().arrive * 1000 / motionK() + 100);   // the card flies on the motion clock
+    await gap(pace().arrive * 450 / motionK());   // the question starts while the card is still flying in (Golan 15.10)
+    if (my !== state.flow) return;
+    // Every letter is asked aloud (Golan 15.10). The first of a round is always "אֵיךְ קוֹרְאִים לָאוֹת הַזֹּאת?",
+    // the rest take turns among the recorded ways to ask, never the same one twice in a row.
+    await speak(askText(), 1, false, "איך קוראים?");
+    state.spokeAt = performance.now();   // rtMs counts from the end of the spoken question (learner "quick confirmation", 16.10)
+    await arrived;
+    if (my !== state.flow) return;
+    setJudge(true);
+  }
+  async function judge(ok, timeout) {   // timeout: no tap for 10 s (it does not count against the letter, Golan 20.10)
+    if (!state.open || state.mode !== "play") return;
+    setJudge(false);
+    const my = ++state.flow, q = state.q, idx = state.qIndex;
+    log.push({ k: kidId(), l: q.letter, ok, ms: Math.round(performance.now() - state.askedAt), re: q.re, check: settings.check === "on", t: Date.now() });
+    saveLog();
+    state.results[idx] = ok ? "ok" : "later"; renderDots();
+    // shared child card: one record per letter per round, with the first judgement (said aloud, the adult judged).
+    // A "נסו שוב" letter is recorded when it is solved on its re-ask (or at once in the 22-letter check, which has none).
+    if (window.FL && FL.learner) {
+      const rec = (solved) => !state.recorded.has(q.letter) && state.recorded.add(q.letter) && FL.learner.record({ game: "tellme", letter: q.letter, picked: null, firstTry: !q.re && ok, solved,
+        opts: [q.letter], rtMs: performance.now() - (state.spokeAt || state.askedAt), mode: "name", by: "adult",
+        timeout: ok ? !!q.to : !!timeout });   // a re-ask solved after a time-out: its "not yet" was not tapped either
+      if (!q.re && ok) rec(true);
+      else if (q.re) rec(ok);
+      else if (settings.check === "on") rec(false);
+      const v = visitFlow(); if (v && settings.check !== "on") v.result(q.letter, { perfect: !q.re && ok, listen: false });   // after record: it reads the card
+    }
+    if (ok) {
+      sfx.good(); vibrate(40);
+      // Golan 20.10: in this game "נכון" is always gold (the "נסו שוב" already got its silver star)
+      const k = "gold";
+      state.starRow.push(k); state.stars = state.starRow.length; if (sc) sc.add(k);
+      showToast("", "good", k);   // the earned star on the card's corner; no text, the voice says "יש! נכון!" (Golan 18.10, all games)
+      confetti.emitter = card.position.add(new BABYLON.Vector3(0, -0.6, 0)); confetti.manualEmitCount = 160;
+      state.cardAnim = { phase: "rise", t: 0 };
+      // "יש! נכון!", then the name, so the child always hears the answer (concepts.md, idea ג).
+      await speak("יש! נכון!", 1); if (my !== state.flow) return;
+      await gap(450); if (my !== state.flow) return;
+      await speak(q.letter, 0.8); if (my !== state.flow) return;
+      await gap(250);
+    } else {
+      // Not yet: no "oops" and no fail. The narrator shows the letter by name, slowly, and the child says it too.
+      sfx.later(); vibrate(20);
+      // Golan 20.10: "נסו שוב" (or 10 s with no tap) also earns a silver star: trying counts
+      state.starRow.push("silver"); state.stars = state.starRow.length; if (sc) sc.add("silver");
+      state.cardGlow = true; drawCard(q.letter, true);
+      state.cardAnim = { phase: "show", t: 0 };
+      state.roundLater++;
+      await speak("זאת האות", 0.8); if (my !== state.flow) return;
+      await gap(120); if (my !== state.flow) return;   // a short pause before the name (language advisor), kept short (Golan 15.10)
+      await speak(q.letter, 0.6); if (my !== state.flow) return;
+      await gap(450); if (my !== state.flow) return;
+      $("label").textContent = "עכשיו תגידו אתם!";   // also on screen, while the clip is not recorded yet
+      await speak("עכשיו אתם", 1); if (my !== state.flow) return;
+      await gap(pace().repeat);
+      $("label").textContent = "איך קוראים לאות?";
+      if (my !== state.flow) return;
+      // Practice: the letter comes back two letters later, once (retrieval after a short delay).
+      if (settings.check !== "on" && !q.re && !state.queue.some((x, i) => i > idx && x.re && x.letter === q.letter)) {   // one re-ask per letter at a time
+        const at = Math.min(state.queue.length, idx + 3);
+        state.queue.splice(at, 0, { letter: q.letter, re: true, to: !!timeout }); state.results.splice(at, 0, "");
+        renderDots();
+      }
+    }
+    if (my !== state.flow) return;
+    state.cardAnim = { phase: ok ? "fly" : "drift", t: 0 };
+    await gap(LEAVE_S * 1000 / motionK() + 150); if (my !== state.flow) return;   // the next letter grows only after this one is gone
+    state.qIndex++;
+    if (hgOn()) {   // Golan 18.10: the move is over; the round ends only once the sand has run out
+      if (hgGet().done()) return endRound();
+      if (state.qIndex >= state.queue.length) { state.queue.push(moreItem(q.letter)); state.results.push(""); }
+    } else if (state.qIndex >= state.queue.length) return endRound();
+    // never the same letter twice in a row: a re-asked letter right after itself swaps with the next one
+    // (also when the next one is still open: it is picked when asked, so it can't be the same letter)
+    if (state.queue[state.qIndex].letter === q.letter && state.queue[state.qIndex + 1]) {
+      const a = state.qIndex; [state.queue[a], state.queue[a + 1]] = [state.queue[a + 1], state.queue[a]];
+    }
+    askQuestion();
+  }
+  // the confirm row on the end panel: only when this round has answers that wait for it
+  function showConfirm() {
+    const row = $("endConfirm"), L = window.FL && FL.learner;
+    row.className = "end-confirm"; row.querySelector(".ec-t").textContent = "אישור רמת הידע גם ליתר המשחקים"; $("ecGate").innerHTML = "";
+    row.hidden = !(L && L.mathGate && state.roundT0 && L.nameAnswersSince("tellme", state.roundT0) > 0);
+    if (row.hidden) return;
+    const t0 = pendingT0 = state.roundT0;
+    L.mathGate($("ecGate"), { tries: 3,
+      onOk: () => { L.confirmToAll("tellme", t0); pendingT0 = 0; row.className = "end-confirm done"; row.querySelector(".ec-t").textContent = "✓ אושר: רמת הידע עודכנה בכל המשחקים"; $("ecGate").innerHTML = ""; },
+      onFail: () => { row.hidden = true; dropUnconfirmed(); } });   // Golan 20.10: no line after 3 mistakes, and nothing kept
+  }
+  // answers of a round the parent did not confirm are not kept (when the round is left, or after 3 mistakes)
+  let pendingT0 = 0;
+  function dropUnconfirmed() { const L = window.FL && FL.learner; if (pendingT0 && L && L.discardSince) L.discardSince("tellme", pendingT0); pendingT0 = 0; }
+  addEventListener("pagehide", dropUnconfirmed);
+  function endRound() {
+    state.mode = "end"; card.setEnabled(false); hgStop();
+    const okFirst = state.queue.filter((x, i) => !x.re && state.results[i] === "ok").length;
+    showConfirm();
+    // one star icon per star earned, no text, no seconds, no count (Golan 15.10, same as the car game)
+    const day = window.FL && FL.learner ? FL.learner.roundEnd({ game: "tellme", skillIssue: false }) : null;   // the adult judges: no game-skill trouble to report
+    // day length (learner-model sec 12): a soft stretch once a day at half the target, a soft goodbye at the target. Play always continues.
+    const DAY = { break: "זמן להתמתח! קומו רגע, ונמשיך.", end: "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב." };
+    const dayLine = day && DAY[day.suggest];
+    if (day && day.suggest === "break") FL.learner.breakShown();
+    if (settings.check === "on") { try { localStorage.setItem("fl-tellme-check", JSON.stringify({ k: kidId(), ok: okFirst, of: 22, t: Date.now() })); } catch (e) {} }
+    if (checkOnce) { checkOnce = false; settings.check = checkSaved; syncSeg(); }   // the hub's one check round is over
+    state.perfectRounds = state.roundLater ? 0 : state.perfectRounds + 1;
+    const ask = state.perfectRounds >= 2 && settings.check !== "on";
+    $("swapAsk").hidden = !ask; if (ask) state.perfectRounds = 0;
+    $("end").hidden = false; setJudge(false);
+    // the shared end panel: title, the stars in one row, the letters that lit up, the day note, then ours (swap question,
+    // parent summary) and "עוד סיבוב"; it never scrolls (everything shrinks together). Drawn after the overlay shows, so it can fit.
+    if (endPanel) endPanel.set({ stars: state.starRow.slice(), letters: true, note: dayLine || "" });
+    (async () => { await speak("יש! סיימנו סיבוב", 1); if (dayLine) { await gap(300); await speak(dayLine, 1); } else if (ask) { await gap(300); speak("רוצים להחליף אותיות?", 1); } })();
+  }
+
+  // ---------- input: the adult's buttons and keys ----------
+  $("said").addEventListener("click", () => judge(true));
+  $("notYet").addEventListener("click", () => judge(false));
+  // Keys for a parent at a computer: → or Enter = נכון (the button on the right), ← = עוד לא.
+  document.addEventListener("keydown", (e) => {
+    if (state.mode !== "play" || $("hud").hidden || !$("settings").hidden) return;
+    const k = e.key;
+    if (k === "ArrowRight" || k === "Enter") { e.preventDefault(); judge(true); }
+    else if (k === "ArrowLeft") { e.preventDefault(); judge(false); }
+  }, true);
+  $("replay").addEventListener("click", () => { if (state.q && state.mode === "play" && !busy()) speakerSay("איך קוראים?", 0.8); });
+
+  // ---------- settings panel (same window and rows as the car game) ----------
+  function syncSeg() {
+    document.querySelectorAll(".seg").forEach((seg) => {
+      seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(settings[seg.dataset.key] === b.dataset.v)));
+    });
+    $("perf").hidden = settings.perf !== "on";
+  }
+  let lettersChanged = false;
+  document.querySelectorAll(".seg").forEach((seg) => seg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (seg.dataset.key === "check") checkOnce = false;   // the adult's own choice now
+    settings[seg.dataset.key] = b.dataset.v; saveSettings(); syncSeg();
+    if (seg.dataset.key === "count" || seg.dataset.key === "check") lettersChanged = true;
+    applyQuality(); applyStress();
+  }));
+  let modeBeforeSettings = null;
+  function openSettings() {
+    if (state.mode !== "paused") { modeBeforeSettings = state.mode; state.mode = "paused"; }
+    pauseVoice();
+    renderLetters();
+    renderLearner();
+    if (form && form.closeTech) form.closeTech(); $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0));   /* always opens at the top (Golan 19.10) */
+  }
+  // ---------- shared child card in settings: who plays, the card, recommended letters, level ----------
+  // On-screen text follows the chosen child: boy or girl (Golan 16.10, all games). No child: the current wording.
+  // Lines for the adult and co-play lines ("אתם") stay plural.
+  function G(m, f) { const p = window.FL && FL.learner && FL.learner.profile(); return p && p.gender === "f" ? f : m; }
+  function applyGender() {
+    const t = "משחקים ביחד";   // Golan 20.10: the game's new name
+    $("gTitle").textContent = t; document.title = t;
+    if (window.FL && FL.learner && FL.learner.starCounter) FL.learner.starCounter($("stars"), { title: t });   // game name by the stars (Golan 16.10)
+    $("gLegOk").textContent = G("אמר נכון", "אמרה נכון");
+    $("gHow").innerHTML = G(
+      `<b>איך משחקים:</b> הילד אומר בקול את <b>שם</b> האות. אתם מקישים <b>נכון</b> אם אמר נכון, או <b>נסו שוב</b>. בכל מקרה הקריינית אומרת את השם, כך שהילד תמיד שומע את התשובה. אות שעוד לא הצליח חוזרת שוב בהמשך הסבב<br><b>מה נחשב נכון</b> (כמו במבדק של כיתה א'): השם, וגם הצליל של האות (למשל "בּ" במקום "בית"). גם "כף" בלי דגש נכון, וגם ילד שטעה ותיקן את עצמו`,
+      `<b>איך משחקים:</b> הילדה אומרת בקול את <b>שם</b> האות. אתם מקישים <b>נכון</b> אם אמרה נכון, או <b>נסו שוב</b>. בכל מקרה הקריינית אומרת את השם, כך שהילדה תמיד שומעת את התשובה. אות שעוד לא הצליחה חוזרת שוב בהמשך הסבב<br><b>מה נחשב נכון</b> (כמו במבדק של כיתה א'): השם, וגם הצליל של האות (למשל "בּ" במקום "בית"). גם "כף" בלי דגש נכון, וגם ילדה שטעתה ותיקנה את עצמה`);
+  }
+  // top-right counter: the shared gold + silver counter (Golan 16.10, all games), filled by learner.js
+  const sc = window.FL && FL.learner && FL.learner.starCounter ? FL.learner.starCounter($("stars")) : null;
+  function renderLearner() { if (form) form.refresh(); }
+  $("gear").addEventListener("click", openSettings);
+  window.addEventListener("fl:gear", () => openSettings());   // the gear on the shared "מי משחק?" popup
+  $("gearStart").addEventListener("click", (e) => { e.stopPropagation(); openSettings(); });
+  ["gearPick", "gearEnd", "gearReport"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));
+  $("swapYes").addEventListener("click", () => { $("swapAsk").hidden = true; openSettings(); $("letters").scrollIntoView({ block: "center" }); });
+  $("swapNo").addEventListener("click", () => { $("swapAsk").hidden = true; });
+
+  // Pause and play: everything stops, the voice too, until "המשך" (as in the car game).
+  let pausedFrom = null, pausedClip = null;
+  function pauseVoice() {
+    pausedClip = clipNow && !clipNow.paused && !clipNow.ended ? clipNow : pausedClip;
+    if (pausedClip) pausedClip.pause();
+    try { speechSynthesis.pause(); } catch (e) {}
+  }
+  function resumeVoice() {
+    if (pausedClip) pausedClip.play().catch(() => {}); pausedClip = null;
+    try { speechSynthesis.resume(); } catch (e) {}
+  }
+  // no pause button or pause screen (Golan 16.10, all games): the gear pauses the game and its voice
+  function closeSettings() {
+    $("settings").hidden = true;
+    if (state.mode === "paused" && pausedFrom === null) state.mode = modeBeforeSettings || "intro";
+    if (pausedFrom === null) {
+      // the line that was cut plays again from its start (not from the middle of a word)
+      if (pausedClip) { pausedClip.currentTime = 0; if (pausedClip._endT) pausedClip._endT.left = pausedClip._endMs; if (pausedClip._safeT) pausedClip._safeT.left = 8000; }
+      resumeVoice();
+      const w = settingsWaiters; settingsWaiters = []; w.forEach((r) => r());
+      if (introAfterSettings !== null) { const t = introAfterSettings; introAfterSettings = null; autoIntro(t); }
+    }
+    state.nagAt = state.waitFrom = performance.now();   // the 10 s wait starts again after the settings
+    if (state.mode === "ready") countdown();   // settings opened during 3, 2, 1: the count starts again
+    // letters, round size or check changed: the open letter is replaced at once, and the round is rebuilt
+    if (lettersChanged && state.mode === "play" && state.open) { hush(); setJudge(false); startRound(); }
+    lettersChanged = false;
+  }
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("setX").addEventListener("click", closeSettings);
+  $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
+  // Golan 16.10 (all games): same table as the child card (same colours, 3 rows of 9) plus selection.
+  let picker = null, form = null;
+  function renderLetters() {
+    if (form) return;
+    const L = FL.learner, seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
+    form = L.settingsForm($("flForm"), { game: "tellme", lettersId: "letters",
+      levels: ["סבב של דקה וחצי, בלי אותיות סופיות.", "סבב של 2 דקות, בלי אותיות סופיות.", "סבב של 2.5 דקות, ונכנסות גם אותיות סופיות שהאות הרגילה שלהן כבר מוכרת."],
+      onLevel: () => { lettersChanged = true; },
+      picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },
+      voice: seg("voice"), quality: seg("quality", () => applyQuality()),
+      extra: [...$("tellExtras").children],   // Golan 20.10 (recommended on the card): back up, under the level
+      tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
+    picker = form.picker;
+  }
+  renderLetters(); syncSeg(); applyStress();
+
+  // ---------- parent summary ----------
+  // Never a diagnosis: it says which letters the child said, and gives the school's own anchor (literacy-framework 3.1, 8).
+  function openReport() {
+    const s = letterState();
+    const okReg = LETTERS.filter((l) => s[l] === "ok").length, seenReg = LETTERS.filter((l) => s[l]).length;
+    $("repScore").textContent = seenReg ? `${kidName()}${G("זיהה ואמר", "זיהתה ואמרה")} ${okReg} מתוך 22 אותיות` : "עוד לא שיחקנו";
+    let chk = null; try { chk = JSON.parse(localStorage.getItem("fl-tellme-check") || "null"); } catch (e) {}
+    if (chk && chk.k && kidId() && chk.k !== kidId()) chk = null;
+    const parts = [];
+    if (seenReg && seenReg < 22) parts.push(`${22 - seenReg} אותיות עוד לא הופיעו`);
+    if (chk) parts.push(`סבב בדיקה אחרון: ${chk.ok} מתוך 22 (${new Date(chk.t).toLocaleDateString("he-IL")})`);
+    $("repSub").textContent = parts.join(" · ");
+    const grid = $("repGrid"); grid.textContent = "";
+    for (const l of ALL_LETTERS) {
+      const sp = document.createElement("span"); sp.textContent = l;
+      sp.className = [isFinal(l) ? "final" : "", s[l] || ""].join(" ").trim();
+      grid.append(sp);
+    }
+    // Golan 20.10 (same line as the hub): from the date of this child's first saved answer
+    const k = kidId(), first = log.find((r) => r.t && (!r.k || !k || r.k === k)), d = first ? new Date(first.t) : null, pad = (n) => String(n).padStart(2, "0");
+    $("repNote").textContent = "בקרת זיהוי מוצלח מתוך המשחק \"משחקים ביחד\"" + (d ? `, מתאריך ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : "");
+    $("report").hidden = false;
+  }
+  $("reportEnd").addEventListener("click", openReport);
+  $("reportSettings").addEventListener("click", openReport);
+  $("closeReport").addEventListener("click", () => ($("report").hidden = true));
+  $("report").addEventListener("pointerdown", (e) => { if (e.target === $("report")) $("report").hidden = true; });
+  // Golan 16.10 (all games): door and gear on every screen; the report's door goes back one step
+  $("doorReport").addEventListener("click", (e) => { e.stopPropagation(); $("report").hidden = true; });
+  // a tap outside any popup closes it
+  document.addEventListener("pointerdown", (e) => { const a = $("swapAsk"); if (!a.hidden && !a.contains(e.target)) a.hidden = true; }, true);
+  $("resetReport").addEventListener("click", () => { log = []; saveLog(); try { localStorage.removeItem("fl-tellme-check"); } catch (e) {} openReport(); });
+
+  // ---------- performance meter (as in the car game) ----------
+  const fpsSamples = [];
+  let worstFps = 999, lastPerfUpdate = 0, loadMs = 0;
+  function gpuName() {
+    try { const gl = engine._gl; const ext = gl && gl.getExtension("WEBGL_debug_renderer_info");
+      return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : (engine.getGlInfo && engine.getGlInfo().renderer) || "?"; } catch (e) { return "?"; }
+  }
+  function countTris() {
+    let n = 0; const active = scene.getActiveMeshes();
+    for (let i = 0; i < active.length; i++) { const m = active.data[i]; n += (m && m.getTotalIndices ? m.getTotalIndices() : 0) / 3; }
+    return Math.round(n);
+  }
+  function downloadedKB() {
+    try { const kb = performance.getEntriesByType("resource").reduce((n, r) => n + (r.transferSize || 0), 0) / 1024;
+      return kb > 50 ? `${(kb / 1024).toFixed(1)} MB` : "n/a"; } catch (e) { return "n/a"; }
+  }
+  function diagnostics() {
+    const avg = fpsSamples.length ? fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length : 0;
+    return [
+      `FPS avg(10s): ${avg.toFixed(1)}   worst: ${worstFps === 999 ? "-" : worstFps.toFixed(0)}`,
+      `Load to ready: ${(loadMs / 1000).toFixed(1)}s   downloaded: ${downloadedKB()}`,
+      `JS memory: ${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + " MB" : "n/a"}`,
+      `Render: ${engine.getRenderWidth()}x${engine.getRenderHeight()}  dpr ${window.devicePixelRatio}`,
+      `Triangles on screen: ${countTris().toLocaleString()}`,
+      `GPU: ${gpuName()}`,
+      `WebGL: ${engine.webGLVersion}   Babylon ${BABYLON.Engine.Version}`,
+      `Voice clips: ${clipStatus.ok} loaded, ${clipStatus.missing} missing (audio)`,
+      `Hebrew voice (fallback): ${heVoice ? heVoice.name : "not found"}`,
+      `Answers recorded on this device: ${log.length}`,
+      `Browser: ${navigator.userAgent}`,
+    ].join("\n");
+  }
+  function updatePerf(now) {
+    const fps = engine.getFps();
+    if (isFinite(fps) && fps > 0 && state.mode === "play") {
+      fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift();
+      if (now - state.roundStart > 3000) worstFps = Math.min(worstFps, fps);
+    }
+    if (now - lastPerfUpdate < 500 || settings.perf !== "on") return;
+    lastPerfUpdate = now;
+    const cls = fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad";
+    $("perf").innerHTML = `<b class="${cls}">${fps.toFixed(0)}</b> FPS<br>▲ ${countTris().toLocaleString()} · ${settings.quality === "eco" ? "eco" : "high"}${settings.stress === "on" ? " · stress" : ""}`;
+  }
+
+  // ---------- main loop ----------
+  let speed = 0;
+  scene.onBeforeRenderObservable.add(() => {
+    const dtMs = Math.min(engine.getDeltaTime(), 50) * motionK(), dt = dtMs / 1000; motionMs += dtMs; const mnow = motionMs;
+    const now = performance.now();
+    const paused = state.mode === "paused";
+    if (!paused) tickTimers(dtMs);
+    const t = mnow / 1000;
+    for (const n of swaying) { const w = n.metadata; n.rotation.z = w.amp * Math.sin(t * w.speed + w.ph); n.rotation.x = w.amp * 0.5 * Math.sin(t * w.speed * 0.7 + w.ph * 1.3); }
+
+    // flight: on the home island until take-off, then up to cruise height and gently forward
+    if (!paused) {
+      const flying = state.mode === "play" || state.mode === "end" || (state.mode === "intro" && state.climb > 0);
+      const want = flying ? pace().cruise * (window.FL && FL.learner ? FL.learner.pace() : 1) : 0;
+      speed += (want - speed) * (1 - Math.exp(-1.5 * dt));   // by time, same at 60 and 120 Hz
+      rig.z += speed * dt;
+      if (state.climb > 0) rig.y += (CRUISE_Y - rig.y) * (1 - Math.exp(-0.6 * dt));   // Golan 20.10: the balloons come up slower (was 1.2)
+    }
+    // the world follows; islands and clouds wrap around
+    world.position.z = Math.floor(rig.z / 50) * 50;
+    for (const r of recycled) if (r.m.position.z < rig.z - 25) r.m.position.z += r.span;
+
+    // balloon: hangs at the rig, bobs softly
+    const L = lay(), bob = state.climb > 0 ? Math.sin(t * 1.3) * 0.18 : 0;
+    // on the island the balloon stands in the middle; once up, it moves aside for the letter
+    const aside = Math.min(1, rig.y / CRUISE_Y);
+    if (!paused && aside > 0) flyers.forEach((f, i) => { spd[i] += (dirT[i] - spd[i]) * Math.min(1, dt * 3); kT[i] += dt * spd[i]; });   // each balloon's own clock (it can turn back)
+    const paths = portrait ? WANDER.tall : WANDER.wide;
+    flyers.forEach((f, i) => {
+      const w = paths[i], k = kT[i], ph = w.p;
+      const wx = w.c[0] + w.a[0] * Math.sin(k * w.w[0] + ph), wy = w.c[1] + w.a[1] * Math.sin(k * w.w[1] + ph * 1.3), wz = w.c[2] + w.a[2] * Math.sin(k * w.w[2] + ph * 0.7);
+      if (i === 0) f.position.set(rig.x + BALLOON_X + (wx - BALLOON_X) * aside, rig.y + bob + wy * aside, rig.z + wz * aside);
+      else { f.setEnabled(aside > 0.02); const side = (wx >= BALLOON_X ? 1 : -1) * (1 - aside) * 7;   // the others rise from below, from the side away from the first balloon (no crossing it, Golan 20.10)
+        f.position.set(rig.x + wx + side, rig.y + bob + wy - (1 - aside) * 14, rig.z + wz); }
+      f.position.addInPlace(sep[i]);
+      f.scaling.setAll(L.balS);
+      f.rotation.y = Math.sin(t * 0.35 + ph) * 0.25;
+    });
+    keepApart(dt);
+    // Golan 20.10: no burner flame under the balloon (the flame mesh stays off)
+
+    // the letter card
+    if (card.isEnabled() && state.cardAnim) {
+      const c = state.cardAnim; if (!paused) c.t += dt;
+      const home = new BABYLON.Vector3(rig.x + L.card[0], rig.y + L.card[1], rig.z + L.card[2]);
+      card.scaling.setAll(L.cardS);
+      const ease = (k) => 1 - Math.pow(1 - Math.min(1, k), 3);
+      const sway = Math.sin(t * 1.1) * 0.08;
+      // Golan 20.10: the old letter goes and the new one comes at exactly the same spot in the middle, slowly:
+      // it grows out of that spot and shrinks back into it (no flying in or away)
+      const soft = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
+      card.position.set(home.x, home.y + sway, home.z);
+      if (c.phase === "arrive") cardSign.scaling.setAll(Math.max(0.001, soft(c.t / pace().arrive)));
+      else if (c.phase === "rise") cardSign.scaling.setAll(1 + 0.08 * Math.sin(Math.PI * Math.min(1, c.t / 0.7)));   // a small happy pulse in place
+      else if (c.phase === "fly" || c.phase === "drift") cardSign.scaling.setAll(Math.max(0.001, 1 - soft(c.t / LEAVE_S)));
+      else cardSign.scaling.setAll(1);
+      // the letter always faces the camera
+      cardSign.rotation.y = Math.atan2(cam.position.x - card.position.x, cam.position.z - card.position.z) + Math.PI;
+    }
+    // Nobody tapped for a while: the adult's buttons lift a little, slowly (like the car game's lifting letter),
+    // and the first two times the question is asked again, only if nothing else is being said.
+    if (state.mode === "play" && state.open && now - state.nagAt > pace().nag) {
+      state.nagAt = now; state.nags++;
+      ["said", "notYet"].forEach((id, i) => { const b = $(id); b.classList.remove("flash"); void b.offsetWidth; setTimeout(() => b.classList.add("flash"), i * 230); });
+      if (state.nags <= 2 && !busy()) speak("איך קוראים?", 0.8);
+    }
+    // Golan 20.10: no tap for 10 s -> the game goes on as if "נסו שוב" was tapped (the narrator says the letter)
+    if (state.mode === "play" && state.open && now - state.waitFrom > 10000 && !busy()) judge(false, true);
+
+    // camera: behind the balloon, the letter big in the middle
+    cam.position.set(rig.x + L.cam[0], rig.y + L.cam[1], rig.z + L.cam[2]);
+    cam.setTarget(new BABYLON.Vector3(rig.x + L.look[0], rig.y + L.look[1], rig.z + L.look[2]));
+
+    placeToast();
+    updatePerf(now);
+  });
+  engine.runRenderLoop(() => scene.render());
+  fitCamera();
+  FL.screen.onChange(() => { engine.resize(); fitCamera(); });   // rotation, resize, zoom, other monitor (screens standard)
+  // app in the background (screens standard sec 7): the frame loop already stops, so the game clock stops; the voice stops too
+  let hiddenClip = null;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { if (clipNow && !clipNow.paused && !clipNow.ended) { hiddenClip = clipNow; clipNow.pause(); } }
+    else if (hiddenClip) { const c = hiddenClip; hiddenClip = null; if (!settingsOpen() && pausedFrom === null) c.play().catch(() => {}); }
+  });
+
+  // ---------- start ----------
+  const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
+    document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אבגךאָבּ"), new Promise((r) => setTimeout(r, 4000)),
+  ]) : Promise.resolve();
+  fontReady.then(() => { drawCard("ג", false); return scene.whenReadyAsync(); }).then(() => {
+    loadMs = performance.now() - T0;
+    $("go").disabled = false; $("go").textContent = "יוצאים לדרך";
+  });
+  // Read the start instructions aloud. Browsers block sound before the first touch, so: try on load, then on
+  // the first touch of the start screen, and on 🔊 (as in the car game).
+  let heardIntro = false;
+  // Golan 20.10: the game's name first ("מְשַׂחֲקִים בְּיַחַד"), then the instructions
+  function sayIntro(fromSpeaker) { heardIntro = true; const say = fromSpeaker ? speakerSay : speak, tok = voiceToken;
+    say("שם המשחק", 1).then(() => { if (tok === voiceToken) say("הוראות", 1); }); }
+  // screenTok: a door or a screen change cancels every intro still waiting (Golan 16.10: no voice after the door)
+  let screenTok = 0, introAfterSettings = null;
+  function autoIntro(tok = screenTok) {
+    if (tok !== screenTok || settings.voice !== "on" || heardIntro || $("start").hidden || document.querySelector(".fl-ov")) return;
+    if (settingsOpen()) { introAfterSettings = tok; return; }
+    const t = getClip("hub_g_together"), a = getClip(genderedId("ins_tellme"));   // the name first, then the instructions (Golan 20.10)
+    if (a._bad) return;   // a missing clip waits for the first touch (the browser voice cannot start by itself)
+    if (!a._ok || !(t._ok || t._bad)) return setTimeout(() => autoIntro(tok), 200);   // wait until both clips are loaded (or the name is missing)
+    const go = (c, then) => { clipNow = c; c.currentTime = 0; c.onended = then;
+      return c.play().then(() => { if (tok !== screenTok || settingsOpen()) c.pause(); }).catch(() => { heardIntro = false; }); };
+    heardIntro = true;
+    if (t._bad) go(a, null); else go(t, () => { if (tok === screenTok && !settingsOpen() && clipNow === t) go(a, null); });
+  }
+  function introLater() { const tok = screenTok; setTimeout(() => autoIntro(tok), 1500); }   // 1.5 s to look at the screen first (Golan 16.10)
+  // "מי משחק?" on every entry to the game, even with one child (Golan 15.10); the spoken intro waits for it
+  const whoReady = window.FL && FL.learner ? FL.learner.chooseChild() : Promise.resolve();
+  whoReady.then(() => { preloadGendered(); applyGender(); if (sc) sc.reset(); introLater(); });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(true); });
+  $("start").addEventListener("pointerdown", (e) => { if (document.querySelector(".fl-ov")) return; if (!heardIntro && !e.target.closest("#go, #hear, #gearStart, #doorStart")) { unlockAudio(); sayIntro(); } });
+  $("go").addEventListener("click", () => {
+    if (!spkLine) hush(); unlockAudio();   // an intro asked for with 🔊 is said to the end first
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
+    speak("יוצאים לדרך!", 1);
+    const tok = ++screenTok;
+    setTimeout(() => { $("go").classList.remove("pressed"); if (tok !== screenTok) return; $("start").hidden = true; openPick(); }, 1600);
+  });
+  function again() { hush(); $("end").hidden = true; $("hud").hidden = true; openPick(); }
+  // two buttons in every game (Golan 17.10): עוד סיבוב on the right, לסיים on the left, same size; לסיים does what the door does
+  const endButtons = () => [{ text: "לסיים", ghost: true, id: "finish", onClick: () => $("doorEnd").click() }, { text: "עוד סיבוב", primary: true, id: "again", onClick: again }];
+  const endPanel = window.FL && FL.learner && FL.learner.endPanel
+    ? FL.learner.endPanel($("end"), { letters: true, extra: [...$("endExtras").children], buttons: endButtons() })
+    : null;
+
+  // ---------- balloon picker: "יש לבחור כדור פורח", then praise, then 3-2-1 (same steps as the car picker) ----------
+  // picker picture: the same pattern, shape, basket and flag as the 3D balloon (from the detective game)
+  function balloonSVG(d) {
+    const i = d.id, [sx, sy] = PICK_SHAPES[d.shape];
+    const cv = document.createElement("canvas"); cv.width = 200; cv.height = 240; paintBalloon(cv.getContext("2d"), 200, 240, d, false);
+    const env = "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const t = `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
+    const top = 90 - 84 * sy / 1.25;
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+      `<image href="${cv.toDataURL()}" x="0" y="0" width="100" height="120" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="#0000001f" stroke-width="1.5"/>` +
+      `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
+      `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
+      `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one
+  }
+  let pickNagT = null, pickFlashTs = [], picking = false, pickSaid = 0;
+  let chosen = [];
+  function renderPickCount() { [...$("pickCount").children].forEach((d, i) => d.classList.toggle("on", i < chosen.length)); }
+  function openPick() {
+    state.mode = "pick"; state.climb = 0; rig.y = 0; card.setEnabled(false);
+    homeIsland.root.position.set(BALLOON_X, -2.75, rig.z);   // back on an island, ready for take-off
+    const box = $("cars"); box.textContent = ""; chosen = []; renderPickCount();
+    for (const s of BALLOONS) {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "כדור פורח");
+      b.innerHTML = balloonSVG(s); b.addEventListener("click", () => pickBalloon(s.id, b));
+      box.append(b);
+    }
+    $("carPick").hidden = false;
+    stopPickFlash(); pickSaid = 1;
+    // "יֵשׁ לִבְחוֹר אַרְבָּעָה כַּדּוּרִים פּוֹרְחִים" stays silent until the voice thread records it (no browser voice)
+    later(() => { if (!$("carPick").hidden && !picking) speak("יש לבחור ארבעה כדורים", 1).then(() => later(pickNag, 300)); }, 700);
+  }
+  // nothing chosen for 4 s: say it again (the sentence is heard twice in all, Golan 15.10) and flash the balloons
+  // not chosen yet, one by one in random order
+  function stopPickFlash() {
+    if (pickNagT) pickNagT.left = Infinity; pickFlashTs.forEach(clearTimeout); pickFlashTs = [];
+    [...$("cars").children].forEach((b) => b.classList.remove("flash"));
+  }
+  function pickNag() {
+    if (pickNagT) pickNagT.left = Infinity;
+    pickNagT = later(() => {
+      if ($("carPick").hidden || picking) return;
+      if (pickSaid < 2) { pickSaid++; speak("יש לבחור ארבעה כדורים", 1); }
+      const btns = [...$("cars").children].filter((b) => !b.classList.contains("chosen")).sort(() => Math.random() - 0.5);
+      btns.forEach((b, i) => pickFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 420)));
+      pickFlashTs.push(setTimeout(() => { const w = () => (busy() ? setTimeout(w, 100) : pickNag()); w(); }, btns.length * 420 + 1000));
+    }, 4000);
+  }
+  // a tap chooses a balloon (it grows at once and stays big); a second tap puts it back. The 4th one starts the round.
+  async function pickBalloon(id, btn) {
+    if (picking) return;
+    stopPickFlash();
+    const at = chosen.indexOf(id);
+    if (at >= 0) chosen.splice(at, 1); else chosen.push(id);
+    btn.classList.toggle("chosen", at < 0); btn.setAttribute("aria-pressed", String(at < 0));
+    renderPickCount(); sfx.tap();
+    if (chosen.length < 4) { pickNag(); return; }
+    picking = true; const grown = performance.now() + 1800;   // the picker waits for the grow to finish (Golan 16.10)
+    useBalloons(chosen); saveSettings();
+    await speak(Math.random() < 0.5 ? "יופי של בחירה!" : "בחירה מצוינת!", 1);
+    await gap(250);   // same short pause as the car game (shortened 15.10)
+    await gap(Math.max(0, grown - performance.now()));
+    picking = false; if ($("carPick").hidden) return;
+    $("carPick").hidden = true; if (sc) sc.reset(); $("hud").hidden = false; countdown();   // stars reset as soon as they show (Golan 16.10)
+  }
+
+  // ---------- 3, 2, 1 and take-off ----------
+  let countToken = 0;
+  function countdown() {
+    const my = ++countToken;
+    state.mode = "ready"; state.q = null; state.queue = []; state.results = []; renderDots(); setJudge(false); card.setEnabled(false);
+    const box = $("count"), steps = [["3", "#10b947"], ["2", "#10b947"], ["1", "#10b947"]];   // all glowing green (Golan, 15.10)
+    steps.forEach(([n, col], i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = n; sp.style.background = col; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      state.climb = 1; state.mode = "play";
+      later(() => { if (my === countToken && state.mode === "play") startRound(); }, 1800);   // up to cruise height first
+    }, 700 + 3 * 1000);
+  }
+
+  // ---------- door = back to the start screen ----------
+  function backToStart() {
+    screenTok++;
+    $("label").textContent = "איך קוראים לאות?";
+    hush(); state.flow++; countToken++; hgStop();
+    timers.length = 0; stopPickFlash(); picking = false;
+    state.q = null; state.mode = "intro"; setJudge(false); card.setEnabled(false); state.cardAnim = null;
+    $("count").innerHTML = "";
+    ["hud", "end", "carPick", "settings", "report"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  // Golan 16.10: opened from the hub, every door goes back to its "בַּמֶּה נְשַׂחֵק?" list (voice and timers stop first)
+  const inHub = () => !!(window.FL && FL.learner && FL.learner.fromHub && FL.learner.hubUrl);
+  function toHub() { screenTok++; hush(); state.flow++; countToken++; hgStop(); timers.length = 0; stopPickFlash(); location.href = FL.learner.hubUrl + "#games"; }
+  ["doorGame", "doorCar", "doorEnd", "doorReport", "doorStart"].forEach((id) => $(id).addEventListener("click", (e) => { if (inHub()) { e.stopImmediatePropagation(); toHub(); } }, true));
+  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));
+  // door on the start screen = back one screen, to "מי משחק?" (Golan 16.10, all games)
+  $("doorStart").addEventListener("click", () => {
+    screenTok++; hush(); $("go").classList.remove("pressed"); heardIntro = false;
+    if (window.FL && FL.learner) FL.learner.chooseChild().then(() => { preloadGendered(); applyGender(); introLater(); });
+  });
+
+  // test hook for automated checks
+  window.__tell = { boxes: () => flyers.map(screenBox), state, judge, settings, get log() { return log; }, rig, openReport, drawCard, cardTex, endPanel, get hg() { return hg; } };
+})();
+</script>

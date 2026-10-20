@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FirstLearning</title>
+<link rel="stylesheet" href="games/shared/fonts/fonts.css">
+<style>
+/* The central entry page (Golan 16.10): "מי משחק?" once, then the game list, then the game.
+   Same daylight look as the games: sky, the 9 shared balloons, the child's companion. */
+  :root { --sky: #bfe6ff; --ink: #1d2a3a; --card: #ffffffee; --accent: #ff8a3d; --muted: #5b6b7f; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  /* Screens standard (screens/screens-standard.md): sizes in --u (a 1280x720 board, 720x1280 standing) with
+     finger floors (--tap-s, --tap), distances from the edges in --edge-*, both orientations; set by games/shared/screen.js. */
+  html, body { margin: 0; position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; background: var(--sky); color: var(--ink);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; }
+  #sky { position: fixed; inset: 0; width: 100%; height: 100%; display: block;
+    background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
+  :root { --btn: max(calc(64 * var(--u, 1px)), var(--tap-s, 54px)); --e-t: var(--edge-t, max(12px, env(safe-area-inset-top)));
+    --e-l: var(--edge-l, max(16px, env(safe-area-inset-left))); --e-r: var(--edge-r, max(16px, env(safe-area-inset-right)));
+    --e-b: var(--edge-b, max(12px, env(safe-area-inset-bottom))); --g: max(calc(12 * var(--u, 1px)), var(--gap, 8px)); }
+  .round-btn { width: var(--btn); height: var(--btn); border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  /* door, and the gear right under it, on every screen (Golan 16.10), always inside the safe area (no notch) */
+  .door-btn, .gear-btn { position: fixed; top: var(--e-t); left: var(--e-l); z-index: 10000; background: var(--card);
+    box-shadow: 0 4px 16px #0002; }
+  .gear-btn { top: calc(var(--e-t) + var(--btn) + var(--g)); }
+  .door-btn svg { width: 60%; height: 60%; } .gear-btn svg { width: 56%; height: 56%; color: #5b6470; }
+  .round-btn:active { transform: scale(.94); }
+  /* the game list: keeps clear of the door/gear column on both sides; scrolls if it ever can't fit */
+  #games { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: safe center;
+    gap: calc(34 * var(--u, 1px)); overflow-y: auto; overscroll-behavior: contain;
+    padding: var(--e-t) calc(var(--e-r) + var(--btn) + var(--g)) var(--e-b) calc(var(--e-l) + var(--btn) + var(--g)); }
+  #games.on { display: flex; }
+  .who { display: flex; align-items: center; gap: calc(10 * var(--u, 1px)); background: var(--card); border-radius: 999px; flex: none;
+    padding: calc(4 * var(--u, 1px)) calc(22 * var(--u, 1px)) calc(4 * var(--u, 1px)) calc(8 * var(--u, 1px)); box-shadow: 0 4px 16px #0002; }
+  .who h1 { margin: 0; font-size: max(calc(32 * var(--u, 1px)), 22px); font-weight: 800; white-space: nowrap; }
+  .who .comp svg { width: max(calc(64 * var(--u, 1px)), 44px); height: auto; display: block; }
+  /* speaker at the end of every title line: Hila reads the title (Golan 16.10); a missing clip stays silent */
+  .spk { border: 0; background: none; cursor: pointer; line-height: 1; padding: 0; border-radius: 50%; flex: none;
+    display: inline-grid; place-items: center; min-width: var(--tap-s, 44px); min-height: var(--tap-s, 44px); }
+  .spk:active { transform: scale(.9); }
+  /* the finger-size touch area reaches past the line without making the line taller */
+  .spk { margin-block: calc((1.3em - var(--tap-s, 44px)) / 2); }
+  .who .spk { font-size: max(calc(32 * var(--u, 1px)), 24px); }
+  .game .spk { font-size: max(calc(24 * var(--u, 1px)), 20px); }
+  /* in a card the extra touch area goes up only, so it never reaches below the card (home bar zone) */
+  .game .spk { margin-block: calc(1.3em - var(--tap-s, 44px)) 0; }
+  /* the speaker at the end of the line (Golan 16.10): in RTL the card's left edge; the name keeps the rest, centred */
+  .game .name { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: calc(4 * var(--u, 1px)); width: 100%; text-align: center; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, calc(300 * var(--u, 1px)))); gap: var(--g); width: 100%; justify-content: center; flex: none; }
+  .game { position: relative; border: 0; border-radius: calc(26 * var(--u, 1px)); background: #fff; box-shadow: 0 6px 0 #0001, 0 6px 20px #0002;
+    padding: calc(10 * var(--u, 1px)) calc(10 * var(--u, 1px)) calc(8 * var(--u, 1px)); cursor: pointer; font: inherit; color: var(--ink);
+    display: flex; flex-direction: column; align-items: center; gap: calc(4 * var(--u, 1px)); transition: transform .15s; min-width: 0; }
+  /* hover / keyboard focus: a thin frame in the card's own colour, the card stays in place (Golan 16.10) */
+  @media (hover: hover) { .game:hover { outline: max(calc(3 * var(--u, 1px)), 2px) solid var(--ac, #4dabf7); outline-offset: 0; } }
+  .game:focus-visible { outline: max(calc(3 * var(--u, 1px)), 2px) solid var(--ac, #4dabf7); outline-offset: 0; }
+  .game:active { transform: scale(.96); }
+  .game .pic { width: 100%; aspect-ratio: 16 / 9; border-radius: calc(18 * var(--u, 1px)); display: grid; place-items: center; overflow: hidden; }
+  .game .pic svg { width: 100%; height: 100%; display: block; }
+  .game b { font-size: max(calc(24 * var(--u, 1px)), 16px); font-weight: 800; line-height: 1.2; }
+  /* nikud only at 28px or more, with line height 1.7-1.9 (literacy ruling 16.10); smaller, the plain text */
+  .nq { line-height: 1.75 !important; }
+  .game.go { transform: scale(1.12); z-index: 2; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); }
+  /* standing: 2 columns x 3 rows; the title sits beside the door at the top, the cards start under the gear */
+  html[data-screen~="portrait"] #games { justify-content: flex-start; gap: var(--g);
+    padding: var(--e-t) var(--e-r) var(--e-b) var(--e-l); }
+  html[data-screen~="portrait"] .who { align-self: flex-start; margin-inline-end: calc(var(--btn) + var(--g)); min-height: var(--btn); max-width: calc(100% - var(--btn) - var(--g)); }
+  html[data-screen~="portrait"] .who h1 { font-size: max(calc(40 * var(--u, 1px)), 20px); }
+  html[data-screen~="portrait"] .grid { grid-template-columns: repeat(2, minmax(0, calc(330 * var(--u, 1px)))); margin-top: var(--btn); }
+  html[data-screen~="portrait"] .game .pic { aspect-ratio: 16 / 8.5; }
+  html[data-screen~="portrait"] .game b { font-size: max(calc(30 * var(--u, 1px)), 16px); }
+  .set-ov { position: fixed; inset: 0; z-index: 10001; background: rgba(20, 40, 70, .55); display: grid; place-items: center;
+    padding: var(--e-t) calc(var(--e-r) + var(--btn) + var(--g)) var(--e-b) calc(var(--e-l) + var(--btn) + var(--g)); }
+  .set-box { position: relative; background: #fff; border-radius: 28px; padding: 28px 24px; width: min(100%, max(calc(520 * var(--u, 1px)), 460px)); height: 100%; max-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px #0004; }
+  /* the same window as inside the games (Golan 19.10): always the same size, a fixed head (X + title), a scrolling body that opens at the top */
+  .set-head { position: relative; flex: 0 0 auto; margin-bottom: 12px; }   /* a gap under the title (Golan 19.10) */
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-inline: 3px; }   /* room for the child row's outline */
+  .set-box h2 { margin: 0 0 10px; text-align: center; font-size: 26px; }
+  .set-box h3 { margin: 14px 0 8px; font-size: 20px; }
+  /* X at the top right of every settings panel (Golan 16.10); closes like a tap outside */
+  .set-x { position: absolute; top: -22px; right: -18px; width: max(var(--tap-s, 44px), 44px); height: max(var(--tap-s, 44px), 44px); border-radius: 50%; border: 2px solid #d5dde6; background: #fff; color: var(--ink); padding: 0; cursor: pointer; display: grid; place-items: center; z-index: 1; box-shadow: 0 2px 8px #0002; }
+  .set-x svg { width: 55%; height: 55%; }
+  .set-box h2 { padding-inline: calc(max(var(--tap-s, 44px), 44px) + 4px); }
+  .set-ex { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+  /* standing: the settings box goes under the door and gear, full width */
+  html[data-screen~="portrait"] .set-ov { padding: var(--e-t) var(--e-r) var(--e-b) var(--e-l); }   /* standing: full height, like the games (Golan 19.10) */
+  .set-kid { flex-wrap: wrap; } .set-kid .n { min-width: 6em; }
+  .set-kid { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 16px; background: #f5f9ff; margin-bottom: 6px; }
+  .set-kid.cur { outline: 2px solid #9cc8f5; }
+  .set-kid .c svg { display: block; } .set-kid .n { flex: 1; font-size: 20px; font-weight: 700; }
+  .set-kid button, .set-row button { border: 0; border-radius: 999px; background: #fff; box-shadow: 0 1px 4px #0002; padding: 6px 12px; font-weight: 700; font-size: 16px; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+  .set-kid .dl { color: #c92a2a; }
+  .set-gate { display: inline-flex; align-items: center; gap: 8px; }
+  .set-gate .q { font-size: 20px; font-weight: 800; white-space: nowrap; }
+  .set-gate input { width: 3.2em; font: inherit; font-size: 20px; font-weight: 700; text-align: center; padding: 4px 6px; border: 2px solid #9cc8f5; border-radius: 12px; }
+  .set-gate.ok input { animation: gateOk .55s; border-color: #2b8a3e; }   /* right answer: the box flashes green, then edit opens (Golan 20.10) */
+  @keyframes gateOk { 0%, 100% { background: #fff; } 30%, 70% { background: #8ce99a; } }
+  .set-gate.no input { border-color: #e03131; animation: gateNo .35s; }
+  @keyframes gateNo { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  /* parent summary (from "תגיד לי") and the letter check round, in the hub's settings (Golan 20.10) */
+  /* every topic in its own frame; an open topic grows and turns light blue, like the child row (Golan 20.10) */
+  .set-body section:not(:first-child) { border: 1px solid #dfe6ee; border-radius: 16px; padding: 10px 12px; margin-bottom: 8px; }
+  .set-body section:has(.fl-cap[aria-expanded=true]) { background: #f5f9ff; border-color: #9cc8f5; box-shadow: inset 0 0 0 1px #9cc8f5; }
+  .set-sum .score { font-size: 22px; font-weight: 800; text-align: center; margin: 8px 0 2px; }
+  .set-sum .sub { font-size: 16px; color: var(--muted); text-align: center; margin: 0 0 8px; }
+  .set-sum .grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; direction: rtl; }
+  .set-sum .grid span { width: 46px; height: 46px; border-radius: 12px; border: 2px solid #d5dde6; background: #fff; display: grid; place-items: center; font-size: 26px; font-weight: 800; }
+  .set-sum .grid span.ok { background: #e3f7ec; border-color: #2bb673; } .set-sum .grid span.later { background: #fff4dc; border-color: #ffb020; }
+  .set-sum .grid span.final { border-style: dashed; }
+  .set-sum .leg { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 16px; color: var(--muted); margin: 4px 0 10px; }
+  .set-sum .leg i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; vertical-align: -2px; margin-inline-end: 4px; }
+  .set-sum .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
+  .set-chk .hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }   /* title and button in one line (Golan 20.10) */
+  .set-chk h3 { margin: 4px 0; font-size: 20px; }
+  .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 10px 20px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 48px; }
+  .set-form, .set-confirm { background: #f5f9ff; border-radius: 16px; padding: 10px; margin-bottom: 6px; text-align: center; }
+  .set-form .prev svg { display: block; margin: 0 auto; }
+  .set-in { font-size: 22px; font-family: inherit; text-align: center; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; width: min(260px, 100%); }
+  .set-row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .set-row .on { outline: 3px solid #2b8a3e; }
+  .set-row .col { width: 32px; height: 32px; padding: 0; border: 3px solid #fff; }
+  .set-row .itm { padding: 2px; border-radius: 12px; } .set-row .itm:disabled { opacity: .3; }
+  .set-row .ok { background: #2bb673; color: #fff; padding: 8px 22px; } .set-row .ok:disabled { opacity: .4; }
+  .set-confirm p { font-size: 20px; margin: 4px 0; } .set-confirm small { color: var(--muted); font-size: 15px; }
+  .set-row .keep { background: #2bb673; color: #fff; padding: 8px 18px; }
+  .set-row .hold { position: relative; overflow: hidden; background: #e03131; color: #fff; padding: 8px 18px; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .hold .fill { position: absolute; inset: 0; background: #0004; transform: scaleX(0); transform-origin: right; pointer-events: none; }
+  .set-box .fl-grid { margin: 0 auto; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1d2a3a; color: #fff;
+    padding: 10px 20px; border-radius: 14px; font-size: 18px; z-index: 9000; display: none; }
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<button class="round-btn door-btn" id="door" aria-label="חזרה" title="חזרה"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+<button class="round-btn gear-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+<main id="games" aria-live="polite">
+  <div class="who"><span class="comp"></span><h1 data-nq="בַּמֶּה נְשַׂחֵק?">בַּמֶּה נְשַׂחֵק?</h1><button class="spk" data-clip="hub_what_play" aria-label="הקשבה">🔊</button></div>
+  <div class="grid"></div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="games/shared/screen.js"></script>
+<script src="games/shared/letter-pairs.js"></script>
+<script src="games/shared/learner.js"></script>
+<script src="games/shared/learning-map.js"></script>
+<script src="hub-cards-animated/hub-cards-animated.js"></script>
+<script src="hub-cards-animated/map-balloon.js"></script>
+<script src="games/waking-letter/letters-animated/letters-animated.js"></script>
+<script>
+(() => {
+  "use strict";
+  const LRN = window.FL && FL.learner;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- the six games (path from this page; "?hub=1" tells the game the child was already chosen here) ----------
+  const GAMES = [
+    { id: "race", ac: "#4dabf7", name: "מֵרוֹץ הַשְּׁעָרִים", path: "voice/race-gates-voice/index.html", bg: "#d8f1ff", pic: "car" },
+    { id: "detective", ac: "#22b8cf", name: "הַבַּלָּשׁ בָּעֲנָנִים", path: "games/letter-recognition/detective/index.html", bg: "#e4f6ff", pic: "detective" },
+    { id: "waking", ac: "#9775fa", name: "הָאוֹת שֶׁמִּתְעוֹרֶרֶת", path: "games/waking-letter/index.html", bg: "#efe9ff", pic: "waking" },
+    { id: "tellme", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/tell-me/index.html", bg: "#fff1df", pic: "tellme" },
+    { id: "train", ac: "#40c057", name: "רַכֶּבֶת הָאוֹתִיּוֹת", path: "games/letter-train/index.html", bg: "#e3f8ea", pic: "train" },
+    { id: "circle", ac: "#f06595", name: "מַעְגַּל הָאוֹתִיּוֹת", path: "games/letter-circle/index.html", bg: "#ffe8ef", pic: "circle" },
+  ];
+  const L = (x, y, ch, size, fill = "#1d2a3a") => `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${fill}" font-family="Noto Sans Hebrew, sans-serif">${ch}</text>`;
+  const PICS = {
+    car: `<svg viewBox="0 0 160 100"><rect y="70" width="160" height="30" fill="#8fd18a"/><path d="M0 78 H160" stroke="#fff" stroke-width="3" stroke-dasharray="12 10"/>
+      <g><rect x="18" y="20" width="8" height="54" rx="3" fill="#ff5a4e"/><rect x="62" y="20" width="8" height="54" rx="3" fill="#ff5a4e"/><rect x="18" y="16" width="52" height="22" rx="8" fill="#fff" stroke="#ff5a4e" stroke-width="3"/>${L(44, 27, "ב", 18)}</g>
+      <g><rect x="92" y="20" width="8" height="54" rx="3" fill="#3da5ff"/><rect x="136" y="20" width="8" height="54" rx="3" fill="#3da5ff"/><rect x="92" y="16" width="52" height="22" rx="8" fill="#fff" stroke="#3da5ff" stroke-width="3"/>${L(118, 27, "מ", 18)}</g>
+      <g transform="translate(52 56)"><rect x="0" y="12" width="56" height="18" rx="8" fill="#ff8a3d"/><path d="M12 12 Q18 0 30 0 H38 Q46 0 48 12 Z" fill="#ffc233"/><rect x="24" y="3" width="12" height="9" rx="2" fill="#bfe6ff"/><circle cx="14" cy="31" r="7" fill="#2b2f3a"/><circle cx="44" cy="31" r="7" fill="#2b2f3a"/><circle cx="14" cy="31" r="3" fill="#ccc"/><circle cx="44" cy="31" r="3" fill="#ccc"/></g></svg>`,
+    detective: `<svg viewBox="0 0 160 100"><g fill="#fff"><ellipse cx="40" cy="40" rx="30" ry="16"/><ellipse cx="60" cy="32" rx="20" ry="16"/><ellipse cx="118" cy="62" rx="30" ry="15"/><ellipse cx="102" cy="56" rx="16" ry="13"/></g>
+      ${L(48, 38, "ש", 22, "#7c5cff")}${L(116, 62, "ג", 20, "#ff5a8a")}
+      <g transform="translate(86 34) rotate(-20)"><circle r="19" fill="#ffffff88" stroke="#3b2a20" stroke-width="6"/>${L(0, 0, "ד", 20)}<rect x="-4" y="19" width="8" height="26" rx="4" fill="#3b2a20"/></g></svg>`,
+    waking: `<svg viewBox="0 0 160 100"><circle cx="128" cy="24" r="12" fill="#ffd43b"/><g transform="translate(66 52)"><rect x="-32" y="-34" width="64" height="68" rx="22" fill="#b197fc"/>${L(0, 2, "א", 50, "#fff")}
+      <path d="M-14 -16 q5 4 10 0 M6 -16 q5 4 10 0" stroke="#1d2a3a" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+      <g fill="#7c5cff" font-weight="800" font-family="sans-serif"><text x="104" y="52" font-size="16">z</text><text x="114" y="40" font-size="20">z</text><text x="126" y="26" font-size="12" opacity="0">z</text></g></svg>`,
+    // three family balloons: mom+son, dad+son, mom+daughter (Golan 20.10, replaces the speech bubble)
+    tellme: `<svg viewBox="0 0 160 100" role="img" aria-label="כדורים פורחים: אמא ובן, אבא ובן, אמא ובת"><g transform="translate(38 3) scale(0.84)"><g transform="translate(50 0) scale(.78) translate(-50 0)"><path d="M50 3 C25 3 14 20 18 37 C21 48 34 53 40 58 L60 58 C66 53 79 48 82 37 C86 20 75 3 50 3 Z" fill="#4dabf7"/><path d="M50 3 C40 4 34 20 36 37 C37 48 40 53 43 58 L57 58 C60 53 63 48 64 37 C66 20 60 4 50 3 Z" fill="#fff"/><path d="M50 3 C46 7 45 22 46 37 C46.5 48 48 53 48.5 58 L51.5 58 C52 53 53.5 48 54 37 C55 22 54 7 50 3 Z" fill="#4dabf7"/><ellipse cx="37" cy="17" rx="4.5" ry="8" fill="#fff" opacity=".35" transform="rotate(20 37 17)"/></g><path d="M41 45 L30 70 M59 45 L70 70" stroke="#7A4E27" stroke-width="1.4"/><ellipse cx="40" cy="74" rx="12.5" ry="8.5" fill="#2fb36b"/><ellipse cx="62" cy="76" rx="8.5" ry="6" fill="#3DA5FF"/><circle cx="40" cy="57" r="9" fill="#f6cba5"/><path d="M31 55 Q31 47 40 47 Q49 47 49 55 Q47 51 44 51 Q38 52 31 55 Z" fill="#3a2a22"/><circle cx="37" cy="58.5" r="1.2" fill="#3a2a22"/><circle cx="43" cy="58.5" r="1.2" fill="#3a2a22"/><path d="M37.3 62 Q40 64.5 42.7 62" stroke="#b5533c" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M68 74 Q74 64 71 54" stroke="#f6cba5" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="62" cy="64" r="7" fill="#f6cba5"/><path d="M55 63 Q55.5 55.5 62.5 56 Q69.5 56.5 69 63 Q63 59 55 63 Z" fill="#8a5a2b"/><circle cx="59.6" cy="65" r="1" fill="#3a2a22"/><circle cx="64.4" cy="65" r="1" fill="#3a2a22"/><path d="M60 68 Q62 70 64 68" stroke="#b5533c" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M48 75 Q53 71 57 74" stroke="#f6cba5" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M24 74 H76 L72 96 Q50 99 28 96 Z" fill="#C98A4B"/><rect x="22" y="71" width="56" height="6" rx="3" fill="#8A5A2B"/><path d="M33 80 V95 M43 80 V97 M57 80 V97 M67 80 V95" stroke="#A8743F" stroke-width="1.5"/></g><g transform="translate(90 10) scale(0.84)"><g transform="translate(50 0) scale(.78) translate(-50 0)"><path d="M50 3 C25 3 14 20 18 37 C21 48 34 53 40 58 L60 58 C66 53 79 48 82 37 C86 20 75 3 50 3 Z" fill="#FF5A4E"/><path d="M50 3 C40 4 34 20 36 37 C37 48 40 53 43 58 L57 58 C60 53 63 48 64 37 C66 20 60 4 50 3 Z" fill="#fff"/><path d="M50 3 C46 7 45 22 46 37 C46.5 48 48 53 48.5 58 L51.5 58 C52 53 53.5 48 54 37 C55 22 54 7 50 3 Z" fill="#FF5A4E"/><ellipse cx="37" cy="17" rx="4.5" ry="8" fill="#fff" opacity=".35" transform="rotate(20 37 17)"/></g><path d="M41 45 L30 70 M59 45 L70 70" stroke="#7A4E27" stroke-width="1.4"/><circle cx="40" cy="55" r="11" fill="#6b3a1e"/><circle cx="31" cy="48" r="4.5" fill="#6b3a1e"/><ellipse cx="40" cy="74" rx="12" ry="8" fill="#7C5CFF"/><ellipse cx="62" cy="76" rx="8.5" ry="6" fill="#3DA5FF"/><circle cx="40" cy="57" r="9" fill="#f6cba5"/><path d="M31 56 Q33 46 42 47 Q49 48 49 55 Q42 51 31 56 Z" fill="#6b3a1e"/><circle cx="37" cy="58.5" r="1.2" fill="#3a2a22"/><circle cx="43" cy="58.5" r="1.2" fill="#3a2a22"/><path d="M37.3 62 Q40 64.5 42.7 62" stroke="#b5533c" stroke-width="1.3" fill="none" stroke-linecap="round"/><circle cx="34.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/><circle cx="45.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/><path d="M68 74 Q74 64 71 54" stroke="#f6cba5" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="62" cy="64" r="7" fill="#f6cba5"/><path d="M55 63 Q55.5 55.5 62.5 56 Q69.5 56.5 69 63 Q63 59 55 63 Z" fill="#8a5a2b"/><circle cx="59.6" cy="65" r="1" fill="#3a2a22"/><circle cx="64.4" cy="65" r="1" fill="#3a2a22"/><path d="M60 68 Q62 70 64 68" stroke="#b5533c" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M48 75 Q53 71 57 74" stroke="#f6cba5" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M24 74 H76 L72 96 Q50 99 28 96 Z" fill="#C98A4B"/><rect x="22" y="71" width="56" height="6" rx="3" fill="#8A5A2B"/><path d="M33 80 V95 M43 80 V97 M57 80 V97 M67 80 V95" stroke="#A8743F" stroke-width="1.5"/></g><g transform="translate(-19 4) scale(0.96)"><g transform="translate(50 0) scale(.78) translate(-50 0)"><path d="M50 3 C25 3 14 20 18 37 C21 48 34 53 40 58 L60 58 C66 53 79 48 82 37 C86 20 75 3 50 3 Z" fill="#ffb000"/><path d="M50 3 C40 4 34 20 36 37 C37 48 40 53 43 58 L57 58 C60 53 63 48 64 37 C66 20 60 4 50 3 Z" fill="#fff"/><path d="M50 3 C46 7 45 22 46 37 C46.5 48 48 53 48.5 58 L51.5 58 C52 53 53.5 48 54 37 C55 22 54 7 50 3 Z" fill="#ffb000"/><ellipse cx="37" cy="17" rx="4.5" ry="8" fill="#fff" opacity=".35" transform="rotate(20 37 17)"/></g><path d="M41 45 L30 70 M59 45 L70 70" stroke="#7A4E27" stroke-width="1.4"/><circle cx="40" cy="55" r="11" fill="#6b3a1e"/><circle cx="31" cy="48" r="4.5" fill="#6b3a1e"/><ellipse cx="40" cy="74" rx="12" ry="8" fill="#7C5CFF"/><ellipse cx="62" cy="76" rx="8.5" ry="6" fill="#ff6fa8"/><circle cx="54.5" cy="63" r="3.2" fill="#c0392b"/><circle cx="69.5" cy="63" r="3.2" fill="#c0392b"/><circle cx="40" cy="57" r="9" fill="#f6cba5"/><path d="M31 56 Q33 46 42 47 Q49 48 49 55 Q42 51 31 56 Z" fill="#6b3a1e"/><circle cx="37" cy="58.5" r="1.2" fill="#3a2a22"/><circle cx="43" cy="58.5" r="1.2" fill="#3a2a22"/><path d="M37.3 62 Q40 64.5 42.7 62" stroke="#b5533c" stroke-width="1.3" fill="none" stroke-linecap="round"/><circle cx="34.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/><circle cx="45.5" cy="61.5" r="1.7" fill="#ff9b8a" opacity=".55"/><path d="M68 74 Q74 64 71 54" stroke="#f6cba5" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="62" cy="64" r="7" fill="#f6cba5"/><path d="M55 64 Q54.5 55.5 62 55.5 Q69.5 55.5 69 64 Q67 59 62 58.5 Q57 59 55 64 Z" fill="#c0392b"/><circle cx="59.6" cy="65" r="1" fill="#3a2a22"/><circle cx="64.4" cy="65" r="1" fill="#3a2a22"/><path d="M60 68 Q62 70 64 68" stroke="#b5533c" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M48 75 Q53 71 57 74" stroke="#f6cba5" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M24 74 H76 L72 96 Q50 99 28 96 Z" fill="#C98A4B"/><rect x="22" y="71" width="56" height="6" rx="3" fill="#8A5A2B"/><path d="M33 80 V95 M43 80 V97 M57 80 V97 M67 80 V95" stroke="#A8743F" stroke-width="1.5"/></g></svg>`,
+    train: `<svg viewBox="0 0 160 100"><path d="M0 84 H160" stroke="#7a5230" stroke-width="4"/><path d="M0 90 H160" stroke="#a0703f" stroke-width="3" stroke-dasharray="6 8"/>
+      <g transform="translate(104 34)"><rect x="0" y="14" width="46" height="32" rx="6" fill="#ff5a4e"/><rect x="24" y="0" width="22" height="22" rx="4" fill="#ff5a4e"/><rect x="28" y="4" width="14" height="10" rx="2" fill="#bfe6ff"/><rect x="4" y="2" width="10" height="14" fill="#2b2f3a"/><circle cx="12" cy="48" r="7" fill="#2b2f3a"/><circle cx="36" cy="48" r="7" fill="#2b2f3a"/></g>
+      ${[[56, "#3da5ff", "ר"], [8, "#2bb673", "כ"]].map(([x, c, ch]) => `<g transform="translate(${x} 46)"><rect width="42" height="32" rx="6" fill="${c}"/>${L(21, 15, ch, 24, "#fff")}<circle cx="10" cy="36" r="6" fill="#2b2f3a"/><circle cx="32" cy="36" r="6" fill="#2b2f3a"/></g>`).join("")}
+      <path d="M50 64 H56 M98 64 H104" stroke="#2b2f3a" stroke-width="3"/></svg>`,
+    circle: `<svg viewBox="0 0 160 100"><circle cx="80" cy="50" r="38" fill="none" stroke="#ff5a8a" stroke-width="4" stroke-dasharray="4 8" stroke-linecap="round"/>
+      ${["א", "ב", "ג", "ד", "ה", "ו"].map((ch, i) => { const a = -Math.PI / 2 + i * Math.PI / 3, x = 80 + Math.cos(a) * 38, y = 50 + Math.sin(a) * 38, c = ["#ff5a4e", "#ff8a3d", "#ffc233", "#2bb673", "#3da5ff", "#7c5cff"][i];
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="${c}"/>${L(x.toFixed(1), y.toFixed(1), ch, 16, "#fff")}`; }).join("")}</svg>`,
+  };
+
+  // ---------- screens ----------
+  const PREVIEW = !!window.HUB_PREVIEW;   // the artifact preview: cards can't open the game files there
+  function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (el.style.display = "none"), 2600); }
+  function showGames() {
+    const p = LRN && LRN.profile();
+    document.querySelector(".who .comp").innerHTML = p ? LRN.companionSvg(p, 64) : "";
+    document.querySelector(".who").setAttribute("aria-label", (p ? p.name + ", " : "") + "במה נשחק?");
+    const grid = document.querySelector(".grid"); grid.innerHTML = "";
+    for (const g of GAMES) {
+      const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.style.setProperty("--ac", g.ac);
+      // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)
+      const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
+      const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.name;   // a girl: הבלשית (Golan 19.10)
+      const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : `hub_g_${g.id}`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${(window.FL_HUB_PICS || PICS)[g.pic]}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
+      const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
+        // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
+        const quiet = (f) => { const was = LA.sound; LA.sound = false; f(); LA.sound = was; };
+        const cycle = (awake) => { if (!sleeper.isConnected) return; quiet(awake ? sleeper.sleep : sleeper.wake); setTimeout(() => cycle(!awake), awake ? 6000 : (sleeper.wakeTime + 3.5) * 1000); };
+        setTimeout(() => cycle(false), 4000); }
+      b.onclick = (e) => { if (e.target.closest(".spk")) return; openGame(g, b); }; grid.append(b);
+    }
+    if (window.FL && FL.map) FL.map.hide();
+    screen = "games"; $("door").hidden = $("gear").hidden = false; $("games").classList.add("on"); fitNikud();
+    if (location.hash !== "#games") history.replaceState(null, "", "#games");
+  }
+  // The learning path (Golan 20.10): after "מי משחק?" comes the 3D map of the topics; island 1 opens the game list above.
+  function knownCount() { try { const c = LRN.cards(); return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; } catch (e) { return 0; } }
+  function showMap() {
+    if (!(window.FL && FL.map) || !LRN || !LRN.profile()) { showGames(); return; }
+    hush(); $("games").classList.remove("on"); screen = "map"; $("door").hidden = $("gear").hidden = false;
+    const p = LRN.profile();
+    FL.map.show({ host: document.body, profile: p, colour: LRN.COMP_COLORS[p.color || 0], known: knownCount(), say, at: FL.map.at(),
+      onOpen: () => showGames(), onFail: () => showGames(), onSystem: systemPick });
+    if (location.hash !== "#map") history.replaceState(null, "", "#map");
+  }
+  // "בחירת משחק על ידי המערכת על פי התקדמות" (Golan 20.10): for now one of the letter games, never the same one twice
+  // in a row; each game's own system choice already puts the letters not yet recognised first.
+  function systemPick() {
+    let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
+    const pool = GAMES.filter((g) => g.id !== last), g = pool[Math.floor(Math.random() * pool.length)];
+    try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
+    openGame(g, document.createElement("div"));
+  }
+  // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
+  const NIKUD = /[\u0591-\u05C7]/g;
+  function fitNikud() {
+    for (const el of document.querySelectorAll("[data-nq]")) {
+      el.textContent = el.dataset.nq; el.classList.add("nq");
+      if (parseFloat(getComputedStyle(el).fontSize) < 28) { el.textContent = el.dataset.nq.replace(NIKUD, ""); el.classList.remove("nq"); }
+    }
+  }
+  let nqT = 0; addEventListener("resize", () => { clearTimeout(nqT); nqT = setTimeout(fitNikud, 150); });
+  // ---------- Hila reads the titles (Golan 16.10). Clips come from the voice thread into voice/audio/;
+  // until a clip exists the speaker stays silent (never a browser voice). ----------
+  let voice = null;
+  function hush() { if (voice) { voice.pause(); voice = null; } }
+  function say(id, fallback, then) { hush(); if (settingsOpen) return; const a = new Audio("voice/audio/" + id + ".mp3"); voice = a;
+    // the map plays a chain of clips (name, contents, "opens later"); a clip not recorded yet is skipped
+    const rest = then == null ? [] : [].concat(then), next = () => { if (voice === a && rest.length) say(rest[0], null, rest.slice(1)); };
+    a.onerror = () => { if (voice !== a) return; if (fallback) say(fallback, null, rest); else next(); };   // gendered clip not recorded yet: the neutral one
+    a.onended = next;
+    a.play().catch(() => {}); }
+  document.addEventListener("click", (e) => { const k = e.target.closest(".spk"); if (k) { e.stopPropagation(); say(k.dataset.clip, k.dataset.fallback); } }, true);
+  document.addEventListener("keydown", (e) => { const k = e.target.closest && e.target.closest(".spk[role=button]"); if (k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); say(k.dataset.clip, k.dataset.fallback); } });
+  let opening = false;
+  function openGame(g, b) {
+    if (opening) return; opening = true; hush(); b.classList.add("go");   // the chosen card grows, like the balloon pick in the games
+    setTimeout(() => {
+      if (PREVIEW) { b.classList.remove("go"); opening = false; toast("כאן נפתח המשחק: " + g.name.replace(/[֑-ׇ]/g, "")); return; }
+      location.href = g.path + "?hub=" + encodeURIComponent(location.href.split(/[?#]/)[0]);   // the full hub address: works for games with a local learner.js copy too
+    }, 380);
+  }
+  // Screens: "who" ("מי משחק?", the shared box from learner.js, which brings its own door and gear) and "games".
+  // The door and a tap outside any box go back to the state before that box opened (Golan 16.10). Inside "מי משחק?"
+  // learner.js handles form / age question -> list; leaving the list calls our onBack: the game list when we came from
+  // it, otherwise back to where the page was opened from. Settings -> the screen under them.
+  let screen = "who", cameFromGames = false, whoRun = 0, gearHit = false;
+  document.addEventListener("click", (e) => { if (e.target.closest && e.target.closest(".fl-ov .fl-gear")) gearHit = true; }, true);
+  async function whoPlays(fromGames) {
+    hush(); closeSettings(); $("games").classList.remove("on"); if (window.FL && FL.map) FL.map.hide(); screen = "who"; cameFromGames = !!fromGames;
+    $("door").hidden = $("gear").hidden = true;   // the "מי משחק?" popup shows its own door and gear in the same place
+    document.querySelectorAll(".fl-ov").forEach((o) => o.remove());
+    history.replaceState(null, "", location.pathname + location.search);
+    const run = ++whoRun; gearHit = false;
+    if (!LRN) { showGames(); return; }
+    await LRN.chooseChild({ onBack: leaveList, onGear: () => openSettings("who") });
+    if (run === whoRun && !gearHit) showMap();   // the gear opens settings over "מי משחק?" instead
+  }
+  function leaveList() {
+    if (cameFromGames && LRN && LRN.profile()) { whoRun++; showMap(); return; }
+    if (history.length > 1) history.back(); else whoPlays(false);   // first screen of this visit: back to where the page came from
+  }
+  let settingsFrom = "games";
+  function back() {
+    if (settingsOpen) { closeSettings(); if (settingsFrom === "who") whoPlays(cameFromGames); else if (settingsFrom === "map") showMap(); else showGames(); return; }
+    if (screen === "games") showMap();   // the game list -> the map -> "מי משחק?"
+    else if (screen === "map") whoPlays(true);
+  }
+  // ---------- settings (gear under the door, Golan 16.10): the parent's place. Every item = title, options, explanation. ----------
+  let settingsOpen = false;
+  const PENCIL = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20l1-5L15.5 4.5a2.1 2.1 0 013 3L8 18z" fill="#ffd43b" stroke="#1d2a3a" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 20l4-2-3-3z" fill="#1d2a3a"/></svg>';
+  const BIN = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 7h14l-1.2 13H6.2z" fill="#e03131"/><rect x="3.5" y="4.5" width="17" height="2.5" rx="1" fill="#e03131"/><rect x="9" y="2.5" width="6" height="2.5" rx="1" fill="#e03131"/></svg>';
+  function closeSettings() { const o = $("settings"); if (o) o.remove(); settingsOpen = false; }
+  function openSettings(from) {
+    hush(); closeSettings(); settingsOpen = true; kidsOpen = false; settingsFrom = from === "who" || from === "map" ? from : "games";
+    $("door").hidden = $("gear").hidden = false;
+    const o = document.createElement("div"); o.id = "settings"; o.className = "set-ov";
+    o.innerHTML = `<div class="set-box" role="dialog" aria-label="הגדרות"><div class="set-head"><button type="button" class="set-x" aria-label="סגירה" title="סגירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button><h2>הגדרות (להורה או למורה)</h2></div><div class="set-body">
+      <section><div class="set-kids"></div></section>   <!-- no heading and no explanation line (Golan 19.10) -->
+      <section><div class="set-table"></div></section>
+      <section><div class="set-sum"></div></section>
+      <section class="set-chk"><div class="hd"><h3>סבב בדיקת אותיות</h3><button type="button" class="go">בדיקה</button></div>
+        <p class="set-ex">כמו המבדק בתחילת כיתה א': 22 האותיות, כל אות פעם אחת, בלי סופיות. הסבב נפתח במשחק "משחקים ביחד": הילד אומר את שם האות, ואתם מקישים נכון או נסו שוב. התוצאה נשמרת בסיכום להורה.</p></section></div></div>`;
+    document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
+    o.querySelector(".set-x").onclick = back;
+    o.addEventListener("click", (e) => { if (e.target === o) back(); });
+    drawKids(); if (LRN) LRN.renderParentTable(o.querySelector(".set-table"));
+    drawSummary(); o.querySelector(".set-chk .go").onclick = startCheck;
+  }
+  // ---------- parent summary and letter check round (Golan 20.10): both come from the game "תגיד לי" ----------
+  // The summary reads that game's record on this device (the current child's rows; rows from before 20.10 carry no child).
+  // A letter's state = its last FIRST try in a round. The check round opens "תגיד לי" with ?check=1: one 22-letter round.
+  const TELL_REG = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"], TELL_FIN = ["ך", "ם", "ן", "ף", "ץ"];
+  function drawSummary() {
+    const host = document.querySelector("#settings .set-sum"); if (!host) return; host.innerHTML = "";
+    const p = LRN && LRN.profile(), G = (m, f) => (p && p.gender === "f" ? f : m);
+    let log = [], chk = null;
+    try { log = JSON.parse(localStorage.getItem("fl-tellme-log") || "[]"); } catch (e) {}
+    try { chk = JSON.parse(localStorage.getItem("fl-tellme-check") || "null"); } catch (e) {}
+    if (chk && chk.k && p && chk.k !== p.id) chk = null;
+    const st = {}; for (const r of log) if (!r.re && (!r.k || !p || r.k === p.id)) st[r.l] = r.ok ? "ok" : "later";
+    const okReg = TELL_REG.filter((l) => st[l] === "ok").length, seenReg = TELL_REG.filter((l) => st[l]).length;
+    // the same closed heading as "התקדמות למידה"; opening it closes any other open big menu
+    const cap = document.createElement("button"); cap.type = "button"; cap.className = "fl-cap"; cap.setAttribute("aria-expanded", "false");
+    cap.innerHTML = `<span class="fl-capt">סיכום להורה</span><span class="fl-chev" aria-hidden="true">▾</span>`;
+    const box = document.createElement("div"); box.hidden = true;
+    cap.onclick = () => { const open = box.hidden;
+      if (open) document.querySelectorAll(".fl-cap[aria-expanded=true]").forEach((o) => { if (o !== cap) o.click(); });
+      box.hidden = !open; cap.setAttribute("aria-expanded", String(open)); };
+    const parts = [];
+    if (seenReg && seenReg < 22) parts.push(`${22 - seenReg} אותיות עוד לא הופיעו`);
+    if (chk) parts.push(`סבב בדיקה אחרון: ${chk.ok} מתוך 22 (${new Date(chk.t).toLocaleDateString("he-IL")})`);
+    box.innerHTML = `<div class="score"></div><div class="sub"></div><div class="grid"></div>
+      <div class="leg"><span><i style="border-color:#2bb673;background:#e3f7ec"></i>${G("אמר נכון", "אמרה נכון")}</span><span><i style="border-color:#ffb020;background:#fff4dc"></i>נסו שוב, נתרגל</span><span><i style="border-color:#d5dde6"></i>עוד לא הופיעה</span></div>
+      <div class="note"></div>`;
+    box.querySelector(".score").textContent = seenReg ? `${p ? p.name + " " : ""}${G("זיהה ואמר", "זיהתה ואמרה")} ${okReg} מתוך 22 אותיות` : "עוד לא שיחקנו ב\"משחקים ביחד\"";
+    box.querySelector(".sub").textContent = parts.join(" · ");
+    for (const l of [...TELL_REG, ...TELL_FIN]) { const sp = document.createElement("span"); sp.textContent = l; sp.className = [TELL_FIN.includes(l) ? "final" : "", st[l] || ""].join(" ").trim(); box.querySelector(".grid").append(sp); }
+    // Golan 20.10: one short line, from the date of this child's first saved answer
+    const first = log.find((r) => r.t && (!r.k || !p || r.k === p.id)), d = first ? new Date(first.t) : null;
+    const pad = (n) => String(n).padStart(2, "0");
+    box.querySelector(".note").textContent = "בקרת זיהוי מוצלח מתוך המשחק \"משחקים ביחד\"" + (d ? `, מתאריך ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : "");
+    host.append(cap, box);
+  }
+  function startCheck() {
+    hush();
+    if (PREVIEW) { toast("כאן נפתח סבב הבדיקה במשחק משחקים ביחד"); return; }
+    location.href = "games/tell-me/index.html?check=1&hub=" + encodeURIComponent(location.href.split(/[?#]/)[0]);
+  }
+  function drawKids() {
+    const box = document.querySelector("#settings .set-kids"); if (!box || !LRN) return; box.innerHTML = "";
+    const curId = LRN.profile() && LRN.profile().id;
+    for (const p of LRN.profiles().filter((x) => x.id === curId)) {   // only the child who plays (Golan 19.10)
+      const r = document.createElement("div"); r.className = "set-kid" + (p.id === curId ? " cur" : "");
+      r.innerHTML = `<span class="c">${LRN.companionSvg(p, 46)}</span><span class="n"></span>` + (kidsOpen
+        ? `<button class="ed">${PENCIL}עריכה</button><button class="dl">${BIN}מחיקה</button>`
+        : `<button class="ed gate">${PENCIL}עריכה</button>`);   // a parent's lock first: one button, then a times-table question (Golan 19.10)
+      r.querySelector(".n").textContent = p.name;
+      if (kidsOpen) { r.querySelector(".ed").onclick = () => { kidsOpen = false; editKid(p, r); }; r.querySelector(".dl").onclick = () => { kidsOpen = false; askDelete(p, r); }; }   // one unlock = one edit or delete; closing it locks again (Golan 19.10)
+      else r.querySelector(".ed").onclick = () => askGate(r);
+      box.append(r);
+    }
+  }
+  // Parent's lock (Golan 19.10): a random times-table question whose answer is over 20 and under 50; the parent types the
+  // answer; right -> עריכה and מחיקה open (until the settings close); wrong -> a new question.
+  let kidsOpen = false;
+  function timesQ() { const all = []; for (let a = 2; a <= 9; a++) for (let b = 2; b <= 9; b++) if (a * b > 20 && a * b < 50) all.push([a, b]); return all[Math.floor(Math.random() * all.length)]; }
+  function askGate(row) {
+    const g = row.querySelector(".gate"); if (!g) return;
+    const f = document.createElement("form"); f.className = "set-gate"; f.dir = "ltr";   // written like a sum: 4 × 8 = [ ]; no ✓ button (Golan 20.10)
+    const ask = () => { const [a, b] = timesQ(); f.dataset.ans = a * b; f.querySelector(".q").textContent = `${a} × ${b} =`; f.querySelector("input").value = ""; f.querySelector("input").focus(); };
+    f.innerHTML = `<span class="q"></span><input type="text" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="התשובה">`;
+    g.replaceWith(f); ask();
+    // a tap anywhere else while the question waits: the row goes back to its first state (Golan 19.10)
+    const away = (e) => { if (!f.isConnected) return document.removeEventListener("pointerdown", away, true);
+      if (!f.contains(e.target)) { document.removeEventListener("pointerdown", away, true); drawKids(); } };
+    document.addEventListener("pointerdown", away, true);
+    // checked while typing: the right answer flashes the box green and opens edit; a wrong one as long as the answer shakes it
+    // and asks a new question. Enter checks what is there.
+    const inp = f.querySelector("input");
+    const check = (full) => { const v = inp.value.replace(/\D/g, ""); if (inp.value !== v) inp.value = v;
+      if (v && +v === +f.dataset.ans) { inp.readOnly = true; f.classList.remove("no"); f.classList.add("ok"); setTimeout(() => { if (f.isConnected) { kidsOpen = true; drawKids(); } }, 550); return; }
+      if (v && (full || v.length >= String(f.dataset.ans).length)) { f.classList.remove("no"); void f.offsetWidth; f.classList.add("no"); ask(); } };
+    inp.addEventListener("input", () => check(false));
+    f.onsubmit = (e) => { e.preventDefault(); if (!inp.readOnly) check(true); };
+  }
+  // edit in place: name, boy/girl, age, companion colour + item (a combination another child has is not offered)
+  function editKid(p, row) {
+    const taken = LRN.profiles().filter((x) => x.id !== p.id).map((x) => x.color + ":" + x.item);
+    let d = { name: p.name, gender: p.gender, age: LRN.profile() && p.birthYear ? new Date().getFullYear() - p.birthYear : null, color: p.color, item: p.item };
+    const f = document.createElement("div"); f.className = "set-form";
+    f.innerHTML = `<div class="prev"></div><input class="set-in" maxlength="20" aria-label="שם">
+      <div class="set-row"><button class="g" data-g="m">👦 בן</button><button class="g" data-g="f">👧 בת</button></div>
+      <div class="set-row"><span>גיל</span>${[3, 4, 5, 6, 7].map((a) => `<button class="age" data-a="${a}">${a}</button>`).join("")}</div>
+      <div class="set-row cols"></div><div class="set-row its"></div>
+      <div class="set-row"><button class="ok">שמירה</button><button class="cancel">ביטול</button></div>`;
+    row.replaceWith(f);
+    const inp = f.querySelector(".set-in"); inp.value = d.name;
+    const draw = () => {
+      f.querySelector(".prev").innerHTML = LRN.companionSvg(d, 80);
+      f.querySelectorAll(".g").forEach((x) => x.classList.toggle("on", x.dataset.g === d.gender));
+      f.querySelectorAll(".age").forEach((x) => x.classList.toggle("on", +x.dataset.a === d.age));
+      const cols = f.querySelector(".cols"), its = f.querySelector(".its"); cols.innerHTML = its.innerHTML = "";
+      LRN.COMP_COLORS.forEach((c, i) => { const b = document.createElement("button"); b.className = "col" + (i === d.color ? " on" : ""); b.style.background = c; b.setAttribute("aria-label", "צבע " + (i + 1));
+        b.onclick = () => { d.color = i; if (taken.includes(d.color + ":" + d.item)) { const k = [0, 1, 2, 3, 4, 5].find((k) => !taken.includes(i + ":" + k)); if (k != null) d.item = k; } draw(); }; cols.append(b); });
+      LRN.COMP_ITEMS.forEach((_, k) => { const b = document.createElement("button"); b.className = "itm" + (k === d.item ? " on" : ""); b.disabled = taken.includes(d.color + ":" + k);
+        b.innerHTML = LRN.companionSvg({ color: d.color, item: k }, 40); b.onclick = () => { d.item = k; draw(); }; its.append(b); });
+      f.querySelector(".ok").disabled = !inp.value.trim() || taken.includes(d.color + ":" + d.item);
+    };
+    inp.oninput = draw;
+    f.querySelectorAll(".g").forEach((b) => (b.onclick = () => { d.gender = b.dataset.g; draw(); }));
+    f.querySelectorAll(".age").forEach((b) => (b.onclick = () => { d.age = +b.dataset.a; draw(); }));
+    f.querySelector(".cancel").onclick = drawKids;
+    f.querySelector(".ok").onclick = () => { LRN.updateProfile(p.id, { name: inp.value, gender: d.gender, age: d.age, color: d.color, item: d.item }); drawKids(); refreshWho(); };
+    draw(); inp.focus();
+  }
+  // delete: a question, and "מחיקה" works only when held for 2 seconds, so a child can't delete by a quick tap
+  function askDelete(p, row) {
+    const c = document.createElement("div"); c.className = "set-confirm";
+    c.innerHTML = `<p>למחוק את <b></b>?</p><small>כל הכוכבים וההתקדמות יימחקו, ואי אפשר להחזיר.</small>
+      <div class="set-row"><button class="keep">לא, להשאיר</button><button class="hold">מחיקה (להחזיק 2 שניות)<span class="fill"></span></button></div>`;
+    c.querySelector("b").textContent = p.name; row.replaceWith(c);
+    c.querySelector(".keep").onclick = drawKids;
+    const h = c.querySelector(".hold"), fill = h.querySelector(".fill"); let t0 = 0, raf = 0;
+    const stop = () => { cancelAnimationFrame(raf); t0 = 0; fill.style.transform = "scaleX(0)"; };
+    h.addEventListener("pointerdown", (e) => { t0 = performance.now(); h.setPointerCapture && h.setPointerCapture(e.pointerId);
+      const step = () => { const k = (performance.now() - t0) / 2000; fill.style.transform = `scaleX(${Math.min(1, k)})`;
+        if (k >= 1) { stop(); const wasCur = LRN.profile() && LRN.profile().id === p.id; LRN.removeProfile(p.id);
+          if (wasCur || !LRN.profiles().length) { closeSettings(); whoPlays(false); } else { drawKids(); refreshWho(); } }
+        else raf = requestAnimationFrame(step); };
+      raf = requestAnimationFrame(step); });
+    for (const ev of ["pointerup", "pointercancel", "pointerleave"]) h.addEventListener(ev, stop);
+    h.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  function refreshWho() { const p = LRN && LRN.profile(); document.querySelector(".who .comp").innerHTML = p ? LRN.companionSvg(p, 64) : ""; const t = document.querySelector("#settings .set-table"); if (t) LRN.renderParentTable(t); drawSummary(); }
+  $("gear").onclick = () => (settingsOpen ? back() : openSettings(screen === "map" ? "map" : "games"));
+  $("door").onclick = back;
+  // Back from a game (its door): straight to the game list for the same child. Any other entry: "מי משחק?" first.
+  window.addEventListener("pageshow", () => { opening = false; document.querySelectorAll(".game.go").forEach((x) => x.classList.remove("go")); });
+  // A new session (the browser or the app was closed and opened again, learner.js): always "מי משחק?" first.
+  const again = LRN && LRN.profile() && !(LRN.freshSession && LRN.freshSession());
+  if (location.hash === "#games" && again) showGames(); else if (location.hash === "#map" && again) showMap(); else whoPlays(false);
+
+  // ---------- the sky: the 9 shared balloons drifting up (same set as the games, from the detective game) ----------
+  const BALLOONS = [
+    { c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { c: ["#16B6A8", "#7C5CFF"], pat: "checks", shape: "wide", basket: "#7a5230" },
+    { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
+  ];
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+  function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
+  function paintBalloon(ctx, W, H, d) {   // flat front of the balloon (same patterns as paintBalloon in the detective game)
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (sx, sy, fn) => { for (let row = 0, y = sy * 0.6; y < H; y += sy, row++) for (let x = (row % 2 ? sx / 2 : 0) + sx / 4; x < W + sx; x += sx) fn(x, y); };
+    const S = W / 100;
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = d.pat === "rainbow" ? 6 : 8;
+      for (let i = 0; i < n; i++) { ctx.fillStyle = cols[i % cols.length];
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill(); }
+    } else if (d.pat === "dots") grid(W / 4, H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, 7 * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(W / 3.6, H / 5, (x, y) => starPath(ctx, x, y, 10 * S));
+    else if (d.pat === "hearts") grid(W / 3.6, H / 5, (x, y) => heartPath(ctx, x, y, 8 * S));
+    else if (d.pat === "checks") { for (let i = 0; i < 6; i++) for (let j = 0; j < 7; j++) if ((i + j) % 2) ctx.fillRect(i * W / 6, j * H / 7, W / 6 + 1, H / 7 + 1); }
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
+    else if (d.pat === "zigzag" || d.pat === "waves") {
+      const teeth = 5, amp = 9 * S;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
+        ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
+          const yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S; ctx.lineJoin = "round"; ctx.stroke();
+      }
+    }
+  }
+  // each balloon drawn once to its own small picture, then only moved
+  function balloonSprite(d) {   // Golan 20.10: the same balloon as the "בחר כדור פורח" picker in the games (envelope, two ropes, small striped basket)
+    const [sx, sy] = SHAPES[d.shape], K = 1.2, cv = document.createElement("canvas");
+    cv.width = Math.ceil(100 * K * 2); cv.height = Math.ceil(134 * K * 2); const ctx = cv.getContext("2d"); ctx.scale(2 * K, 2 * K); ctx.translate(0, 14);
+    const env = new Path2D("M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z"), top = 90 - 84 * sy / 1.25;
+    if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 13); ctx.stroke();
+      ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 13); ctx.lineTo(64, top - 13); ctx.lineTo(60, top - 8.5); ctx.lineTo(64, top - 4); ctx.lineTo(50, top - 4); ctx.fill(); }
+    ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(41, 90); ctx.lineTo(38, 102); ctx.moveTo(59, 90); ctx.lineTo(62, 102); ctx.stroke();
+    ctx.save(); ctx.translate(50, 90); ctx.scale(sx / 1.1, sy / 1.25); ctx.translate(-50, -90);   // stretched around the balloon's mouth
+    ctx.save(); ctx.clip(env); paintBalloon(ctx, 100, 92, d);
+    const g = ctx.createRadialGradient(36, 26, 3, 50, 46, 50); g.addColorStop(0, "#ffffff66"); g.addColorStop(0.5, "#ffffff00"); g.addColorStop(1, "#0000002a");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 100, 92); ctx.restore();
+    ctx.strokeStyle = "#0000001f"; ctx.lineWidth = 1.5; ctx.stroke(env); ctx.restore();
+    ctx.fillStyle = d.basket; ctx.beginPath(); ctx.roundRect(36, 100, 28, 16, 3); ctx.fill();
+    ctx.fillStyle = "#4a3222"; ctx.fillRect(36, 100, 28, 3); ctx.fillStyle = d.c[0]; ctx.fillRect(36, 105.5, 28, 2.6); ctx.fillRect(36, 112.6, 28, 2.6);
+    ctx.fillStyle = d.c[1] || "#fff"; ctx.fillRect(36, 109.6, 28, 1.6);
+    return { cv, w: 100 * K, h: 134 * K };
+  }
+  const sky = $("sky"), sctx = sky.getContext("2d"), sprites = BALLOONS.map(balloonSprite);
+  const clouds = Array.from({ length: 6 }, (_, i) => ({ x: Math.random(), y: 0.08 + (i / 6) * 0.8, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.006 }));
+  // Golan 16.10: fewer balloons, a bit bigger, a bit faster, each with its own speed and its own angle (up, but slanted).
+  // They fly anywhere except over the two central cards: beside them on a wide screen; on an upright phone, where the
+  // middle row fills the width, a balloon fades out while it passes behind those two cards.
+  const ON_SCREEN = 5;
+  let Wd = 0, Hd = 0, floats = [];
+  function keepOut() {   // the area to keep free: the two central cards (Golan 16.10), or the "מי משחק?" box
+    const grid = document.querySelector("#games.on .grid"); let els = [...document.querySelectorAll(".fl-box")];
+    if (grid && grid.children.length) {   // 3 columns: the middle column; 2 columns (upright): the middle row
+      const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length, c = [...grid.children];
+      els = els.concat(cols >= 3 ? [c[1], c[4]] : cols === 2 ? [c[2], c[3]] : c).filter(Boolean); }
+    let r = null; for (const e of els) { const q = e.getBoundingClientRect(); if (!q.width) continue;
+      r = r ? { l: Math.min(r.l, q.left), r: Math.max(r.r, q.right), t: Math.min(r.t, q.top), b: Math.max(r.b, q.bottom) } : { l: q.left, r: q.right, t: q.top, b: q.bottom }; }
+    return r;
+  }
+  const sizeOf = (f) => { const sp = sprites[f.i], sc = f.s * Math.min(Wd, Hd) / 520 * 1.6; return { w: sp.w * sc, h: sp.h * sc, sc }; };
+  function zonesFor(w) {   // free strips at the sides, wide enough for this balloon
+    const r = keepOut(), m = 12, z = [];
+    if (!r) return [[0, Wd]];
+    if (r.l - m >= w) z.push([0, r.l - m]);
+    if (Wd - r.r - m >= w) z.push([r.r + m, Wd]);
+    return z;
+  }
+  function launch(f, first) {
+    const used = new Set(floats.filter((x) => x !== f).map((x) => x.i));
+    const free = BALLOONS.map((_, i) => i).filter((i) => !used.has(i)); f.i = free[Math.floor(Math.random() * free.length)];
+    f.s = 0.55 + Math.random() * 0.45;                              // own size (far = smaller)
+    f.v = 0.035 + Math.random() * 0.06;                             // own speed: 3.5% to 9.5% of the screen height per second
+    f.a = (Math.random() * 2 - 1) * 0.6;                            // own angle: up to about 30 degrees left or right
+    const { w, h } = sizeOf(f), z = zonesFor(w), zone = z.length ? z[Math.floor(Math.random() * z.length)] : [0, Wd];
+    f.zone = z.length ? zone : null;
+    f.x = zone[0] + w / 2 + Math.random() * Math.max(0, zone[1] - zone[0] - w);
+    f.y = first ? Math.random() * Hd : Hd + Math.random() * h;
+    f.ph = Math.random() * 6;
+  }
+  function resize() { const r = Math.min(2, devicePixelRatio || 1); Wd = innerWidth; Hd = innerHeight; sky.width = Wd * r; sky.height = Hd * r; sctx.setTransform(r, 0, 0, r, 0, 0); }
+  addEventListener("resize", () => { resize(); floats.forEach((f) => launch(f, true)); }); resize();
+  floats = Array.from({ length: ON_SCREEN }, () => ({ i: -1 })); floats.forEach((f) => launch(f, true));
+  let last = performance.now(), zoneCheck = 0;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function cloud(x, y, s) { sctx.fillStyle = "#ffffffcc"; sctx.beginPath(); for (const [dx, dy, r] of [[0, 0, 26], [26, -10, 30], [54, 0, 24], [26, 8, 26]]) { sctx.moveTo(x + dx * s + r * s, y + dy * s); sctx.arc(x + dx * s, y + dy * s, r * s, 0, 7); } sctx.fill(); }
+  function frame(t) {
+    const dt = Math.min(0.05, (t - last) / 1000); last = t;
+    sctx.clearRect(0, 0, Wd, Hd);
+    for (const c of clouds) { if (!still) c.x += c.v * dt; if (c.x > 1.15) c.x = -0.15; cloud(c.x * Wd, c.y * Hd, c.s); }
+    const out = keepOut();
+    if (t - zoneCheck > 500) { zoneCheck = t; for (const f of floats) { const { w } = sizeOf(f), z = zonesFor(w);   // the screen changed (cards shown / hidden)
+      if (z.length && !(f.zone && z.some((q) => Math.abs(q[0] - f.zone[0]) < 1 && Math.abs(q[1] - f.zone[1]) < 1))) launch(f, true); } }
+    floats.sort((a, b) => a.s - b.s);   // small ones are far away, drawn first
+    for (const f of floats) {
+      const { w, h } = sizeOf(f);
+      if (!still) { const dy = f.v * Hd * dt; f.y -= dy; f.x += dy * f.a;
+        if (f.zone) { if (f.x - w / 2 < f.zone[0]) { f.x = f.zone[0] + w / 2; f.a = Math.abs(f.a); } if (f.x + w / 2 > f.zone[1]) { f.x = f.zone[1] - w / 2; f.a = -Math.abs(f.a); } }
+        else if (f.x < -w || f.x > Wd + w) f.a = -f.a;
+        if (f.y < -h) launch(f, false); }
+      const sway = Math.sin(t / 1400 + f.ph) * 6 * f.s, x = f.x - w / 2 + sway;
+      let alpha = 0.6 + f.s * 0.4;
+      if (!f.zone && out) {   // no free strip: fade out while behind the cards
+        const over = x + w > out.l && x < out.r && f.y + h > out.t && f.y < out.b; f.fade = Math.max(0, Math.min(1, (f.fade ?? 1) + (over ? -dt * 4 : dt * 4)));
+        alpha *= f.fade; }
+      if (alpha <= 0.01) continue;
+      sctx.globalAlpha = alpha; sctx.drawImage(sprites[f.i].cv, x, f.y, w, h);
+    }
+    sctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
