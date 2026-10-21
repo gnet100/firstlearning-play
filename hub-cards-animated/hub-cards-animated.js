@@ -50,6 +50,23 @@
   /* circle: the ring turns slowly clockwise, like in the game, and the letters stay upright */
   .hca-ring { transform-origin: 80px 50px; animation: hca-spin 40s linear infinite; }
   .hca-up { transform-box: fill-box; transform-origin: center; animation: hca-spin 40s linear infinite reverse; }
+  /* mole (Golan 21.10): the two moles take turns popping up out of their holes with their letter signs */
+  .hca-pop { animation: hca-pop 5s ease-in-out infinite; } .hca-pop.d2 { animation-delay: -2.5s; }
+  @keyframes hca-pop { 0%, 8% { transform: translateY(64px); } 22%, 62% { transform: translateY(0); } 26% { transform: translateY(-2px); } 76%, 100% { transform: translateY(64px); } }
+  /* memory: the two matching cards lean toward each other, little hearts float up, the night cards' stars twinkle */
+  .hca-lean { transform-box: fill-box; transform-origin: 50% 100%; animation: hca-lean 3.2s ease-in-out infinite; } .hca-lean.d2 { animation-direction: reverse; }
+  @keyframes hca-lean { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(4deg); } }
+  .hca-heart { opacity: 0; transform-box: fill-box; transform-origin: center; animation: hca-heart 3.6s ease-out infinite; } .hca-heart.d2 { animation-delay: 1.2s; } .hca-heart.d3 { animation-delay: 2.4s; }
+  @keyframes hca-heart { 0% { opacity: 0; transform: translateY(6px) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-18px) scale(1.15); } }
+  .hca-twinkle { animation: hca-twinkle 2.4s ease-in-out infinite; } .hca-twinkle.d2 { animation-delay: -.8s; } .hca-twinkle.d3 { animation-delay: -1.6s; }
+  @keyframes hca-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .hca-float { animation: hca-float 5s ease-in-out infinite; }
+  @keyframes hca-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  /* song: the letters hop one after another to the beat, notes float up, the moon glows */
+  .hca-hop { animation: hca-hop 2.4s ease-in-out infinite; } .hca-hop.d2 { animation-delay: .4s; } .hca-hop.d3 { animation-delay: .8s; }
+  @keyframes hca-hop { 0%, 30%, 100% { transform: translateY(0); } 12% { transform: translateY(-8px); } 20% { transform: translateY(1px); } }
+  .hca-note { opacity: 0; transform-box: fill-box; transform-origin: center; animation: hca-note 3.6s ease-out infinite; } .hca-note.d2 { animation-delay: 1.2s; } .hca-note.d3 { animation-delay: 2.4s; }
+  @keyframes hca-note { 0% { opacity: 0; transform: translate(0, 6px) rotate(-10deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -18px) rotate(10deg); } }
   @media (prefers-reduced-motion: reduce) { [class*="hca-"] { animation: none !important; } }`;
 
   // ---------- detective: a glass that wanders between the clouds; inside it the scene is drawn again, bigger ----------
@@ -113,6 +130,30 @@
       ${["א", "ב", "ג", "ד", "ה", "ו"].map((ch, i) => { const a = -Math.PI / 2 + i * Math.PI / 3, x = 80 + Math.cos(a) * 38, y = 50 + Math.sin(a) * 38, c = ["#ff5a4e", "#ff8a3d", "#ffc233", "#2bb673", "#3da5ff", "#7c5cff"][i];
         return `<g class="hca-up"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="${c}"/>${L(x.toFixed(1), y.toFixed(1), ch, 16, "#fff")}</g>`; }).join("")}</g></svg>`;
 
+  // ---------- the three station-1 games (Golan 21.10): the same drawings as their static PICS in index.html, plus soft motion ----------
+  const mole = `<svg class="hca" viewBox="0 0 160 100"><ellipse cx="80" cy="72" rx="72" ry="22" fill="#5fb34e"/><path d="M12 74 Q80 112 148 74 L132 92 Q80 108 28 92 Z" fill="#a47148"/>
+      <ellipse cx="44" cy="70" rx="17" ry="6" fill="#3b2a20"/><ellipse cx="118" cy="72" rx="15" ry="5" fill="#3b2a20"/>
+      ${[[44, "ב", 40, 70], [116, "ס", 50, 72]].map(([x, ch, y, hole], i) => `<defs><clipPath id="hca-hole${i}"><rect x="${x - 30}" y="0" width="60" height="${hole + 6}"/></clipPath></defs>
+        <g clip-path="url(#hca-hole${i})"><g class="hca-pop${i ? " d2" : ""}"><g transform="translate(${x} ${y})"><ellipse cx="0" cy="8" rx="14" ry="20" fill="#7b5a4c"/><ellipse cx="0" cy="0" rx="7" ry="5" fill="#f2c9a8"/><circle cx="0" cy="-1" r="3" fill="#ff7f9b"/><circle cx="-5" cy="-7" r="1.8" fill="#1d1d1d"/><circle cx="5" cy="-7" r="1.8" fill="#1d1d1d"/>
+        <rect x="-15" y="6" width="30" height="22" rx="4" fill="#fffaf0" stroke="#a0703f" stroke-width="2"/>${L(0, 17, ch, 16)}<circle cx="-14" cy="8" r="3.5" fill="#f7b3c0"/><circle cx="14" cy="8" r="3.5" fill="#f7b3c0"/></g></g></g>
+`).join("")}</svg>`;
+
+  const night = (x, y, k) => `<g transform="translate(${x} ${y})"><rect width="34" height="34" rx="5" fill="url(#hca-night)"/><circle cx="22" cy="12" r="6" fill="#FFF0A8"/><circle cx="25" cy="10" r="5" fill="#25307a"/>
+      <circle class="hca-twinkle${k ? " d" + (k + 1) : ""}" cx="9" cy="25" r="1.3" fill="#FFF6C8"/><circle class="hca-twinkle d${3 - k}" cx="14" cy="8" r="1" fill="#FFF6C8"/></g>`;
+  const card = (x, rot, cls) => `<g transform="translate(${x} 20) rotate(${rot} 20 22)"><g class="hca-lean ${cls}"><rect width="40" height="44" rx="6" fill="#FFF3C9" stroke="#ff8fb3" stroke-width="2.5"/>${L(20, 25, "ב", 30)}<circle cx="13" cy="36" r="1.6" fill="#1d2a3a"/><circle cx="27" cy="36" r="1.6" fill="#1d2a3a"/></g></g>`;
+  const heart = (x, y, k, cls, fill) => `<g transform="translate(${x} ${y}) scale(${k})"><path class="hca-heart ${cls}" d="M0 -3c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="${fill}"/></g>`;
+  const memory = `<svg class="hca" viewBox="0 0 160 100"><defs><linearGradient id="hca-night" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#3b2f86"/></linearGradient></defs>
+      ${night(8, 14, 0)}${night(8, 54, 1)}${night(118, 54, 2)}
+      ${card(50, -8, "")}${card(82, 8, "d2")}
+      ${heart(86, 15, 1, "", "#ff5a8a")}${heart(74, 11, 0.6, "d2", "#ff8fb3")}${heart(98, 9, 0.6, "d3", "#ff8fb3")}
+      <g class="hca-float"><g transform="translate(120 6) scale(.32)"><path d="M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z" fill="#3DA5FF"/><path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="3"/><rect x="36" y="100" width="28" height="16" rx="3" fill="#A0703F"/></g></g></svg>`;
+
+  const tile = (x, y, ch, fill, cls) => `<g transform="translate(${x} ${y})"><g class="hca-hop ${cls}"><rect width="40" height="40" rx="9" fill="#ffe9b8"/>${L(20, 21, ch, 28, fill)}</g></g>`;
+  const song = `<svg class="hca" viewBox="0 0 160 100"><rect width="160" height="100" fill="#2a2f6b"/><circle class="hca-sun" cx="132" cy="20" r="10" fill="#fff6cf"/><circle cx="132" cy="20" r="10" fill="#fff6cf"/>
+      <g fill="#fff"><circle class="hca-twinkle" cx="20" cy="14" r="1.5"/><circle class="hca-twinkle d2" cx="60" cy="10" r="1.2"/><circle class="hca-twinkle d3" cx="96" cy="22" r="1.4"/><circle class="hca-twinkle d2" cx="40" cy="30" r="1"/></g>
+      ${tile(106, 46, "א", "#2bb673", "")}${tile(60, 40, "ב", "#ff5a8a", "d2")}${tile(14, 46, "ג", "#7c5cff", "d3")}
+      <g fill="#ffd43b" font-family="sans-serif" font-weight="800"><g class="hca-note"><text x="146" y="44" font-size="14">♪</text></g><g class="hca-note d2"><text x="98" y="30" font-size="20">♫</text></g><g class="hca-note d3"><text x="56" y="34" font-size="16">♪</text></g></g></svg>`;
+
   if (!document.getElementById("hca-style")) { const st = document.createElement("style"); st.id = "hca-style"; st.textContent = CSS; document.head.append(st); }
-  window.FL_HUB_PICS = { car, detective, waking, tellme, train, circle };
+  window.FL_HUB_PICS = { car, detective, waking, tellme, train, circle, mole, memory, song };
 })();
