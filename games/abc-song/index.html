@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>שיר האלף־בית</title>
+<link rel="stylesheet" href="../shared/fonts/fonts.css">
+<style>
+  /* שיר האלף־בית (Golan 21.10, spec summaries/station1-new-games-spec.md): a live animation that follows the song.
+     The 22 sleeping letters of "האות שמתעוררת" wake one by one as they are sung, the word picture pops up big in the
+     middle, and in the chorus all the awake letters dance. The night turns into morning as the song goes on. */
+  :root { --card: #ffffffee; --ink: #1d2a3a; --accent: #ff8a3d; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none; background: #1b2350; }
+  [hidden] { display: none !important; }
+  /* the sky: night at the start, morning at the end (--day 0..1 follows the song) */
+  #sky { position: fixed; inset: 0; --day: 0;
+    background: linear-gradient(180deg, color-mix(in srgb, #1b2350 calc((1 - var(--day)) * 100%), #8fd0ff) 0%,
+      color-mix(in srgb, #3b3f86 calc((1 - var(--day)) * 100%), #ffe9b8) 100%); }
+  #moon { position: absolute; top: 9%; right: 14%; width: 9vmin; height: 9vmin; border-radius: 50%; background: #fff6cf; box-shadow: 0 0 30px #fff6cf88;
+    opacity: calc(1 - var(--day) * 1.4); transform: translateY(calc(var(--day) * 30vh)); }
+  #sun { position: absolute; top: 8%; left: 16%; width: 11vmin; height: 11vmin; border-radius: 50%; background: #ffd43b; box-shadow: 0 0 40px #ffd43baa;
+    opacity: calc(var(--day) * 1.6 - .4); transform: translateY(calc((1 - var(--day)) * 30vh)); }
+  .star { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; opacity: calc(.9 - var(--day)); animation: tw 2.4s infinite ease-in-out; }
+  @keyframes tw { 50% { transform: scale(.4); } }
+
+  /* the stage in the middle: the big letter that just woke + its picture, or the chorus words */
+  #stage { position: fixed; left: 0; right: 0; top: var(--stage-t); bottom: var(--strip-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none; }
+  #stage .pair { display: flex; align-items: center; justify-content: center; gap: 4vw; }
+  #stage .big, #stage .pic { width: var(--big); height: var(--big); }
+  #stage .big svg { width: 100%; height: 100%; border-radius: 18%; box-shadow: 0 8px 30px #0004; }
+  #stage .pic { background: #fffdf5; border-radius: 18%; box-shadow: 0 8px 30px #0004; animation: pop .6s cubic-bezier(.3,1.6,.6,1) both .35s; }
+  #stage .pic svg { width: 100%; height: 100%; }
+  @keyframes pop { from { transform: scale(0) rotate(-12deg); } }
+  #stage .big { animation: grow .5s cubic-bezier(.3,1.5,.6,1) both; }
+  @keyframes grow { from { transform: scale(.3); opacity: 0; } }
+  #words { text-align: center; font-size: var(--wfs); font-weight: 800; color: #fff; text-shadow: 0 2px 8px #0008; line-height: 1.5; }
+  #chorus { font-size: calc(var(--wfs) * 1.15); line-height: 1.7; color: #fff; text-shadow: 0 3px 10px #0008; text-align: center; font-weight: 800; animation: grow .5s both; }
+  #chorus div { animation: sway 1s infinite ease-in-out alternate; }
+  #chorus div:nth-child(even) { animation-delay: .5s; }
+  @keyframes sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg) scale(1.04); } }
+  body.words-off #words, body.words-off #chorus { visibility: hidden; }
+
+  /* the 22 letters in two rows of 11 at the bottom, א on the right */
+  #strip { position: fixed; left: 0; right: 0; bottom: var(--edge-b, 8px); height: calc(var(--strip-h) - var(--edge-b, 8px)); display: grid;
+    grid-template-columns: repeat(11, var(--cell)); grid-auto-rows: var(--cell); justify-content: center; align-content: end; gap: var(--cg); direction: rtl; }
+  #strip .cell { width: var(--cell); height: var(--cell); }
+  #strip svg { width: 100%; height: 100%; border-radius: 22%; box-shadow: 0 2px 8px #0003; transition: transform .3s; }
+  #strip .cell.now svg { transform: scale(1.18); box-shadow: 0 0 0 3px #ffd43b, 0 4px 14px #0005; }
+  body.dance #strip .cell.up svg { animation: dance .5s infinite ease-in-out alternate; }
+  body.dance #strip .cell.up:nth-child(odd) svg { animation-delay: .25s; }
+  @keyframes dance { from { transform: translateY(0) rotate(-8deg); } to { transform: translateY(-22%) rotate(8deg) scale(1.08); } }
+  body.paused *, body.paused *::before, body.paused *::after { animation-play-state: paused !important; }
+
+  /* sizes from FL.screen (screens standard): door + gear in a column at the top left, play/pause + again at the top right */
+  html { --s: max(calc(72 * var(--u, 1px)), var(--tap-s, 44px)); --g: max(calc(14 * var(--u, 1px)), var(--gap, 10px));
+    --cg: max(calc(8 * var(--u, 1px)), 3px); --cell: min(calc((100vw - 2 * var(--s) - 4 * var(--g) - 10 * var(--cg)) / 11), calc(17vh));
+    --strip-h: calc(2 * var(--cell) + var(--cg) + var(--edge-b, 8px) + 6px); --stage-t: calc(var(--edge-t, 12px) + 4px);
+    --wfs: max(calc(40 * var(--u, 1px)), 20px); --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 12px), 34vw); }
+  .round-btn { position: fixed; width: var(--s); height: var(--s); border-radius: 50%; border: 0; background: var(--card); color: var(--ink);
+    font-size: calc(var(--s) * .45); display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 16px #0003; z-index: 30; padding: 0; }
+  .round-btn:active { transform: translateY(2px); }
+  .door-btn { top: var(--edge-t, 12px); left: var(--edge-l, 12px); font-size: calc(var(--s) * .6); }
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  .gear { top: calc(var(--edge-t, 12px) + var(--s) + var(--g)); left: var(--edge-l, 12px); }
+  .gear-ico { width: 1.45em; height: 1.45em; display: block; color: #5b6573; }
+  #playBtn { top: var(--edge-t, 12px); right: var(--edge-r, 12px); background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d; }
+  #againBtn { top: calc(var(--edge-t, 12px) + var(--s) + var(--g)); right: var(--edge-r, 12px); }
+  .round-btn svg.ic { width: 52%; height: 52%; fill: currentColor; }
+
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #0006; z-index: 20; padding: var(--edge-t, 12px) calc(var(--edge-r, 12px) + var(--s) + var(--g)) var(--edge-b, 12px) calc(var(--edge-l, 12px) + var(--s) + var(--g)); }
+  .panel { background: #fff; border-radius: calc(28 * var(--u, 1px)); box-shadow: 0 10px 40px #0004; padding: max(calc(26 * var(--u, 1px)), 14px) max(calc(30 * var(--u, 1px)), 16px);
+    text-align: center; max-width: min(calc(640 * var(--u, 1px)), 100%); max-height: 100%; overflow: auto; position: relative; }
+  .panel h1 { margin: 0 0 .3em; font-size: max(calc(48 * var(--u, 1px)), 24px); line-height: 1.5; }
+  .big-btn { font: inherit; font-weight: 800; font-size: max(calc(36 * var(--u, 1px)), 22px); min-height: var(--tap, 56px); padding: calc(14 * var(--u, 1px)) calc(44 * var(--u, 1px));
+    border: 0; border-radius: 999px; background: var(--accent); color: #fff; box-shadow: 0 4px 0 #c45f1d; cursor: pointer; }
+  #start .rowl { display: flex; justify-content: center; gap: 4px; margin: 0 0 .6em; }
+  #start .rowl svg { width: max(calc(70 * var(--u, 1px)), 40px); height: max(calc(70 * var(--u, 1px)), 40px); border-radius: 22%; }
+  /* settings: same frame as every game (title "הגדרות (להורה או למורה)", X top right) */
+  #settings .panel { text-align: right; min-width: min(420px, 100%); }
+  #settings h1 { font-size: max(calc(34 * var(--u, 1px)), 20px); padding-left: 1.6em; }
+  .x { position: absolute; top: 10px; right: 10px; width: var(--tap-s, 44px); height: var(--tap-s, 44px); border-radius: 50%; border: 0; background: #eef1f5; font-size: 22px; cursor: pointer; }
+  #settings .panel h1 { padding-right: 1.6em; padding-left: 0; }
+  .row { margin: 14px 0; font-size: max(calc(24 * var(--u, 1px)), 17px); }
+  .row b { display: block; margin-bottom: 6px; }
+  .seg { display: inline-flex; gap: 6px; }
+  .seg button { font: inherit; font-size: .9em; padding: 6px 16px; border-radius: 999px; border: 2px solid #c9d2dc; background: #fff; cursor: pointer; }
+  .seg button.on { border-color: #283593; background: #e8eaf6; }
+  input[type=range] { width: 100%; }
+  .note { font-size: max(calc(18 * var(--u, 1px)), 15px); color: #5b6b7f; }
+  /* sync mode for the parent (?sync=1) */
+  #syncBar { position: fixed; bottom: calc(var(--strip-h) + 6px); left: 50%; transform: translateX(-50%); background: #fff; border-radius: 14px; padding: 8px 16px; z-index: 25; font-size: 17px; box-shadow: 0 4px 16px #0004; text-align: center; }
+  #syncOut textarea { width: min(80vw, 560px); height: 40vh; direction: ltr; font: 13px monospace; }
+</style>
+</head>
+<body>
+<div id="sky"><div id="moon"></div><div id="sun"></div></div>
+<div id="stage"></div>
+<div id="strip" aria-label="האותיות"></div>
+
+<button class="round-btn door-btn" id="door" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+<button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+<button class="round-btn" id="playBtn" aria-label="עצירה" hidden></button>
+<button class="round-btn" id="againBtn" aria-label="מההתחלה" hidden><svg class="ic" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg></button>
+
+<div class="overlay" id="start">
+  <div class="panel">
+    <h1>שִׁיר הָאָלֶף־בֵּית</h1>
+    <div class="rowl" id="startLetters"></div>
+    <button class="big-btn" id="go">▶ נָשִׁיר!</button>
+  </div>
+</div>
+<div class="overlay" id="end" hidden></div>
+<div class="overlay" id="settings" hidden>
+  <div class="panel">
+    <button class="x" id="xSettings" aria-label="סגירה">✕</button>
+    <h1>הגדרות (להורה או למורה)</h1>
+    <div class="row"><b>עוצמת השיר</b><input type="range" id="vol" min="0" max="1" step="0.05" value="1"></div>
+    <div class="row"><b>מילים על המסך</b><div class="seg" id="wordsSeg"><button data-v="on">כן</button><button data-v="off">לא</button></div></div>
+    <div class="row"><b>קצב (רק כשאין עדיין שיר)</b><div class="seg" id="paceSeg"><button data-v="0.8">לאט</button><button data-v="1">רגיל</button><button data-v="1.2">מהר</button></div></div>
+    <p class="note" id="songNote"></p>
+  </div>
+</div>
+<div id="syncBar" hidden></div>
+<div class="overlay" id="syncOut" hidden><div class="panel"><h1>זמנים חדשים</h1><textarea id="syncText" readonly></textarea><p><button class="big-btn" id="syncSave">שמירה בשם timing.js</button></p></div></div>
+
+<script src="../waking-letter/pictures.js"></script>
+<script src="../waking-letter/letters-animated/letters-animated.js"></script>
+<script src="timing.js"></script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/screen.js"></script>
+<script src="../shared/learner.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const LRN = window.FL && FL.learner, LA = window.LETTERS_ANIMATED, PICS = window.PICTURES || {};
+  if (LA) LA.sound = false;   // the song is the only sound: no breathing, no "בוקר טוב" clip
+  const ORDER = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
+  // the letter names as sung (games/abc-song/lyrics-draft.md)
+  const NAMES = { "א": "אָלֶף", "ב": "בֵּית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵא", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית", "ט": "טֵית", "י": "יוּד", "כ": "כַּף",
+    "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פ": "פֵּא", "צ": "צָדִי", "ק": "קוּף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו" };
+  const CHORUS = ["אָלֶף־בֵּית, אָלֶף־בֵּית,", "כָּל הָאוֹתִיּוֹת קָמוֹת בְּשִׂמְחָה!", "בֹּקֶר טוֹב, בֹּקֶר טוֹב,", "שָׁרִים יַחַד בְּקוֹל גָּדוֹל!"];
+  const EV = (window.SONG_TIMING || []).slice().sort((a, b) => a.t - b.t);
+  const END_T = (EV.find((e) => e.end) || { t: (EV.length ? EV[EV.length - 1].t + 4 : 60) }).t;
+  const params = new URLSearchParams(location.search), SYNC = params.has("sync");
+
+  // ---------- settings (per device) ----------
+  const SKEY = "fl-song-settings";
+  let settings = { vol: 1, words: "on", pace: 1 };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SKEY) || "{}")); } catch (e) {}
+  if (![0.8, 1, 1.2].includes(+settings.pace)) settings.pace = 1;
+  if (!(settings.vol >= 0 && settings.vol <= 1)) settings.vol = 1;
+  if (settings.words !== "off") settings.words = "on";
+  const saveSettings = () => { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} };
+
+  // ---------- the song: song.mp3 next to this page; without it a silent clock runs the same timeline ----------
+  const audio = new Audio(); let hasSong = false;
+  audio.preload = "auto"; audio.src = "song.mp3";
+  audio.addEventListener("loadedmetadata", () => { hasSong = true; syncNote(); });
+  audio.addEventListener("error", () => { hasSong = false; syncNote(); });
+  audio.addEventListener("ended", () => { if (state.mode === "play") finish(); });
+  const state = { mode: "start", t: 0, idx: -1, playing: false, speed: 1, plays: 0 };
+  let clock0 = 0, clockT = 0;   // silent clock: time = clockT + (now - clock0) * speed
+  const now = () => performance.now() / 1000;
+  const rate = () => state.speed * (hasSong ? 1 : settings.pace);
+  function curTime() {
+    if (hasSong && !state.fast) return audio.currentTime;
+    return state.playing ? clockT + (now() - clock0) * rate() : clockT;
+  }
+
+  // ---------- the scene ----------
+  const strip = $("strip"), cells = {};
+  for (const l of ORDER) { const c = document.createElement("div"); c.className = "cell"; c.dataset.l = l;
+    const el = LA && LA.make(l); if (el) c.append(el); else c.textContent = l; cells[l] = c; strip.append(c); }
+  const stars = $("sky"); for (let i = 0; i < 40; i++) { const s = document.createElement("div"); s.className = "star";
+    s.style.left = (Math.random() * 100) + "%"; s.style.top = (Math.random() * 55) + "%"; s.style.animationDelay = (Math.random() * 2.4) + "s"; stars.append(s); }
+  for (const l of ["א", "ב", "ג"]) { const el = LA && LA.make(l); if (el) $("startLetters").append(el); }
+  const wordFor = (l) => (PICS[l] && PICS[l].word) || "";
+  function picSvg(l) { const p = PICS[l]; return p ? `<svg viewBox="0 0 1000 1000" aria-label="${p.word}">${p.svg}</svg>` : ""; }
+
+  function setAwake(c, up) {
+    if (c.classList.contains("up") === up) return; c.classList.toggle("up", up);
+    const el = c.firstChild; if (!el || !el.wake) return; up ? el.wake() : el.sleep();
+  }
+  function showEvent(e) {
+    const stage = $("stage"); stage.innerHTML = "";
+    document.body.classList.toggle("dance", !!(e && e.chorus));
+    for (const l of ORDER) cells[l].classList.toggle("now", !!(e && e.letter === l));
+    if (!e || e.end) return;
+    if (e.chorus) { const ch = document.createElement("div"); ch.id = "chorus"; ch.innerHTML = CHORUS.map((x) => `<div>${x}</div>`).join(""); stage.append(ch); return; }
+    const pair = document.createElement("div"); pair.className = "pair"; stage.append(pair);
+    const big = document.createElement("div"); big.className = "big"; const el = LA && LA.make(e.letter); if (el) { big.append(el); requestAnimationFrame(() => el.wake()); } pair.append(big);
+    const pic = document.createElement("div"); pic.className = "pic"; pic.innerHTML = picSvg(e.letter); if (pic.innerHTML) pair.append(pic);
+    const words = document.createElement("div"); words.id = "words"; words.textContent = NAMES[e.letter] + " – " + wordFor(e.letter); stage.append(words);
+  }
+  // draw the state at time t (works forward and backward, so seek() just works)
+  function render(t) {
+    state.t = t; state.q = state.mode === "play" ? (EV[state.idx] || true) : null;
+    let idx = -1; for (let i = 0; i < EV.length; i++) if (EV[i].t <= t) idx = i;
+    for (const e of EV) if (e.letter) setAwake(cells[e.letter], e.t <= t);
+    const sung = EV.filter((e) => e.letter && e.t <= t).length;
+    $("sky").style.setProperty("--day", Math.min(1, sung / ORDER.length).toFixed(3));
+    if (idx !== state.idx) { state.idx = idx; showEvent(EV[idx]); }
+    if (state.mode === "play" && t >= END_T) finish();
+  }
+  function tick() { if (state.mode === "play" && state.playing) render(curTime()); requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+
+  // ---------- play / pause / again ----------
+  const ICON_PAUSE = '<svg class="ic" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>', ICON_PLAY = '<svg class="ic" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>';
+  function setPlayIcon() { $("playBtn").innerHTML = state.playing ? ICON_PAUSE : ICON_PLAY; $("playBtn").setAttribute("aria-label", state.playing ? "עצירה" : "המשך"); document.body.classList.toggle("paused", !state.playing); }
+  function play() {
+    if (state.mode === "end") return again();
+    state.mode = "play"; $("start").hidden = $("end").hidden = true; $("playBtn").hidden = $("againBtn").hidden = false;
+    if (state.playing) return;
+    state.playing = true; clock0 = now();
+    if (hasSong && !state.fast) { audio.volume = settings.vol; audio.playbackRate = 1; audio.play().catch(() => {}); }
+    setPlayIcon();
+  }
+  function pause() {
+    if (!state.playing) return;
+    clockT = curTime(); state.playing = false; if (hasSong) audio.pause(); setPlayIcon();
+  }
+  function seek(t) {
+    t = Math.max(0, Math.min(END_T, t)); clockT = t; clock0 = now(); if (hasSong) { try { audio.currentTime = t; } catch (e) {} }
+    if (state.mode === "end") state.mode = "play"; render(t);
+  }
+  function again() { $("end").hidden = true; seek(0); state.idx = -2; render(0); state.mode = "play"; state.playing = false; play(); }
+  function finish() {
+    state.mode = "end"; pause(); state.plays++;
+    try { const k = "fl-song-plays", n = +(localStorage.getItem(k) || 0) + 1; localStorage.setItem(k, String(n)); } catch (e) {}
+    $("playBtn").hidden = true; $("againBtn").hidden = true;
+    for (const l of ORDER) setAwake(cells[l], true); document.body.classList.add("dance"); document.body.classList.remove("paused");
+    const host = $("end"); host.innerHTML = ""; host.hidden = false;
+    const btns = [{ text: "עוד סיבוב", primary: true, id: "again", onClick: again }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("door").click() }];
+    if (LRN && LRN.endPanel) LRN.endPanel(host, { title: "יש! שרנו את כל האותיות", stars: [], letters: false, buttons: btns });
+    else { host.innerHTML = '<div class="panel"><h1>יש! שרנו את כל האותיות</h1><button class="big-btn" id="again">עוד סיבוב</button></div>'; $("again").onclick = again; }
+    if (SYNC && syncTimes.length) showSync();
+  }
+  $("go").addEventListener("click", () => { if (SYNC) startSync(); seek(0); play(); });
+  $("playBtn").addEventListener("click", () => (state.playing ? pause() : play()));
+  $("againBtn").addEventListener("click", again);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+
+  // ---------- door (back to the hub, like every game) ----------
+  $("door").addEventListener("click", () => {
+    pause();
+    if (LRN && LRN.fromHub && LRN.hubUrl) { location.href = LRN.hubUrl.split("#")[0] + "#games"; return; }
+    if (state.mode !== "start") { state.mode = "start"; seek(0); state.idx = -2; render(0); $("end").hidden = true; $("start").hidden = false; $("playBtn").hidden = $("againBtn").hidden = true; return; }
+    if (history.length > 1) history.back(); else if (LRN) LRN.chooseChild();
+  });
+
+  // ---------- settings: the gear pauses the song ----------
+  let wasPlaying = false;
+  function segUi(id, key, after) {
+    const box = $(id), draw = () => box.querySelectorAll("button").forEach((b) => b.classList.toggle("on", String(settings[key]) === b.dataset.v));
+    box.addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; const v = b.dataset.v; settings[key] = isNaN(+v) ? v : +v; saveSettings(); draw(); if (after) after(); });
+    draw();
+  }
+  segUi("wordsSeg", "words", applyWords); segUi("paceSeg", "pace", () => { if (state.playing) { clockT = curTime(); clock0 = now(); } });
+  function applyWords() { document.body.classList.toggle("words-off", settings.words === "off"); }
+  applyWords();
+  $("vol").value = settings.vol; $("vol").addEventListener("input", () => { settings.vol = +$("vol").value; audio.volume = settings.vol; saveSettings(); });
+  function syncNote() { $("songNote").textContent = hasSong ? "השיר נטען (song.mp3)." : "עוד אין קובץ שיר (song.mp3): ההנפשה רצה בלי צליל, בקצב קבוע."; }
+  syncNote();
+  function openSettings() { wasPlaying = state.playing; pause(); $("settings").hidden = false; }
+  function closeSettings() { $("settings").hidden = true; if (wasPlaying) play(); wasPlaying = false; }
+  $("gear").addEventListener("click", openSettings);
+  window.addEventListener("fl:gear", openSettings);
+  $("xSettings").addEventListener("click", closeSettings);
+  $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
+
+  // ---------- sync mode for the parent (?sync=1): space / tap on each letter and each chorus ----------
+  let syncTimes = [];
+  function syncLabel() { const n = syncTimes.length, e = EV.filter((x) => !x.end)[n]; return e ? "הבא: " + (e.chorus ? "פזמון" : "האות " + e.letter) + " (רווח או נגיעה)" : "סיום: עוד רווח אחד בסוף השיר"; }
+  function startSync() { syncTimes = []; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
+  function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.round(curTime() * 10) / 10); $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
+    if (syncTimes.length > EV.filter((x) => !x.end).length) finish(); }
+  function showSync() {
+    const evs = EV.filter((x) => !x.end), out = evs.map((e, i) => Object.assign({}, e, { t: syncTimes[i] != null ? syncTimes[i] : e.t }));
+    const endT = syncTimes[evs.length] != null ? syncTimes[evs.length] : END_T; out.push({ t: endT, end: true });
+    const txt = "// The song timeline (שיר האלף־בית), made in sync mode " + new Date().toISOString().slice(0, 16) + ".\nwindow.SONG_TIMING = [\n" +
+      out.map((e) => "  " + JSON.stringify(e).replace(/"(\w+)":/g, "$1: ").replace(/,/g, ", ")).join(",\n") + ",\n];\n";
+    $("syncText").value = txt; $("syncOut").hidden = false; $("syncBar").hidden = true;
+    $("syncSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/javascript" })); a.download = "timing.js"; a.click(); };
+  }
+  if (SYNC) {
+    window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); syncMark(); } });
+    window.addEventListener("pointerdown", (e) => { if (!e.target.closest("button, .overlay")) syncMark(); });
+  }
+
+  // ---------- start: "מי משחק?" like every game, then the start screen ----------
+  render(0);
+  if (LRN && LRN.chooseChild) LRN.chooseChild().catch(() => {});
+
+  // test hook
+  window.__song = { state, play, pause, seek, events: EV, endT: END_T, setSpeed: (s) => { clockT = curTime(); clock0 = now(); state.speed = s; state.fast = s > 1.5; if (state.fast && hasSong) audio.pause(); }, hasSong: () => hasSong };
+})();
+</script>
+</body>
+</html>

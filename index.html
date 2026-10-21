@@ -48,7 +48,7 @@
   .game .spk { margin-block: calc(1.3em - var(--tap-s, 44px)) 0; }
   /* the speaker at the end of the line (Golan 16.10): in RTL the card's left edge; the name keeps the rest, centred */
   .game .name { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: calc(4 * var(--u, 1px)); width: 100%; text-align: center; }
-  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, calc(300 * var(--u, 1px)))); gap: var(--g); width: 100%; justify-content: center; flex: none; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, min(calc(300 * var(--u, 1px)), var(--cw, 9999px)))); gap: var(--g); width: 100%; justify-content: center; flex: none; }
   .game { position: relative; border: 0; border-radius: calc(26 * var(--u, 1px)); background: #fff; box-shadow: 0 6px 0 #0001, 0 6px 20px #0002;
     padding: calc(10 * var(--u, 1px)) calc(10 * var(--u, 1px)) calc(8 * var(--u, 1px)); cursor: pointer; font: inherit; color: var(--ink);
     display: flex; flex-direction: column; align-items: center; gap: calc(4 * var(--u, 1px)); transition: transform .15s; min-width: 0; }
@@ -67,7 +67,7 @@
     padding: var(--e-t) var(--e-r) var(--e-b) var(--e-l); }
   html[data-screen~="portrait"] .who { align-self: flex-start; margin-inline-end: calc(var(--btn) + var(--g)); min-height: var(--btn); max-width: calc(100% - var(--btn) - var(--g)); }
   html[data-screen~="portrait"] .who h1 { font-size: max(calc(40 * var(--u, 1px)), 20px); }
-  html[data-screen~="portrait"] .grid { grid-template-columns: repeat(2, minmax(0, calc(330 * var(--u, 1px)))); margin-top: var(--btn); }
+  html[data-screen~="portrait"] .grid { grid-template-columns: repeat(var(--cols, 2), minmax(0, min(calc(330 * var(--u, 1px)), var(--cw, 9999px)))); margin-top: var(--btn); }
   html[data-screen~="portrait"] .game .pic { aspect-ratio: 16 / 8.5; }
   html[data-screen~="portrait"] .game b { font-size: max(calc(30 * var(--u, 1px)), 16px); }
   .set-ov { position: fixed; inset: 0; z-index: 10001; background: rgba(20, 40, 70, .55); display: grid; place-items: center;
@@ -155,15 +155,38 @@
 
   // ---------- the six games (path from this page; "?hub=1" tells the game the child was already chosen here) ----------
   const GAMES = [
+    // Golan 21.10: three additions to the letter-recognition station, 9 cards in 3x3 with the song first
+    { id: "song", ac: "#5c7cfa", name: "שִׁיר הָאָלֶף־בֵּית", path: "games/abc-song/index.html", bg: "#2a2f6b", pic: "song", noSystem: true },
     { id: "race", ac: "#4dabf7", name: "מֵרוֹץ הַשְּׁעָרִים", path: "voice/race-gates-voice/index.html", bg: "#d8f1ff", pic: "car" },
     { id: "detective", ac: "#22b8cf", name: "הַבַּלָּשׁ בָּעֲנָנִים", path: "games/letter-recognition/detective/index.html", bg: "#e4f6ff", pic: "detective" },
     { id: "waking", ac: "#9775fa", name: "הָאוֹת שֶׁמִּתְעוֹרֶרֶת", path: "games/waking-letter/index.html", bg: "#efe9ff", pic: "waking" },
     { id: "tellme", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/tell-me/index.html", bg: "#fff1df", pic: "tellme" },
     { id: "train", ac: "#40c057", name: "רַכֶּבֶת הָאוֹתִיּוֹת", path: "games/letter-train/index.html", bg: "#e3f8ea", pic: "train" },
     { id: "circle", ac: "#f06595", name: "מַעְגַּל הָאוֹתִיּוֹת", path: "games/letter-circle/index.html", bg: "#ffe8ef", pic: "circle" },
+    { id: "memory", ac: "#7048e8", name: "מִשְׂחַק הַזִּכָּרוֹן", path: "games/memory/index.html", bg: "#1f2350", pic: "memory" },
+    { id: "mole", ac: "#a47148", name: "הַכֵּה אֶת הַחֲפַרְפֶּרֶת", path: "games/mole/index.html", bg: "#dff3ff", pic: "mole" },
   ];
   const L = (x, y, ch, size, fill = "#1d2a3a") => `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${fill}" font-family="Noto Sans Hebrew, sans-serif">${ch}</text>`;
   const PICS = {
+    memory: `<svg viewBox="0 0 160 100"><defs><linearGradient id="hcN" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#3b2f86"/></linearGradient></defs>
+  <g transform="translate(8 14)"><rect width="34" height="34" rx="5" fill="url(#hcN)"/><circle cx="22" cy="12" r="6" fill="#FFF0A8"/><circle cx="25" cy="10" r="5" fill="#25307a"/><circle cx="9" cy="24" r="1.2" fill="#FFF6C8"/><circle cx="14" cy="8" r="1" fill="#FFF6C8"/></g>
+  <g transform="translate(8 54)"><rect width="34" height="34" rx="5" fill="url(#hcN)"/><circle cx="22" cy="12" r="6" fill="#FFF0A8"/><circle cx="25" cy="10" r="5" fill="#25307a"/><circle cx="10" cy="26" r="1.2" fill="#FFF6C8"/></g>
+  <g transform="translate(118 54)"><rect width="34" height="34" rx="5" fill="url(#hcN)"/><circle cx="22" cy="12" r="6" fill="#FFF0A8"/><circle cx="25" cy="10" r="5" fill="#25307a"/><circle cx="9" cy="25" r="1.2" fill="#FFF6C8"/></g>
+  <g transform="translate(50 20) rotate(-8 20 22)"><rect width="40" height="44" rx="6" fill="#FFF3C9" stroke="#ff8fb3" stroke-width="2.5"/><text x="20" y="25" font-size="30" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">ב</text><circle cx="13" cy="36" r="1.6" fill="#1d2a3a"/><circle cx="27" cy="36" r="1.6" fill="#1d2a3a"/></g>
+  <g transform="translate(82 20) rotate(8 20 22)"><rect width="40" height="44" rx="6" fill="#FFF3C9" stroke="#ff8fb3" stroke-width="2.5"/><text x="20" y="25" font-size="30" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">ב</text><circle cx="13" cy="36" r="1.6" fill="#1d2a3a"/><circle cx="27" cy="36" r="1.6" fill="#1d2a3a"/></g>
+  <path d="M86 12c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="#ff5a8a"/>
+  <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/>
+  <g transform="translate(120 6) scale(.32)"><path d="M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z" fill="#3DA5FF"/><path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="3"/><rect x="36" y="100" width="28" height="16" rx="3" fill="#A0703F"/></g>
+</svg>`,
+    song: `<svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#2a2f6b"/><circle cx="132" cy="20" r="10" fill="#fff6cf"/><g fill="#fff"><circle cx="20" cy="14" r="1.5"/><circle cx="60" cy="10" r="1.2"/><circle cx="96" cy="22" r="1.4"/><circle cx="40" cy="30" r="1"/></g>
+  <g transform="translate(14 46)"><rect width="40" height="40" rx="9" fill="#ffe9b8"/><text x="20" y="21" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#7c5cff" font-family="Noto Sans Hebrew, sans-serif">ג</text></g>
+  <g transform="translate(60 40)"><rect width="40" height="40" rx="9" fill="#ffe9b8"/><text x="20" y="21" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#ff5a8a" font-family="Noto Sans Hebrew, sans-serif">ב</text></g>
+  <g transform="translate(106 46)"><rect width="40" height="40" rx="9" fill="#ffe9b8"/><text x="20" y="21" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#2bb673" font-family="Noto Sans Hebrew, sans-serif">א</text></g>
+  <g fill="#ffd43b" font-family="sans-serif" font-weight="800"><text x="56" y="34" font-size="16">♪</text><text x="98" y="30" font-size="20">♫</text><text x="146" y="44" font-size="14">♪</text></g></svg>`,
+    mole: `<svg viewBox="0 0 160 100"><ellipse cx="80" cy="72" rx="72" ry="22" fill="#5fb34e"/><path d="M12 74 Q80 112 148 74 L132 92 Q80 108 28 92 Z" fill="#a47148"/>
+      <ellipse cx="44" cy="70" rx="17" ry="6" fill="#3b2a20"/><ellipse cx="118" cy="72" rx="15" ry="5" fill="#3b2a20"/>
+      ${[[44, "ב"], [116, "ס"]].map(([x, ch], i) => `<g transform="translate(${x} ${i ? 50 : 40})"><ellipse cx="0" cy="8" rx="14" ry="20" fill="#7b5a4c"/><ellipse cx="0" cy="0" rx="7" ry="5" fill="#f2c9a8"/><circle cx="0" cy="-1" r="3" fill="#ff7f9b"/><circle cx="-5" cy="-7" r="1.8" fill="#1d1d1d"/><circle cx="5" cy="-7" r="1.8" fill="#1d1d1d"/>
+        <rect x="-15" y="6" width="30" height="22" rx="4" fill="#fffaf0" stroke="#a0703f" stroke-width="2"/>${L(0, 17, ch, 16)}<circle cx="-14" cy="8" r="3.5" fill="#f7b3c0"/><circle cx="14" cy="8" r="3.5" fill="#f7b3c0"/></g>`).join("")}</svg>`,
     car: `<svg viewBox="0 0 160 100"><rect y="70" width="160" height="30" fill="#8fd18a"/><path d="M0 78 H160" stroke="#fff" stroke-width="3" stroke-dasharray="12 10"/>
       <g><rect x="18" y="20" width="8" height="54" rx="3" fill="#ff5a4e"/><rect x="62" y="20" width="8" height="54" rx="3" fill="#ff5a4e"/><rect x="18" y="16" width="52" height="22" rx="8" fill="#fff" stroke="#ff5a4e" stroke-width="3"/>${L(44, 27, "ב", 18)}</g>
       <g><rect x="92" y="20" width="8" height="54" rx="3" fill="#3da5ff"/><rect x="136" y="20" width="8" height="54" rx="3" fill="#3da5ff"/><rect x="92" y="16" width="52" height="22" rx="8" fill="#fff" stroke="#3da5ff" stroke-width="3"/>${L(118, 27, "מ", 18)}</g>
@@ -199,7 +222,7 @@
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.name;   // a girl: הבלשית (Golan 19.10)
       const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${(window.FL_HUB_PICS || PICS)[g.pic]}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
@@ -209,7 +232,7 @@
       b.onclick = (e) => { if (e.target.closest(".spk")) return; openGame(g, b); }; grid.append(b);
     }
     if (window.FL && FL.map) FL.map.hide();
-    screen = "games"; $("door").hidden = $("gear").hidden = false; $("games").classList.add("on"); fitNikud();
+    screen = "games"; $("door").hidden = $("gear").hidden = false; $("games").classList.add("on"); fitNikud(); fitGrid(); fitNikud();
     if (location.hash !== "#games") history.replaceState(null, "", "#games");
   }
   // The learning path (Golan 20.10): after "מי משחק?" comes the 3D map of the topics; island 1 opens the game list above.
@@ -226,19 +249,36 @@
   // in a row; each game's own system choice already puts the letters not yet recognised first.
   function systemPick() {
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const pool = GAMES.filter((g) => g.id !== last), g = pool[Math.floor(Math.random() * pool.length)];
+    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem), g = pool[Math.floor(Math.random() * pool.length)];
     try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
     openGame(g, document.createElement("div"));
   }
   // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
   const NIKUD = /[\u0591-\u05C7]/g;
+  // 9 cards (Golan 21.10): the cards shrink until every row fits on the screen, no scrolling
+  function fitGrid() {
+    const grid = document.querySelector(".grid"); if (!grid || !grid.children.length) return;
+    const bottom = () => Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom));
+    const room = innerHeight - parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--e-b") || 8) - 6;
+    // try the usual column count and a few more (a wide, low phone gets 5 columns in 2 rows), keep the biggest cards that fit
+    const base = document.documentElement.dataset.screen && /portrait/.test(document.documentElement.dataset.screen) ? 2 : 3;
+    let best = null;
+    for (let cols = base; cols <= 5; cols++) {
+      grid.style.setProperty("--cols", cols); grid.style.removeProperty("--cw");
+      let cw = grid.children[0].getBoundingClientRect().width;
+      for (let k = 0; k < 24 && bottom() > room && cw > 60; k++) { cw *= 0.94; grid.style.setProperty("--cw", cw + "px"); }
+      if (bottom() <= room && (!best || cw > best.cw * 1.02)) best = { cols, cw };
+    }
+    if (!best) best = { cols: base, cw: 60 };
+    grid.style.setProperty("--cols", best.cols); grid.style.setProperty("--cw", best.cw + "px");
+  }
   function fitNikud() {
     for (const el of document.querySelectorAll("[data-nq]")) {
       el.textContent = el.dataset.nq; el.classList.add("nq");
       if (parseFloat(getComputedStyle(el).fontSize) < 28) { el.textContent = el.dataset.nq.replace(NIKUD, ""); el.classList.remove("nq"); }
     }
   }
-  let nqT = 0; addEventListener("resize", () => { clearTimeout(nqT); nqT = setTimeout(fitNikud, 150); });
+  let nqT = 0; addEventListener("resize", () => { clearTimeout(nqT); nqT = setTimeout(() => { if (screen === "games") fitGrid(); fitNikud(); }, 150); });
   // ---------- Hila reads the titles (Golan 16.10). Clips come from the voice thread into voice/audio/;
   // until a clip exists the speaker stays silent (never a browser voice). ----------
   let voice = null;

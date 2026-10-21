@@ -1,0 +1,33 @@
+// The song timeline (שיר האלף־בית): when each letter is sung and when each chorus starts, in seconds from the start of song.mp3.
+// Until song.mp3 exists the page plays this timeline silently, at a steady beat. After Golan makes the song, fix the times by ear
+// or with the sync mode: open index.html?sync=1, press the space bar (or tap) on every letter and every chorus, then save the new file over this one.
+window.SONG_TIMING = [
+  {t: 4, chorus: true},
+  {t: 12, letter: "א"},
+  {t: 14.4, letter: "ב"},
+  {t: 16.8, letter: "ג"},
+  {t: 19.2, letter: "ד"},
+  {t: 21.6, letter: "ה"},
+  {t: 24, letter: "ו"},
+  {t: 26.4, chorus: true},
+  {t: 34.4, letter: "ז"},
+  {t: 36.8, letter: "ח"},
+  {t: 39.2, letter: "ט"},
+  {t: 41.6, letter: "י"},
+  {t: 44, letter: "כ"},
+  {t: 46.4, chorus: true},
+  {t: 54.4, letter: "ל"},
+  {t: 56.8, letter: "מ"},
+  {t: 59.2, letter: "נ"},
+  {t: 61.6, letter: "ס"},
+  {t: 64, letter: "ע"},
+  {t: 66.4, letter: "פ"},
+  {t: 68.8, chorus: true},
+  {t: 76.8, letter: "צ"},
+  {t: 79.2, letter: "ק"},
+  {t: 81.6, letter: "ר"},
+  {t: 84, letter: "ש"},
+  {t: 86.4, letter: "ת"},
+  {t: 88.8, chorus: true},
+  {t: 98.8, end: true},
+];
