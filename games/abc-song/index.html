@@ -179,7 +179,7 @@
     const el = LA && LA.make(l); if (el) c.append(el); else c.textContent = l; cells[l] = c; strip.append(c); }
   const stars = $("sky"); for (let i = 0; i < 40; i++) { const s = document.createElement("div"); s.className = "star";
     s.style.left = (Math.random() * 100) + "%"; s.style.top = (Math.random() * 55) + "%"; s.style.animationDelay = (Math.random() * 2.4) + "s"; stars.append(s); }
-  for (const l of ["א", "ב", "ג"]) { const el = LA && LA.make(l); if (el) $("startLetters").append(el); }
+  for (const l of ["א", "ב"]) { const el = LA && LA.make(l); if (el) $("startLetters").append(el); }   // Golan 21.10: only א and ב (אלף-בית)
   const wordFor = (l) => (PICS[l] && PICS[l].word) || "";
   function picSvg(l) { const p = PICS[l]; return p ? `<svg viewBox="0 0 1000 1000" aria-label="${p.word}">${p.svg}</svg>` : ""; }
 
