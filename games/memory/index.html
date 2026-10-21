@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>משחק הזיכרון</title>
+<title>משחק זיכרון</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
 <style>
   /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
@@ -326,7 +326,7 @@
     top: var(--mt); transform: translate(-50%, 0); width: min(72vw, calc(100vh - var(--mt) - var(--edge-b) - var(--gap))); }
   html:not([data-screen]) #magic { width: min(72vw, 54vh, 520px); }
   #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
-  /* ===== משחק הזיכרון (Golan 21.10, summaries/station1-new-games-spec.md) ===== */
+  /* ===== משחק זיכרון (Golan 21.10, summaries/station1-new-games-spec.md) ===== */
   html, body { background: linear-gradient(#bfe6ff, #e6f6ff); }
   #board { position: fixed; pointer-events: auto; }
   #board[hidden] { display: none; }
@@ -387,7 +387,7 @@
 <div id="fx"></div>
 
 <div class="hud" id="hud" hidden>
-  <div class="stars" id="stars" data-fl-stars data-fl-title="מִשְׂחַק הַזִּכָּרוֹן"></div>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="מִשְׂחַק זִכָּרוֹן"></div>
   <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <div class="count" id="count"></div>
@@ -397,7 +397,7 @@
   <button class="round-btn door-btn" id="doorStart" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
-    <h1>משחק הזיכרון</h1>
+    <h1>משחק זיכרון</h1>
     <p><span id="startText">הופכים קלפים ומחפשים זוגות</span><br><span id="startText2">כל אות מתעוררת ומחפשת את התאומה שלה</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
@@ -447,7 +447,7 @@
 <script>
 (() => {
   "use strict";
-  // משחק הזיכרון (Golan 21.10): the rules are in /mnt/project-files/summaries/station1-new-games-spec.md, the details in README.md here.
+  // משחק זיכרון (Golan 21.10): the rules are in /mnt/project-files/summaries/station1-new-games-spec.md, the details in README.md here.
   // The shell (start screen, balloon picker, 3-2-1, hourglass, settings, end window, voice) follows "האות שמתעוררת";
   // the cards are the sleeping letters of that game (letters-animated), so a card wakes up when it opens.
   const $ = (id) => document.getElementById(id);
