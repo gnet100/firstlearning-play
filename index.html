@@ -217,7 +217,7 @@
     document.querySelector(".who").setAttribute("aria-label", (p ? p.name + ", " : "") + "במה נשחק?");
     const grid = document.querySelector(".grid"); grid.innerHTML = "";
     for (const g of GAMES) {
-      const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.style.setProperty("--ac", g.ac);
+      const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.dataset.id = g.id; b.style.setProperty("--ac", g.ac);
       // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.name;   // a girl: הבלשית (Golan 19.10)
@@ -256,10 +256,27 @@
   // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
   const NIKUD = /[\u0591-\u05C7]/g;
   // 9 cards (Golan 21.10): the cards shrink until every row fits on the screen, no scrolling
+  // Golan 21.10: bottom row, right to left: "משחקים ביחד" (always, in every station), the song, the letter circle
+  const BOTTOM = ["tellme", "song", "circle"];
+  function placeCards(grid, cols) {
+    const cards = [...grid.children], n = cards.length, rows = Math.ceil(n / cols), first = (rows - 1) * cols, inLast = n - first;
+    // a short last row (standing phone, 2 columns): the song and the circle go in the row above it
+    const spots = inLast >= 3 ? { tellme: first, song: first + Math.floor((inLast - 1) / 2), circle: n - 1 } : { tellme: first, song: first - cols, circle: first - 1 };
+    const fixed = BOTTOM.filter((id) => cards.some((c) => c.dataset.id === id));
+    const taken = new Set(fixed.map((id) => spots[id]));
+    let k = 0;
+    for (const c of cards) {
+      if (fixed.includes(c.dataset.id)) { c.style.order = spots[c.dataset.id]; continue; }
+      while (taken.has(k)) k++;
+      c.style.order = k++;
+    }
+  }
   function fitGrid() {
     const grid = document.querySelector(".grid"); if (!grid || !grid.children.length) return;
+    if (innerHeight < 200 || document.hidden) { grid.style.removeProperty("--cw"); placeCards(grid, 3); return; }   // a hidden tab has no real size yet: fit again when it shows
     const bottom = () => Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom));
-    const room = innerHeight - parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--e-b") || 8) - 6;
+    let eb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--edge-b")); if (!(eb >= 0)) eb = 12;
+    const room = innerHeight - eb - 6;
     // try the usual column count and a few more (a wide, low phone gets 5 columns in 2 rows), keep the biggest cards that fit
     const base = document.documentElement.dataset.screen && /portrait/.test(document.documentElement.dataset.screen) ? 2 : 3;
     let best = null;
@@ -269,8 +286,9 @@
       for (let k = 0; k < 24 && bottom() > room && cw > 60; k++) { cw *= 0.94; grid.style.setProperty("--cw", cw + "px"); }
       if (bottom() <= room && (!best || cw > best.cw * 1.02)) best = { cols, cw };
     }
-    if (!best) best = { cols: base, cw: 60 };
-    grid.style.setProperty("--cols", best.cols); grid.style.setProperty("--cw", best.cw + "px");
+    grid.style.setProperty("--cols", best ? best.cols : base);
+    if (best) grid.style.setProperty("--cw", best.cw + "px"); else grid.style.removeProperty("--cw");   // never squeeze to nothing
+    placeCards(grid, best ? best.cols : base);
   }
   function fitNikud() {
     for (const el of document.querySelectorAll("[data-nq]")) {
@@ -278,6 +296,8 @@
       if (parseFloat(getComputedStyle(el).fontSize) < 28) { el.textContent = el.dataset.nq.replace(NIKUD, ""); el.classList.remove("nq"); }
     }
   }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && screen === "games") { fitGrid(); fitNikud(); } });
+  addEventListener("pageshow", () => { if (screen === "games") setTimeout(() => { fitGrid(); fitNikud(); }, 50); });
   let nqT = 0; addEventListener("resize", () => { clearTimeout(nqT); nqT = setTimeout(() => { if (screen === "games") fitGrid(); fitNikud(); }, 150); });
   // ---------- Hila reads the titles (Golan 16.10). Clips come from the voice thread into voice/audio/;
   // until a clip exists the speaker stays silent (never a browser voice). ----------
