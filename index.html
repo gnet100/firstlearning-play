@@ -156,7 +156,7 @@
   // ---------- the six games (path from this page; "?hub=1" tells the game the child was already chosen here) ----------
   const GAMES = [
     // Golan 21.10: three additions to the letter-recognition station, 9 cards in 3x3 with the song first
-    { id: "song", ac: "#5c7cfa", name: "שִׁיר הָאָלֶף־בֵּית", path: "games/abc-song/index.html", bg: "#2a2f6b", pic: "song", noSystem: true },
+    { id: "song", ac: "#5c7cfa", name: "שִׁיר הָאָלֶף-בֵּית", path: "games/abc-song/index.html", bg: "#2a2f6b", pic: "song", noSystem: true },
     { id: "race", ac: "#4dabf7", name: "מֵרוֹץ הַשְּׁעָרִים", path: "voice/race-gates-voice/index.html", bg: "#d8f1ff", pic: "car" },
     { id: "detective", ac: "#22b8cf", name: "הַבַּלָּשׁ בָּעֲנָנִים", path: "games/letter-recognition/detective/index.html", bg: "#e4f6ff", pic: "detective" },
     { id: "waking", ac: "#9775fa", name: "הָאוֹת שֶׁמִּתְעוֹרֶרֶת", path: "games/waking-letter/index.html", bg: "#efe9ff", pic: "waking" },
@@ -254,7 +254,7 @@
     openGame(g, document.createElement("div"));
   }
   // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
-  const NIKUD = /[\u0591-\u05C7]/g;
+  const NIKUD = /[\u0591-\u05BD\u05BF-\u05C7]/g;   // keeps the maqaf
   // 9 cards (Golan 21.10): the cards shrink until every row fits on the screen, no scrolling
   // Golan 21.10: bottom row, right to left: "משחקים ביחד" (always, in every station), the song, the letter circle
   const BOTTOM = ["tellme", "song", "circle"];

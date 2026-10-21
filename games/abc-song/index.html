@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>שיר האלף־בית</title>
+<title>שיר האלף-בית</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">
 <style>
-  /* שיר האלף־בית (Golan 21.10, spec summaries/station1-new-games-spec.md): a live animation that follows the song.
+  /* שיר האלף-בית (Golan 21.10, spec summaries/station1-new-games-spec.md): a live animation that follows the song.
      The 22 sleeping letters of "האות שמתעוררת" wake one by one as they are sung, the word picture pops up big in the
      middle, and in the chorus all the awake letters dance. The night turns into morning as the song goes on. */
   :root { --card: #ffffffee; --ink: #1d2a3a; --accent: #ff8a3d; color-scheme: light; }
@@ -109,7 +109,7 @@
 
 <div class="overlay" id="start">
   <div class="panel">
-    <h1>שִׁיר הָאָלֶף־בֵּית</h1>
+    <h1>שִׁיר הָאָלֶף-בֵּית</h1>
     <div class="rowl" id="startLetters"></div>
     <button class="big-btn" id="go">▶ נָשִׁיר!</button>
   </div>
@@ -144,7 +144,7 @@
   // the letter names as sung (games/abc-song/lyrics-draft.md)
   const NAMES = { "א": "אָלֶף", "ב": "בֵּית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵא", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית", "ט": "טֵית", "י": "יוּד", "כ": "כַּף",
     "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פ": "פֵּא", "צ": "צָדִי", "ק": "קוּף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו" };
-  const CHORUS = ["אָלֶף־בֵּית, אָלֶף־בֵּית,", "כָּל הָאוֹתִיּוֹת קָמוֹת בְּשִׂמְחָה!", "בֹּקֶר טוֹב, בֹּקֶר טוֹב,", "שָׁרִים יַחַד בְּקוֹל גָּדוֹל!"];
+  const CHORUS = ["אָלֶף-בֵּית, אָלֶף-בֵּית,", "כָּל הָאוֹתִיּוֹת קָמוֹת בְּשִׂמְחָה!", "בֹּקֶר טוֹב, בֹּקֶר טוֹב,", "שָׁרִים יַחַד בְּקוֹל גָּדוֹל!"];
   const EV = (window.SONG_TIMING || []).slice().sort((a, b) => a.t - b.t);
   const END_T = (EV.find((e) => e.end) || { t: (EV.length ? EV[EV.length - 1].t + 4 : 60) }).t;
   const params = new URLSearchParams(location.search), SYNC = params.has("sync");
@@ -284,7 +284,7 @@
   function showSync() {
     const evs = EV.filter((x) => !x.end), out = evs.map((e, i) => Object.assign({}, e, { t: syncTimes[i] != null ? syncTimes[i] : e.t }));
     const endT = syncTimes[evs.length] != null ? syncTimes[evs.length] : END_T; out.push({ t: endT, end: true });
-    const txt = "// The song timeline (שיר האלף־בית), made in sync mode " + new Date().toISOString().slice(0, 16) + ".\nwindow.SONG_TIMING = [\n" +
+    const txt = "// The song timeline (שיר האלף-בית), made in sync mode " + new Date().toISOString().slice(0, 16) + ".\nwindow.SONG_TIMING = [\n" +
       out.map((e) => "  " + JSON.stringify(e).replace(/"(\w+)":/g, "$1: ").replace(/,/g, ", ")).join(",\n") + ",\n];\n";
     $("syncText").value = txt; $("syncOut").hidden = false; $("syncBar").hidden = true;
     $("syncSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/javascript" })); a.download = "timing.js"; a.click(); };

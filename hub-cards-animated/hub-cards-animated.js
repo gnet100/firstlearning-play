@@ -65,7 +65,7 @@
   /* song: the letters hop one after another to the beat, notes float up, the moon glows */
   .hca-hop { animation: hca-hop 2.4s ease-in-out infinite; } .hca-hop.d2 { animation-delay: .4s; } .hca-hop.d3 { animation-delay: .8s; }
   @keyframes hca-hop { 0%, 30%, 100% { transform: translateY(0); } 12% { transform: translateY(-8px); } 20% { transform: translateY(1px); } }
-  .hca-note { opacity: 0; transform-box: fill-box; transform-origin: center; animation: hca-note 3.6s ease-out infinite; } .hca-note.d2 { animation-delay: 1.2s; } .hca-note.d3 { animation-delay: 2.4s; }
+  .hca-note { opacity: 0; transform-box: fill-box; transform-origin: center; animation: hca-note 3.6s ease-out infinite; } .hca-note.d2 { animation-delay: 1.2s; } .hca-note.d3 { animation-delay: 2.4s; } .hca-note.d4 { animation-delay: .6s; } .hca-note.d5 { animation-delay: 1.8s; } .hca-note.d6 { animation-delay: 3s; }
   @keyframes hca-note { 0% { opacity: 0; transform: translate(0, 6px) rotate(-10deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -18px) rotate(10deg); } }
   @media (prefers-reduced-motion: reduce) { [class*="hca-"] { animation: none !important; } }`;
 
@@ -151,8 +151,9 @@
   const tile = (x, y, ch, fill, cls) => `<g transform="translate(${x} ${y})"><g class="hca-hop ${cls}"><rect width="40" height="40" rx="9" fill="#ffe9b8"/>${L(20, 21, ch, 28, fill)}</g></g>`;
   const song = `<svg class="hca" viewBox="0 0 160 100"><rect width="160" height="100" fill="#2a2f6b"/><circle class="hca-sun" cx="132" cy="20" r="10" fill="#fff6cf"/><circle cx="132" cy="20" r="10" fill="#fff6cf"/>
       <g fill="#fff"><circle class="hca-twinkle" cx="20" cy="14" r="1.5"/><circle class="hca-twinkle d2" cx="60" cy="10" r="1.2"/><circle class="hca-twinkle d3" cx="96" cy="22" r="1.4"/><circle class="hca-twinkle d2" cx="40" cy="30" r="1"/></g>
-      ${tile(106, 46, "א", "#2bb673", "")}${tile(60, 40, "ב", "#ff5a8a", "d2")}${tile(14, 46, "ג", "#7c5cff", "d3")}
-      <g fill="#ffd43b" font-family="sans-serif" font-weight="800"><g class="hca-note"><text x="146" y="44" font-size="14">♪</text></g><g class="hca-note d2"><text x="98" y="30" font-size="20">♫</text></g><g class="hca-note d3"><text x="56" y="34" font-size="16">♪</text></g></g></svg>`;
+      ${tile(86, 44, "א", "#2bb673", "")}${tile(34, 44, "ב", "#ff5a8a", "d2")}
+      <g fill="#ffd43b" font-family="sans-serif" font-weight="800">${[[142, 52, 22, "♪", ""], [128, 88, 12, "♫", "d4"], [104, 30, 16, "♫", "d2"], [62, 32, 26, "♪", "d5"], [20, 36, 13, "♫", "d3"], [12, 80, 18, "♪", "d6"], [78, 94, 10, "♪", "d4"]]
+        .map(([x, y, sz, ch, d]) => `<g class="hca-note ${d}"><text x="${x}" y="${y}" font-size="${sz}">${ch}</text></g>`).join("")}</g></svg>`;
 
   if (!document.getElementById("hca-style")) { const st = document.createElement("style"); st.id = "hca-style"; st.textContent = CSS; document.head.append(st); }
   window.FL_HUB_PICS = { car, detective, waking, tellme, train, circle, mole, memory, song };
