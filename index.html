@@ -56,7 +56,7 @@
   @media (hover: hover) { .game:hover { outline: max(calc(3 * var(--u, 1px)), 2px) solid var(--ac, #4dabf7); outline-offset: 0; } }
   .game:focus-visible { outline: max(calc(3 * var(--u, 1px)), 2px) solid var(--ac, #4dabf7); outline-offset: 0; }
   .game:active { transform: scale(.96); }
-  .game .pic { width: 100%; aspect-ratio: 16 / 9; border-radius: calc(18 * var(--u, 1px)); display: grid; place-items: center; overflow: hidden; }
+  .game .pic { width: 100%; aspect-ratio: var(--pa, 16 / 9); border-radius: calc(18 * var(--u, 1px)); display: grid; place-items: center; overflow: hidden; }
   .game .pic svg { width: 100%; height: 100%; display: block; }
   .game b { font-size: max(calc(24 * var(--u, 1px)), 16px); font-weight: 800; line-height: 1.2; }
   /* nikud only at 28px or more, with line height 1.7-1.9 (literacy ruling 16.10); smaller, the plain text */
@@ -68,7 +68,7 @@
   html[data-screen~="portrait"] .who { align-self: flex-start; margin-inline-end: calc(var(--btn) + var(--g)); min-height: var(--btn); max-width: calc(100% - var(--btn) - var(--g)); }
   html[data-screen~="portrait"] .who h1 { font-size: max(calc(40 * var(--u, 1px)), 20px); }
   html[data-screen~="portrait"] .grid { grid-template-columns: repeat(var(--cols, 2), minmax(0, min(calc(330 * var(--u, 1px)), var(--cw, 9999px)))); margin-top: var(--btn); }
-  html[data-screen~="portrait"] .game .pic { aspect-ratio: 16 / 8.5; }
+  html[data-screen~="portrait"] .game .pic { aspect-ratio: var(--pa, 16 / 8.5); }
   html[data-screen~="portrait"] .game b { font-size: max(calc(30 * var(--u, 1px)), 16px); }
   .set-ov { position: fixed; inset: 0; z-index: 10001; background: rgba(20, 40, 70, .55); display: grid; place-items: center;
     padding: var(--e-t) calc(var(--e-r) + var(--btn) + var(--g)) var(--e-b) calc(var(--e-l) + var(--btn) + var(--g)); }
@@ -273,22 +273,25 @@
   }
   function fitGrid() {
     const grid = document.querySelector(".grid"); if (!grid || !grid.children.length) return;
-    if (innerHeight < 200 || document.hidden) { grid.style.removeProperty("--cw"); placeCards(grid, 3); return; }   // a hidden tab has no real size yet: fit again when it shows
+    if (innerHeight < 200 || document.hidden) { grid.style.removeProperty("--cw"); grid.style.removeProperty("--pa"); placeCards(grid, 3); return; }   // a hidden tab has no real size yet: fit again when it shows
     const bottom = () => Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom));
     let eb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--edge-b")); if (!(eb >= 0)) eb = 12;
     const room = innerHeight - eb - 6;
-    // try the usual column count and a few more (a wide, low phone gets 5 columns in 2 rows), keep the biggest cards that fit
-    const base = document.documentElement.dataset.screen && /portrait/.test(document.documentElement.dataset.screen) ? 2 : 3;
+    // Golan 22.10: always 3 columns (3x3 for 9 games), on every screen; the cards shrink until they fit
+    const base = 3;
     let best = null;
-    for (let cols = base; cols <= 5; cols++) {
-      grid.style.setProperty("--cols", cols); grid.style.removeProperty("--cw");
+    // a low screen keeps the cards wide (the title on one line) by making the pictures flatter, then shrinks the cards: the biggest card wins
+    const cols = base; grid.style.setProperty("--cols", cols);
+    for (const pa of [9, 8, 7, 6, 5, 4, 3]) {
+      grid.style.setProperty("--pa", "16 / " + pa); grid.style.removeProperty("--cw");
       let cw = grid.children[0].getBoundingClientRect().width;
       for (let k = 0; k < 24 && bottom() > room && cw > 60; k++) { cw *= 0.94; grid.style.setProperty("--cw", cw + "px"); }
-      if (bottom() <= room && (!best || cw > best.cw * 1.02)) best = { cols, cw };
+      const r = grid.children[0].getBoundingClientRect(), area = r.width * r.height * (bottom() <= room ? 1 : 0.01);
+      if (!best || area > best.area * 1.02) best = { cols, cw, pa, area };
     }
-    grid.style.setProperty("--cols", best ? best.cols : base);
-    if (best) grid.style.setProperty("--cw", best.cw + "px"); else grid.style.removeProperty("--cw");   // never squeeze to nothing
-    placeCards(grid, best ? best.cols : base);
+    grid.style.setProperty("--pa", "16 / " + best.pa);
+    grid.style.setProperty("--cw", best.cw + "px");
+    placeCards(grid, cols);
   }
   function fitNikud() {
     for (const el of document.querySelectorAll("[data-nq]")) {

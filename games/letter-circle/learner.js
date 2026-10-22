@@ -979,6 +979,7 @@ ${items[item]}</svg>`;
   const CLIP_BASE = (() => { try { const s = document.currentScript && document.currentScript.src; return s ? new URL("../../voice/audio/", s).href : null; } catch (e) { return null; } })();
   let clipNow = null;
   function sayClip(id) { try { if (clipNow) clipNow.pause(); if (!CLIP_BASE) return; clipNow = new Audio(CLIP_BASE + id + ".mp3"); clipNow.play().catch(() => {}); } catch (e) {} }
+  const END_DOOR = '<svg class="fl-end-door" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/></svg>';   // the door of every game (Golan 22.10: on "חזור")
   const spk = (id) => `<button class="fl-spk" type="button" aria-label="הקשבה" data-clip="${id}">🔊</button>`;
   // opt.onBack(): the page's own action when the popup is left from the list with no step inside it to go back to
   // (the hub passes it); without it the popup closes and the child who was playing goes on.
@@ -1235,6 +1236,11 @@ ${items[item]}</svg>`;
 .fl-end-btn{flex:0 1 calc(260 * var(--u,1px));min-width:0;box-sizing:border-box;border:2px solid transparent;border-radius:999px;background:var(--accent,#ff8a3d);color:var(--accent-ink,#fff);cursor:pointer;font-family:inherit;font-weight:800;font-size:max(calc(30 * var(--u,1px) * var(--k)),20px);padding:0 calc(40 * var(--u,1px));min-height:max(calc(76 * var(--u,1px) * var(--k)),var(--tap,56px));box-shadow:0 5px 0 #c45f1d}
 .fl-end-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #c45f1d}
 .fl-end-btn.ghost{background:#fff;color:#1d3557;border-color:#d5dde6;box-shadow:0 5px 0 #d5dde6}
+.fl-end-btn:not(.ghost){background:#2fb344;color:#fff;box-shadow:0 5px 0 #1f8a35}
+.fl-end-btn:not(.ghost):active{box-shadow:0 2px 0 #1f8a35}
+.fl-end-btn{display:inline-flex;align-items:center;justify-content:center;gap:calc(12 * var(--u,1px) * var(--k));white-space:nowrap;padding:0 calc(22 * var(--u,1px))}
+.fl-end-btn .fl-end-door{width:1.1em;height:1.1em;flex:none}
+.fl-end-spk{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:#ffffff33;font-size:.8em;flex:none}
 .fl-end [hidden]{display:none!important}`;
     document.head.append(st);
   }
@@ -1289,10 +1295,16 @@ ${items[item]}</svg>`;
       for (const x of [].concat(o.extra || [])) if (x) el.append(x);
       const bs = o.buttons || [{ text: "עוד סיבוב", primary: true }];
       if (bs.length) { const row = document.createElement("div"); row.className = "fl-end-btns";
-        // Golan 17.10: "עוד סיבוב" on the right, "לסיים" on the left, both the same size and shape
+        // Golan 22.10 (all games): "חזור" with a door on the right, "עוד סיבוב" green with a speaker on the left, both the same size and shape
+        // (was 17.10: "עוד סיבוב" right, "לסיים" left). Games still pass "לסיים": it shows as "חזור".
         // the same button elements survive every set() (Golan 17.10: a game that added its own listener to #again lost it on redraw)
-        for (const b of [...bs].sort((x, y) => (y.primary ? 1 : 0) - (x.primary ? 1 : 0))) { const key = b.id || b.text;
-          const btn = btnEls.get(key) || document.createElement("button"); btnEls.set(key, btn); btn.type = "button"; btn.className = "fl-end-btn" + (b.ghost || b.primary === false ? " ghost" : ""); btn.textContent = b.text;
+        for (const b of [...bs].sort((x, y) => (x.primary ? 1 : 0) - (y.primary ? 1 : 0))) { const key = b.id || b.text;
+          const ghost = b.ghost || b.primary === false, label = b.text === "לסיים" ? "חזור" : b.text;
+          const btn = btnEls.get(key) || document.createElement("button"); btnEls.set(key, btn); btn.type = "button"; btn.className = "fl-end-btn" + (ghost ? " ghost" : ""); btn.textContent = "";
+          if (ghost && label === "חזור") btn.insertAdjacentHTML("beforeend", END_DOOR);
+          btn.append(label);
+          if (!ghost && label === "עוד סיבוב") { const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
+            sp.onclick = (e) => { e.stopPropagation(); sayClip("btn_again"); }; btn.append(sp); }   // Hila reads "עוֹד סִבוּב" (btn_again; silent until the clip exists)
           if (b.id) btn.id = b.id; btn.hidden = !!b.hidden; btn.onclick = b.onClick || null; row.append(btn); }
         el.append(row); }
       fit();
