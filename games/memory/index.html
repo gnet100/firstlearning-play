@@ -825,7 +825,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     later(ms(500), () => {
       a.state = b.state = "done";
       [a, b].forEach((c) => { c.el.classList.remove("open"); c.el.classList.add("done", "love"); });
-      hearts(a, b); sfx.good(); whenQuiet(() => say("fb_correct"));
+      hearts(a, b); sfx.good();   // the success sound alone, no "יש! נכון!" (Golan 22.10)
       state.starRow.push(kind); starCount.add(kind);
       [a, b].forEach((c) => { const s = document.createElement("span"); s.className = "mstar"; s.innerHTML = LRN ? LRN.starSvg(kind, Math.round(cardCenter(c).w * 0.32)) : ""; c.el.append(s); });
       later(ms(1300), () => {
