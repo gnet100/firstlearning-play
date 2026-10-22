@@ -177,6 +177,7 @@
   #start .start-row { margin: 0 -12px; }   /* speaker closer to the edge (Golan, 14.10) */
   #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
   .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
   .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
   /* the button reacts when pressed (Golan, 14.10): a bounce and a glow */
   /* one soft, slow press (Golan, 14.10: less dramatic, not double) */
@@ -622,7 +623,7 @@
   function clipFor(text) { return CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text] || null; }
   function getClip(id) {
     if (!clipCache[id]) {
-      const a = new Audio("../../../voice/audio/" + id + ".mp3"); a.preload = "auto";
+      const a = new Audio("audio/" + id + ".mp3"); a.preload = "auto";
       a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
       a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
       clipCache[id] = a;

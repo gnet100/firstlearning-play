@@ -1236,8 +1236,8 @@ ${items[item]}</svg>`;
 .fl-end-btn{flex:0 1 calc(260 * var(--u,1px));min-width:0;box-sizing:border-box;border:2px solid transparent;border-radius:999px;background:var(--accent,#ff8a3d);color:var(--accent-ink,#fff);cursor:pointer;font-family:inherit;font-weight:800;font-size:max(calc(30 * var(--u,1px) * var(--k)),20px);padding:0 calc(40 * var(--u,1px));min-height:max(calc(76 * var(--u,1px) * var(--k)),var(--tap,56px));box-shadow:0 5px 0 #c45f1d}
 .fl-end-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #c45f1d}
 .fl-end-btn.ghost{background:#fff;color:#1d3557;border-color:#d5dde6;box-shadow:0 5px 0 #d5dde6}
-.fl-end-btn:not(.ghost){background:#2fb344;color:#fff;box-shadow:0 5px 0 #1f8a35}
-.fl-end-btn:not(.ghost):active{box-shadow:0 2px 0 #1f8a35}
+.fl-end-btn:not(.ghost){background:#34b36b;color:#fff;box-shadow:0 5px 0 #1f8048}
+.fl-end-btn:not(.ghost):active{box-shadow:0 2px 0 #1f8048}
 .fl-end-btn{display:inline-flex;align-items:center;justify-content:center;gap:calc(12 * var(--u,1px) * var(--k));white-space:nowrap;padding:0 calc(22 * var(--u,1px))}
 .fl-end-btn .fl-end-door{width:1.1em;height:1.1em;flex:none}
 .fl-end-spk{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:#ffffff33;font-size:.8em;flex:none}

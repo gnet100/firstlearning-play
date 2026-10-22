@@ -132,6 +132,7 @@
   .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
   #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
   .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
   .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
   .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
   @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
@@ -592,7 +593,7 @@
   for (const l of window.WAKE_LINES) LINE_TEXT[l.id] = l.text;
   const whereOf = (id) => (id.startsWith("fin_") ? "lc_" + id : "lc_name_" + id.slice(5));   // "איפה האות ...?": lc_name_bet, lc_fin_kaf
   for (const [l, id] of Object.entries(NAME_CLIP)) { LINE_TEXT[id] = LETTER_NAME[l]; LINE_TEXT[whereOf(id)] = "אֵיפֹה הָאוֹת " + LETTER_NAME[l] + "?"; }
-  const AUDIO = "../../voice/audio/";
+  const AUDIO = "audio/";
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   function getClip(id) {
     if (!clipCache[id]) {

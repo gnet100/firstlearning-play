@@ -26,7 +26,7 @@
   @keyframes tw { 50% { transform: scale(.4); } }
 
   /* the stage in the middle: the big letter that just woke + its picture, or the chorus words */
-  #stage { position: fixed; left: 0; right: 0; top: var(--stage-t); bottom: var(--strip-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none; }
+  #stage { position: fixed; left: 0; right: 0; top: var(--stage-t); bottom: calc(var(--strip-h) + 40px);   /* 40px: room for the progress bar */ display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none; }
   #stage .pair { display: flex; align-items: center; justify-content: center; gap: 4vw; }
   #stage .big, #stage .pic { width: var(--big); height: var(--big); }
   #stage .big svg { width: 100%; height: 100%; border-radius: 18%; box-shadow: 0 8px 30px #0004; }
@@ -47,7 +47,7 @@
   #chorusSide #chorus { font-size: max(calc(var(--wfs) * 0.62), 15px); line-height: 1.6; background: #0003; border-radius: 22px; padding: 12px 14px; }
   body.chorus-on #stage { left: 26vw; }
   /* Golan 22.10: in the chorus the big stage shows a turning ring of dancing letters, with א and ב dancing in the middle */
-  #stage .ring { --ring: min(calc(100dvh - var(--stage-t) - var(--strip-h) - 40px), 62vw); position: relative; width: var(--ring); height: var(--ring); animation: spin 30s linear infinite, grow .5s both; }
+  #stage .ring { --ring: min(calc(100dvh - var(--stage-t) - var(--strip-h) - 80px), 62vw); position: relative; width: var(--ring); height: var(--ring); animation: spin 30s linear infinite, grow .5s both; }
   #stage .ring .rl { position: absolute; left: 50%; top: 50%; width: calc(var(--ring) * .115); height: calc(var(--ring) * .115); margin: calc(var(--ring) * -.0575);
     transform: rotate(var(--a)) translateY(calc(var(--ring) * -.435)) rotate(calc(-1 * var(--a))); }
   #stage .ring .rl > div, #stage .ring .mid > div { width: 100%; height: 100%; animation: spin 30s linear infinite reverse; }
@@ -57,7 +57,7 @@
   #stage .ring .mid.a { margin-left: calc(var(--ring) * .015); } #stage .ring .mid.b { margin-left: calc(var(--ring) * -.275); }   /* א on the right (Hebrew reads right to left) */
   #stage .ring .mid.b svg { animation-delay: .45s; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  body.chorus-on { --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 12px), 27vw); }
+  body.chorus-on { --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 52px), 27vw); }
 
   /* the 22 letters in two rows of 11 at the bottom, א on the right */
   #strip { position: fixed; left: 0; right: 0; bottom: var(--edge-b, 8px); height: calc(var(--strip-h) - var(--edge-b, 8px)); display: grid;
@@ -78,7 +78,7 @@
   html { --s: max(calc(72 * var(--u, 1px)), var(--tap-s, 44px)); --g: max(calc(14 * var(--u, 1px)), var(--gap, 10px));
     --cg: max(calc(8 * var(--u, 1px)), 3px); --cell: min(calc((100vw - 2 * var(--s) - 4 * var(--g) - 10 * var(--cg)) / 11), calc(17vh));
     --strip-h: calc(2 * var(--cell) + var(--cg) + var(--edge-b, 8px) + 6px); --stage-t: calc(var(--edge-t, 12px) + 4px);
-    --wfs: max(calc(40 * var(--u, 1px)), 20px); --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 12px), 34vw); }
+    --wfs: max(calc(40 * var(--u, 1px)), 20px); --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 52px), 34vw); }
   .round-btn { position: fixed; width: var(--s); height: var(--s); border-radius: 50%; border: 0; background: var(--card); color: var(--ink);
     font-size: calc(var(--s) * .45); display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 16px #0003; z-index: 30; padding: 0; }
   .round-btn:active { transform: translateY(2px); }
@@ -91,6 +91,16 @@
   .gear-ico { width: 1.45em; height: 1.45em; display: block; color: #5b6573; }
   #playBtn { top: var(--edge-t, 12px); right: var(--edge-r, 12px); background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d; }
   #againBtn { top: calc(var(--edge-t, 12px) + var(--s) + var(--g)); right: var(--edge-r, 12px); }
+  /* Golan 22.10: a progress bar for the song with a ball to drag (right to left, like Hebrew) */
+  #seekWrap { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--strip-h) + 4px); width: min(56vw, 760px); height: 34px; display: flex; align-items: center; z-index: 20; }
+  #seek { -webkit-appearance: none; appearance: none; width: 100%; height: 12px; border-radius: 999px; margin: 0; cursor: pointer; direction: rtl;
+    background: linear-gradient(to left, #ffd43b var(--p, 0%), #ffffff55 var(--p, 0%)); box-shadow: inset 0 1px 3px #0004; }
+  #seek::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff 0 18%, #ff8a3d 20% 100%); border: 3px solid #fff; box-shadow: 0 2px 8px #0006; }
+  #seek::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #ff8a3d; border: 3px solid #fff; box-shadow: 0 2px 8px #0006; }
+  #seek::-moz-range-track { background: transparent; }
+  body.sync #seekWrap { display: none; }
+  /* Golan 22.10: every button that starts an activity is the green of "יוצאים לדרך" */
+  .big-btn.go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } .big-btn.go-btn:active { box-shadow: 0 2px 0 #1f8048; }
   .round-btn svg.ic { width: 52%; height: 52%; fill: currentColor; }
 
   .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #0006; z-index: 20; padding: var(--edge-t, 12px) calc(var(--edge-r, 12px) + var(--s) + var(--g)) var(--edge-b, 12px) calc(var(--edge-l, 12px) + var(--s) + var(--g)); }
@@ -127,13 +137,14 @@
 <button class="round-btn door-btn" id="door" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
 <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
 <button class="round-btn" id="playBtn" aria-label="עצירה" hidden></button>
+<div id="seekWrap" hidden><input type="range" id="seek" min="0" max="100" step="0.1" value="0" aria-label="מיקום בשיר"></div>
 <button class="round-btn" id="againBtn" aria-label="מההתחלה" hidden><svg class="ic" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg></button>
 
 <div class="overlay" id="start">
   <div class="panel">
     <h1>שִׁיר הָאָלֶף-בֵּית</h1>
     <div class="rowl" id="startLetters"></div>
-    <button class="big-btn" id="go">▶ נָשִׁיר!</button>
+    <button class="big-btn go-btn" id="go">נָשִׁיר ▶</button>
   </div>
 </div>
 <div class="overlay" id="end" hidden></div>
@@ -247,7 +258,15 @@
     if (idx !== state.idx) { state.idx = idx; showEvent(EV[idx]); }
     if (state.mode === "play" && !(hasSong && !state.fast) && t >= END_T) finish();   // with song.mp3 the "ended" event finishes
   }
-  function tick() { if (state.mode === "play" && state.playing) render(curTime()); requestAnimationFrame(tick); }
+  function tick() { if (state.mode === "play" && state.playing) render(curTime()); drawSeek(); requestAnimationFrame(tick); }
+  // ---------- the progress bar: shows where the song is; drag the ball to jump (the letters follow, render() works both ways) ----------
+  let seeking = false;
+  const songLen = () => (hasSong && !state.fast && audio.duration ? audio.duration : END_T);
+  function drawSeek() { const el = $("seek"), L = songLen(); if (!el || !L) return; el.max = L.toFixed(1);
+    const t = seeking ? +el.value : Math.min(L, curTime()); if (!seeking) el.value = t.toFixed(1); el.style.setProperty("--p", (100 * t / L).toFixed(2) + "%"); }
+  $("seek").addEventListener("input", () => { seeking = true; seek(+$("seek").value); });
+  $("seek").addEventListener("change", () => { seeking = false; });
+  $("seek").addEventListener("pointerup", () => { seeking = false; });
   requestAnimationFrame(tick);
 
   // ---------- play / pause / again ----------
@@ -255,7 +274,7 @@
   function setPlayIcon() { $("playBtn").innerHTML = state.playing ? ICON_PAUSE : ICON_PLAY; $("playBtn").setAttribute("aria-label", state.playing ? "עצירה" : "המשך"); document.body.classList.toggle("paused", !state.playing); }
   function play() {
     if (state.mode === "end") return again();
-    state.mode = "play"; $("start").hidden = $("end").hidden = true; $("playBtn").hidden = $("againBtn").hidden = false;
+    state.mode = "play"; $("start").hidden = $("end").hidden = true; $("playBtn").hidden = $("againBtn").hidden = $("seekWrap").hidden = false;
     if (state.playing) return;
     state.playing = true; clock0 = now();
     if (hasSong && !state.fast) { audio.volume = settings.vol; audio.playbackRate = 1; audio.play().catch(() => {}); }
@@ -273,7 +292,7 @@
   function finish() {
     state.mode = "end"; pause(); state.plays++;
     try { const k = "fl-song-plays", n = +(localStorage.getItem(k) || 0) + 1; localStorage.setItem(k, String(n)); } catch (e) {}
-    $("playBtn").hidden = true; $("againBtn").hidden = true;
+    $("playBtn").hidden = true; $("againBtn").hidden = true; $("seekWrap").hidden = true;
     for (const l of ORDER) setAwake(cells[l], true); document.body.classList.add("dance"); document.body.classList.remove("paused");
     const host = $("end"); host.innerHTML = ""; host.hidden = false;
     const btns = [{ text: "עוד סיבוב", primary: true, id: "again", onClick: again }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("door").click() }];
@@ -290,7 +309,7 @@
   $("door").addEventListener("click", () => {
     pause();
     if (LRN && LRN.fromHub && LRN.hubUrl) { location.href = LRN.hubUrl.split("#")[0] + "#games"; return; }
-    if (state.mode !== "start") { state.mode = "start"; seek(0); state.idx = -2; render(0); $("end").hidden = true; $("start").hidden = false; $("playBtn").hidden = $("againBtn").hidden = true; return; }
+    if (state.mode !== "start") { state.mode = "start"; seek(0); state.idx = -2; render(0); $("end").hidden = true; $("start").hidden = false; $("playBtn").hidden = $("againBtn").hidden = $("seekWrap").hidden = true; return; }
     if (history.length > 1) history.back(); else if (LRN) LRN.chooseChild();
   });
 
@@ -324,7 +343,7 @@
     const idx = n - 1; if (idx !== state.idx) { state.idx = idx; showEvent(evs[idx]); }
   }
   function syncLabel() { const n = syncTimes.length, e = EV.filter((x) => !x.end)[n]; return e ? "הבא: " + (e.chorus ? "פזמון" : "האות " + e.letter) + " (רווח או נגיעה)" : "סיום: עוד רווח אחד בסוף השיר"; }
-  function startSync() { syncTimes = []; syncOn = true; state.idx = -2; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
+  function startSync() { document.body.classList.add("sync"); syncTimes = []; syncOn = true; state.idx = -2; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
   function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.max(0, Math.round((curTime() - 0.3) * 10) / 10));   /* people tap a little late: 0.3 s earlier */ $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
     if (syncTimes.length > EV.filter((x) => !x.end).length) finish(); }
   function showSync() {
