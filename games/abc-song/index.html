@@ -303,7 +303,7 @@
   }
   function syncLabel() { const n = syncTimes.length, e = EV.filter((x) => !x.end)[n]; return e ? "הבא: " + (e.chorus ? "פזמון" : "האות " + e.letter) + " (רווח או נגיעה)" : "סיום: עוד רווח אחד בסוף השיר"; }
   function startSync() { syncTimes = []; syncOn = true; state.idx = -2; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
-  function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.round(curTime() * 10) / 10); $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
+  function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.max(0, Math.round((curTime() - 0.3) * 10) / 10));   // people tap a little late: 0.3 s earlier $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
     if (syncTimes.length > EV.filter((x) => !x.end).length) finish(); }
   function showSync() {
     const evs = EV.filter((x) => !x.end), out = evs.map((e, i) => Object.assign({}, e, { t: syncTimes[i] != null ? syncTimes[i] : e.t }));
