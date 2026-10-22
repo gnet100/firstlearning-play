@@ -91,7 +91,7 @@
   @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
   .gear { top: calc(var(--edge-t, 12px) + var(--s) + var(--g)); left: var(--edge-l, 12px); }
   .gear-ico { width: 1.45em; height: 1.45em; display: block; color: #5b6573; }
-  #playBtn { top: var(--edge-t, 12px); right: var(--edge-r, 12px); background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d; }
+  #playBtn { top: var(--edge-t, 12px); right: var(--edge-r, 12px); background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d; width: calc(var(--s) * .8); height: calc(var(--s) * .8); }   /* Golan 22.10: a little smaller */
   #againBtn { top: calc(var(--edge-t, 12px) + var(--s) + var(--g)); right: var(--edge-r, 12px); }
   /* Golan 22.10: a progress bar for the song with a ball to drag (right to left, like Hebrew), the pause/play button in the top right corner (Golan 22.10, one button, its icon changes) */
   #seekWrap { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--strip-h) + 2px); width: min(62vw, 820px); height: 44px; display: flex; align-items: center; gap: 14px; z-index: 20; direction: rtl; }
