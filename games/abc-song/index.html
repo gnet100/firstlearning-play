@@ -51,11 +51,12 @@
   #stage .ring .rl { position: absolute; left: 50%; top: 50%; width: calc(var(--ring) * .115); height: calc(var(--ring) * .115); margin: calc(var(--ring) * -.0575);
     transform: rotate(var(--a)) translateY(calc(var(--ring) * -.435)) rotate(calc(-1 * var(--a))); }
   #stage .ring .rl > div, #stage .ring .mid > div { width: 100%; height: 100%; animation: spin 30s linear infinite reverse; }
-  #stage .ring svg { width: 100%; height: 100%; border-radius: 18%; box-shadow: 0 4px 14px #0005; animation: dance .9s infinite ease-in-out alternate; }
-  #stage .ring .rl:nth-child(odd) svg { animation-delay: .45s; }
+  #stage .ring svg { width: 100%; height: 100%; border-radius: 18%; box-shadow: 0 4px 14px #0005; }
+  #stage .ring .up svg { animation: dance .9s 3.5s infinite ease-in-out alternate; }   /* dance after waking up (the stretch takes about 3.5 s) */
+  #stage .ring .rl.up:nth-child(odd) svg { animation-delay: 3.95s; }
   #stage .ring .mid { position: absolute; left: 50%; top: 50%; width: calc(var(--ring) * .26); height: calc(var(--ring) * .26); margin-top: calc(var(--ring) * -.13); }
   #stage .ring .mid.a { margin-left: calc(var(--ring) * .015); } #stage .ring .mid.b { margin-left: calc(var(--ring) * -.275); }   /* א on the right (Hebrew reads right to left) */
-  #stage .ring .mid.b svg { animation-delay: .45s; }
+  #stage .ring .mid.b.up svg { animation-delay: 3.95s; }
   @keyframes spin { to { transform: rotate(360deg); } }
   body.chorus-on { --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 52px), 27vw); }
 
@@ -68,8 +69,9 @@
   body.dance #strip .cell.up svg { animation: dance .9s infinite ease-in-out alternate; }
   body.dance #strip .cell.up:nth-child(odd) svg { animation-delay: .45s; }
   /* Golan 22.10: a small move of the letter itself inside its card while dancing */
-  body.dance #strip .cell.up .la .tilt, #stage .ring .la .tilt { animation: inwig 1.1s infinite ease-in-out alternate; }
-  body.dance #strip .cell.up:nth-child(odd) .la .tilt, #stage .ring .rl:nth-child(odd) .la .tilt { animation-delay: .55s; }
+  body.dance #strip .cell.up .la .tilt { animation: inwig 1.1s infinite ease-in-out alternate; }
+  #stage .ring .up .la .tilt { animation: inwig 1.1s 3.5s infinite ease-in-out alternate; }
+  body.dance #strip .cell.up:nth-child(odd) .la .tilt { animation-delay: .55s; }
   @keyframes inwig { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
   @keyframes dance { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-6%) rotate(3deg) scale(1.02); } }   /* Golan 22.10: calmer */
   body.paused *, body.paused *::before, body.paused *::after { animation-play-state: paused !important; }
@@ -231,14 +233,22 @@
     if (!e || e.end) return;
     showLetter(e.letter, true);
   }
-  // the chorus: a ring of all the letters dancing, א and ב dancing in the middle (the ring turns, the letters stay upright)
-  function showRing() {
+  // the chorus: a ring of all the letters, א and ב in the middle (the ring turns, the letters stay upright).
+  // Golan 22.10: each chorus starts at night and slowly turns to morning; the letters wake one by one (they stretch their arms), then dance.
+  let ringEls = [];
+  function showRing() { ringEls = [];
     const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = "";
     const ring = document.createElement("div"); ring.className = "ring"; stage.append(ring);
     const add = (cls, l, a) => { const box = document.createElement("div"); box.className = cls; if (a != null) box.style.setProperty("--a", a + "deg");
-      const inner = document.createElement("div"); box.append(inner); const el = LA && LA.make(l); if (el) { inner.append(el); requestAnimationFrame(() => el.wake && el.wake()); } else inner.textContent = l; ring.append(box); };
+      const inner = document.createElement("div"); box.append(inner); const el = LA && LA.make(l); if (el) { inner.append(el); ringEls.push({ el, box, on: false }); } else inner.textContent = l; ring.append(box); };
+    add("mid a", "א"); add("mid b", "ב");   // א and ב wake first
     ORDER.forEach((l, i) => add("rl", l, i * 360 / ORDER.length));
-    add("mid a", "א"); add("mid b", "ב");
+    // wake times over the chorus (0..1): א, ב, then the ring in order, all awake by 85%
+    const n = ringEls.length; ringEls.forEach((r, i) => { r.at = 0.04 + 0.81 * i / Math.max(1, n - 1); });
+  }
+  // p = how far into the chorus (0..1): wake the letters whose time came (or put them back to sleep when the song jumps back)
+  function ringAt(p) {
+    for (const r of ringEls) { const up = p >= r.at; if (up === r.on) continue; r.on = up; r.box.classList.toggle("up", up); up ? r.el.wake() : r.el.sleep(); }
   }
   function showLetter(letter, wake) {
     const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = letter; const e = { letter };
@@ -254,8 +264,12 @@
     let idx = -1; for (let i = 0; i < EV.length; i++) if (EV[i].t <= t) idx = i;
     for (const e of EV) if (e.letter) setAwake(cells[e.letter], e.t <= t);
     const sung = EV.filter((e) => e.letter && e.t <= t).length;
-    $("sky").style.setProperty("--day", Math.min(1, sung / ORDER.length).toFixed(3));
     if (idx !== state.idx) { state.idx = idx; showEvent(EV[idx]); }
+    let day = Math.min(1, sung / ORDER.length);
+    const ce = EV[idx]; if (ce && ce.chorus) {   // in a chorus: night -> morning over the chorus, the letters wake one by one
+      const nx = EV[idx + 1], end = nx ? nx.t : END_T, p = Math.max(0, Math.min(1, (t - ce.t) / Math.max(1, end - ce.t)));
+      day = Math.min(1, p / 0.9); ringAt(p); }
+    $("sky").style.setProperty("--day", day.toFixed(3));
     if (state.mode === "play" && !(hasSong && !state.fast) && t >= END_T) finish();   // with song.mp3 the "ended" event finishes
   }
   function tick() { if (state.mode === "play" && state.playing) render(curTime()); drawSeek(); requestAnimationFrame(tick); }
