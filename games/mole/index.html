@@ -322,7 +322,7 @@
   // and at level 3 one of the other letters looks like the one we look for
   const lvl = () => (LRN && LRN.level ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
   const HOLES = [0, 5, 7, 10], MOLES = [0, 3, 4, 5], STAY_MS = [0, Infinity, 4000, 2500];
-  const REPEAT_S = 5;        // easy level, no touch: the question once more after 5 s, then every 8 s
+  const REPEAT_S = 5;        // easy level, no touch: the question once more after 5 s, then once after 8 s; 3 times in all (Golan 22.10)
 
   // ---------- letters ----------
   const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
@@ -441,11 +441,11 @@
 
   // ---------- the floating island ----------
   const R = 5.6;                 // island radius
-  const S = 1.7;                 // mole size
+  const S = 1.3;                 // mole size (smaller, Golan 22.10)
   const TOP = 0.32;              // the grass level
   const island = new BABYLON.TransformNode("island", scene);
   const grass = BABYLON.MeshBuilder.CreateCylinder("grass", { diameter: 2 * R, height: 0.24, tessellation: 48 }, scene);
-  grass.material = mat("#5fb34e", 0.02); grass.position.y = TOP - 0.12; grass.parent = island;
+  grass.material = mat("#e0b373", 0.02); grass.position.y = TOP - 0.12; grass.parent = island;   // sand dunes on top (Golan 22.10)
   const dirt = BABYLON.MeshBuilder.CreateCylinder("dirt", { diameterTop: 2 * R * 0.97, diameterBottom: 2 * R * 0.9, height: 2.9, tessellation: 40 }, scene);
   dirt.material = mat("#A47148", 0.08); dirt.position.y = TOP - 0.24 - 1.45; dirt.parent = island;
   const rock = BABYLON.MeshBuilder.CreateCylinder("rock", { diameterTop: 2 * R * 0.9, diameterBottom: 0.4, height: 3.2, tessellation: 24 }, scene);
@@ -455,16 +455,47 @@
     const a = (i / 7) * Math.PI * 2 + 0.3, s = BABYLON.MeshBuilder.CreateSphere("lump", { diameter: 1.4 + (i % 3) * 0.5, segments: 8 }, scene);
     s.material = mat(i % 2 ? "#8A6A55" : "#7a5c49", 0.06); s.parent = island; s.position.set(Math.cos(a) * R * 0.55, TOP - 4.6 - (i % 3) * 0.5, Math.sin(a) * R * 0.55); s.scaling.y = 1.3;
   }
-  for (let i = 0; i < 26; i++) {
-    const a = (i / 26) * Math.PI * 2, s = BABYLON.MeshBuilder.CreateSphere("tuft", { diameter: 0.55, segments: 6 }, scene);
-    s.material = mat(i % 2 ? "#6cbf5c" : "#86d675", 0.12); s.parent = island; s.position.set(Math.cos(a) * R * 0.99, TOP - 0.05, Math.sin(a) * R * 0.99); s.scaling.y = 0.55;
+  // rolling sand dunes on top: a round mesh whose height is a few soft waves; flat at the rim and around every hole (Golan 22.10)
+  const DUNE_RINGS = 40, DUNE_SEGS = 96;
+  const dunes = (() => {
+    const pos = [], idx = [], uv = [];
+    pos.push(0, 0, 0); uv.push(0.5, 0.5);
+    for (let i = 1; i <= DUNE_RINGS; i++) for (let j = 0; j < DUNE_SEGS; j++) {
+      const rr = (i / DUNE_RINGS) * R * 0.995, a = (j / DUNE_SEGS) * Math.PI * 2; pos.push(Math.cos(a) * rr, 0, Math.sin(a) * rr); uv.push(0, 0); }
+    for (let j = 0; j < DUNE_SEGS; j++) idx.push(0, 1 + j, 1 + ((j + 1) % DUNE_SEGS));
+    for (let i = 1; i < DUNE_RINGS; i++) for (let j = 0; j < DUNE_SEGS; j++) {
+      const a = 1 + (i - 1) * DUNE_SEGS + j, b = 1 + (i - 1) * DUNE_SEGS + ((j + 1) % DUNE_SEGS), c = a + DUNE_SEGS, d = b + DUNE_SEGS;
+      idx.push(a, d, b, a, c, d); }
+    const m = new BABYLON.Mesh("dunes", scene), vd = new BABYLON.VertexData(); vd.positions = pos; vd.indices = idx; vd.uvs = uv;
+    vd.normals = []; BABYLON.VertexData.ComputeNormals(pos, idx, vd.normals); vd.applyToMesh(m, true);
+    const dm = new BABYLON.StandardMaterial("duneMat", scene); dm.diffuseColor = new BABYLON.Color3(1, 1, 1); dm.specularColor = new BABYLON.Color3(0, 0, 0);
+    m.material = dm; m.parent = island; m.position.y = TOP + 0.004; m.isPickable = false; return m;
+  })();
+  function duneH(x, z) {
+      const rr = Math.hypot(x, z);
+      let h = 0.36 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.15 + z * 0.4 + 0.6), 2) + 0.2 * Math.pow(0.5 + 0.5 * Math.sin(z * 1.25 - x * 0.55 + 2.1), 2) + 0.04 * Math.sin(x * 3.1 + z * 2.3);
+      h *= Math.min(1, Math.max(0, (R * 0.97 - rr) / (R * 0.22)));   // down to the flat rim
+      for (const o of holes) if (o.on) h *= Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.15) / (HOLE_R * 1.1)));   // flat round the holes
+      return Math.max(0, h);
   }
-  // flowers on the grass between the holes
-  const FLOWER_COLS = ["#ff8fab", "#ffd43b", "#ffffff", "#b197fc"];
+  function sculptDunes() {
+    const pos = dunes.getVerticesData(BABYLON.VertexBuffer.PositionKind), idx = dunes.getIndices();
+    const col = [];
+    for (let k = 0; k < pos.length; k += 3) {
+      const h = (pos[k + 1] = duneH(pos[k], pos[k + 2])), t = Math.min(1, h / 0.45);   // darker sand in the hollows, light on the crests
+      col.push(0.88 + 0.12 * t, 0.70 + 0.18 * t, 0.45 + 0.17 * t, 1);
+    }
+    dunes.setVerticesData(BABYLON.VertexBuffer.ColorKind, col, true);
+    dunes.updateVerticesData(BABYLON.VertexBuffer.PositionKind, pos);
+    const nr = []; BABYLON.VertexData.ComputeNormals(pos, idx, nr); dunes.updateVerticesData(BABYLON.VertexBuffer.NormalKind, nr);
+  }
+  const SAND = ["#cfa461", "#dfba7a", "#c4975a"];
+  // a few shells on the sand between the holes
   const flowers = [];
-  for (let i = 0; i < 14; i++) {
-    const f = BABYLON.MeshBuilder.CreateSphere("flower", { diameter: 0.22, segments: 6 }, scene);
-    f.material = mat(FLOWER_COLS[i % 4], 0.35); f.parent = island; f.scaling.y = 0.6; flowers.push(f);
+  const SHELL_COLS = ["#fff4e6", "#ffd6c9", "#ffffff"];
+  for (let i = 0; i < 8; i++) {
+    const f = BABYLON.MeshBuilder.CreateSphere("shell", { diameter: 0.18, segments: 6 }, scene);
+    f.material = mat(SHELL_COLS[i % 3], 0.35); f.parent = island; f.scaling.y = 0.5; flowers.push(f);
   }
   // clouds around the island (decoration), drifting slowly
   const cloudMat = mat("#ffffff", 0.55);
@@ -504,11 +535,12 @@
       h.x = set[i][0] * k; h.z = set[i][1] * k;
       h.disc.position.set(h.x, TOP + 0.012, h.z); h.rim.position.set(h.x, TOP + 0.03, h.z);
     });
-    // flowers where there is no hole
+    sculptDunes();
+    // shells where there is no hole
     flowers.forEach((f, i) => {
       for (let n = 0; n < 30; n++) {
         const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R * 0.9, x = Math.cos(a) * r, z = Math.sin(a) * r;
-        if (holes.every((h) => !h.on || Math.hypot(h.x - x, h.z - z) > HOLE_R * 1.9)) { f.position.set(x, TOP + 0.05, z); break; }
+        if (holes.every((h) => !h.on || Math.hypot(h.x - x, h.z - z) > HOLE_R * 1.9)) { f.position.set(x, TOP + duneH(x, z) + 0.03, z); break; }
       }
     });
   }
@@ -793,7 +825,7 @@
     const v = pickLetter(), t = v.letter, n = MOLES[lvl()];
     const shown = lvl() === 1 && !v.listen && !seenSet().has(t);
     const q = { letter: t, listen: !!v.listen, shown, letters: shuffle([t, ...otherLetters(t, n - 1)]), out: new Set(), wrongs: 0, firstWrong: null, hint: false,
-      armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, cycle: 0, phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false };
+      armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0, phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false };
     state.q = q; state.mode = "play"; state.n++;
     setSign(shown ? t : "?", false);
     popMoles(q);
@@ -1059,7 +1091,7 @@
           }
         } else if (STAY_MS[lvl()] === Infinity && q.firstEnd) {
           const t = clock(), since = (t - q.firstEnd) / 1000, sinceLast = (t - q.lastEnd) / 1000;
-          if (q.repeats === 0 ? since > REPEAT_S : sinceLast > 8) { q.repeats++; q.lastEnd = Infinity; speakQuestion(q, 0.85); }
+          if (q.autoRep < 2 && (q.autoRep === 0 ? since > REPEAT_S : sinceLast > 8)) { q.autoRep++; q.repeats++; q.lastEnd = Infinity; speakQuestion(q, 0.85); }
         }
       }
       if (q.phase === "wait") popMoles(q);   // back from settings in the middle of a "down and up"
