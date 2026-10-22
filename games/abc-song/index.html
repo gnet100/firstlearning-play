@@ -46,6 +46,17 @@
     pointer-events: none; z-index: 5; }
   #chorusSide #chorus { font-size: max(calc(var(--wfs) * 0.62), 15px); line-height: 1.6; background: #0003; border-radius: 22px; padding: 12px 14px; }
   body.chorus-on #stage { left: 26vw; }
+  /* Golan 22.10: in the chorus the big stage shows a turning ring of dancing letters, with א and ב dancing in the middle */
+  #stage .ring { --ring: min(calc(100dvh - var(--stage-t) - var(--strip-h) - 40px), 62vw); position: relative; width: var(--ring); height: var(--ring); animation: spin 30s linear infinite, grow .5s both; }
+  #stage .ring .rl { position: absolute; left: 50%; top: 50%; width: calc(var(--ring) * .115); height: calc(var(--ring) * .115); margin: calc(var(--ring) * -.0575);
+    transform: rotate(var(--a)) translateY(calc(var(--ring) * -.435)) rotate(calc(-1 * var(--a))); }
+  #stage .ring .rl > div, #stage .ring .mid > div { width: 100%; height: 100%; animation: spin 30s linear infinite reverse; }
+  #stage .ring svg { width: 100%; height: 100%; border-radius: 18%; box-shadow: 0 4px 14px #0005; animation: dance .5s infinite ease-in-out alternate; }
+  #stage .ring .rl:nth-child(odd) svg { animation-delay: .25s; }
+  #stage .ring .mid { position: absolute; left: 50%; top: 50%; width: calc(var(--ring) * .26); height: calc(var(--ring) * .26); margin-top: calc(var(--ring) * -.13); }
+  #stage .ring .mid.a { margin-left: calc(var(--ring) * .015); } #stage .ring .mid.b { margin-left: calc(var(--ring) * -.275); }   /* א on the right (Hebrew reads right to left) */
+  #stage .ring .mid.b svg { animation-delay: .25s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   body.chorus-on { --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 12px), 27vw); }
 
   /* the 22 letters in two rows of 11 at the bottom, א on the right */
@@ -200,12 +211,19 @@
     for (const l of ORDER) cells[l].classList.toggle("now", !!(e && e.letter === l));
     side.innerHTML = "";
     if (e && e.chorus) { const ch = document.createElement("div"); ch.id = "chorus"; ch.innerHTML = CHORUS.map((x) => `<div>${x}</div>`).join(""); side.append(ch);
-      // the big stage keeps the letter sung last (nothing before the first letter)
-      const last = EV.slice(0, EV.indexOf(e)).reverse().find((x) => x.letter); if (last) { if (stage.dataset.l !== last.letter) showLetter(last.letter, false); } else { stage.innerHTML = ""; stage.dataset.l = ""; }
-      return; }
+      showRing(); return; }
     stage.innerHTML = ""; stage.dataset.l = "";
     if (!e || e.end) return;
     showLetter(e.letter, true);
+  }
+  // the chorus: a ring of all the letters dancing, א and ב dancing in the middle (the ring turns, the letters stay upright)
+  function showRing() {
+    const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = "";
+    const ring = document.createElement("div"); ring.className = "ring"; stage.append(ring);
+    const add = (cls, l, a) => { const box = document.createElement("div"); box.className = cls; if (a != null) box.style.setProperty("--a", a + "deg");
+      const inner = document.createElement("div"); box.append(inner); const el = LA && LA.make(l); if (el) { inner.append(el); requestAnimationFrame(() => el.wake && el.wake()); } else inner.textContent = l; ring.append(box); };
+    ORDER.forEach((l, i) => add("rl", l, i * 360 / ORDER.length));
+    add("mid a", "א"); add("mid b", "ב");
   }
   function showLetter(letter, wake) {
     const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = letter; const e = { letter };
@@ -259,7 +277,7 @@
     else { host.innerHTML = '<div class="panel"><h1>יש! שרנו את כל האותיות</h1><button class="big-btn" id="again">עוד סיבוב</button></div>'; $("again").onclick = again; }
     if (SYNC && syncTimes.length) showSync();
   }
-  $("go").addEventListener("click", () => { if (SYNC) startSync(); seek(0); play(); });
+  $("go").addEventListener("click", () => { if (state.mode === "play") return; $("go").blur(); if (SYNC) startSync(); seek(0); play(); });   // blur: the space bar must not press "go" again
   $("playBtn").addEventListener("click", () => (state.playing ? pause() : play()));
   $("againBtn").addEventListener("click", again);
   document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
@@ -303,7 +321,7 @@
   }
   function syncLabel() { const n = syncTimes.length, e = EV.filter((x) => !x.end)[n]; return e ? "הבא: " + (e.chorus ? "פזמון" : "האות " + e.letter) + " (רווח או נגיעה)" : "סיום: עוד רווח אחד בסוף השיר"; }
   function startSync() { syncTimes = []; syncOn = true; state.idx = -2; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
-  function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.max(0, Math.round((curTime() - 0.3) * 10) / 10));   // people tap a little late: 0.3 s earlier $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
+  function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.max(0, Math.round((curTime() - 0.3) * 10) / 10));   /* people tap a little late: 0.3 s earlier */ $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
     if (syncTimes.length > EV.filter((x) => !x.end).length) finish(); }
   function showSync() {
     const evs = EV.filter((x) => !x.end), out = evs.map((e, i) => Object.assign({}, e, { t: syncTimes[i] != null ? syncTimes[i] : e.t }));
@@ -317,6 +335,7 @@
     window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); syncMark(); }
       else if (e.code === "Backspace" && syncTimes.length) { e.preventDefault(); syncTimes.pop(); $("syncBar").textContent = "נמחקה הלחיצה האחרונה. " + syncLabel(); } });
     window.addEventListener("pointerdown", (e) => { if (!e.target.closest("button, .overlay")) syncMark(); });
+    window.addEventListener("keyup", (e) => { if (e.code === "Space") e.preventDefault(); });
   }
 
   // ---------- start: "מי משחק?" like every game, then the start screen ----------
