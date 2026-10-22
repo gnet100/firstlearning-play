@@ -880,8 +880,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const win = !(HG && HG.done());   // the whole board found before the hourglass ran out (Golan 22.10)
     if (win) { rung(); progress.wins++; saveProgress(); state.roundWins++; }
     later(ms(1200), () => {
-      if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
+      // the offer of a bigger board comes first, even when the hourglass ran out; the end window after it (Golan 22.10)
       if (win && progress.wins >= WINS_TO_ASK && rung() < RUNGS.length - 1) return askLevel();
+      if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
       newBoard();
     });
   }
@@ -913,7 +914,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function answerLevel(up) {
     if (state.mode !== "levelask") return;
     askT.forEach(clearTimeout); askT = [];
-    $("levelAsk").hidden = true; progress.wins = 0; saveProgress();
+    $("levelAsk").hidden = true; $("board").hidden = true; progress.wins = 0; saveProgress();   // no flash of the old board before the new one (Golan 22.10)
     if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); }
     say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");
     later(800, () => { if (HG && HG.done()) endRound(); else newBoard(); });
