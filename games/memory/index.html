@@ -498,7 +498,10 @@
   };
   const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
   const RUNGS = [4, 6, 9, 10, 12, 14, 16], START = [0, 0, 2, 4];
-  const GOLD_MAX = { 4: 1, 6: 1, 9: 2, 10: 2, 12: 2, 14: 3, 16: 3 };   // gold up to this many mistakes on a board, silver after it (spec 13)
+  // Golan 22.10: the mistakes count again from zero after every pair found; the limit for gold follows how many cards are still
+  // waiting (unmatched, not the hint card) when the search for the pair starts: 2 -> always gold, 4-6 -> 1, 7-12 -> 2, 13-16 -> 3; silver above it.
+  // A board is a win (for the level question) when all its stars are gold.
+  const goldMax = (cards) => (cards <= 2 ? 0 : cards <= 6 ? 1 : cards <= 12 ? 2 : 3);
   const WINS_TO_ASK = 2;
   // the rung: kept per child; a new difficulty level (the parent's choice or the system's) starts again from that level's rung
   function rung() { const L = lvl(); if (progress.rung < 0 || progress.lvlAt !== L) { progress.rung = START[L]; progress.lvlAt = L; progress.wins = 0; saveProgress(); } return progress.rung; }
@@ -720,7 +723,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function newBoard() {
     epoch++;
     const n = RUNGS[rung()], B = BOARDS[n], pairs = B.letters / 2;
-    state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
+    state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
     const letters = boardLetters(pairs); state.letters = letters;
     state.shape = wideBoard() ? "wide" : "tall";
     // the deck in cell order: the hint cards in the middle cells, the letter pairs around them
@@ -816,7 +819,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   }
   function match(a, b) {
     const firstTry = !state.missed.has(a.l);
-    const kind = state.mistakes <= GOLD_MAX[state.n] ? "gold" : "silver";   // a star for every pair; gold while the board is within its mistakes (spec 8)
+    const kind = state.pairMistakes <= goldMax(state.pairsLeft * 2) ? "gold" : "silver";   // a star for every pair; gold within this pair's limit (Golan 22.10)
+    state.pairMistakes = 0; if (kind === "silver") state.boardSilver = true;
     if (LRN && kid()) LRN.record({ game: GAME, letter: a.l, picked: a.l, firstTry, opts: [a.l], rtMs: Math.round(performance.now() - state.firstAt), hint: firstTry ? 0 : 1, mode: "recognize", pace: LRN.pace() });
     later(ms(500), () => {
       a.state = b.state = "done";
@@ -832,7 +836,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     });
   }
   function miss(a, b) {
-    state.mistakes++; state.missed.add(a.l); state.missed.add(b.l);
+    state.mistakes++; state.pairMistakes++; state.missed.add(a.l); state.missed.add(b.l);
     later(ms(700), () => {
       [a, b].forEach((c) => c.el.classList.add("upset")); rain(a); rain(b); sfx.oops();
       // the cards close by themselves after the disappointment (spec 11: about 2 s, by the speed slider)
@@ -873,7 +877,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // a board is finished: count the win, then the next board, the level question, or the end of the round
   function boardDone() {
     state.mode = "between"; state.boards++;
-    const win = state.mistakes <= GOLD_MAX[state.n];
+    const win = !state.boardSilver;   // all gold (Golan 22.10)
     if (win) { rung(); progress.wins++; saveProgress(); state.roundWins++; }
     later(ms(1200), () => {
       if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
