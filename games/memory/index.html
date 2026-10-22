@@ -877,7 +877,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // a board is finished: count the win, then the next board, the level question, or the end of the round
   function boardDone() {
     state.mode = "between"; state.boards++;
-    const win = !state.boardSilver;   // all gold (Golan 22.10)
+    const win = !(HG && HG.done());   // the whole board found before the hourglass ran out (Golan 22.10)
     if (win) { rung(); progress.wins++; saveProgress(); state.roundWins++; }
     later(ms(1200), () => {
       if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
