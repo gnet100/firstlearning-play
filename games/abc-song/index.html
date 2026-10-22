@@ -41,6 +41,12 @@
   #chorus div:nth-child(even) { animation-delay: .5s; }
   @keyframes sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg) scale(1.04); } }
   body.words-off #words, body.words-off #chorus { visibility: hidden; }
+  /* Golan 22.10: the chorus words sit in a panel at the side; the big stage keeps the letter that was sung last */
+  #chorusSide { position: fixed; left: calc(var(--edge-l, 8px) + 8px); top: calc(var(--stage-t) + 130px); bottom: calc(var(--strip-h) + 10px); width: 24vw; display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 5; }
+  #chorusSide #chorus { font-size: max(calc(var(--wfs) * 0.62), 15px); line-height: 1.6; background: #0003; border-radius: 22px; padding: 12px 14px; }
+  body.chorus-on #stage { left: 26vw; }
+  body.chorus-on { --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 12px), 27vw); }
 
   /* the 22 letters in two rows of 11 at the bottom, א on the right */
   #strip { position: fixed; left: 0; right: 0; bottom: var(--edge-b, 8px); height: calc(var(--strip-h) - var(--edge-b, 8px)); display: grid;
@@ -93,13 +99,14 @@
   input[type=range] { width: 100%; }
   .note { font-size: max(calc(18 * var(--u, 1px)), 15px); color: #5b6b7f; }
   /* sync mode for the parent (?sync=1) */
-  #syncBar { position: fixed; bottom: calc(var(--strip-h) + 6px); left: 50%; transform: translateX(-50%); background: #fff; border-radius: 14px; padding: 8px 16px; z-index: 25; font-size: 17px; box-shadow: 0 4px 16px #0004; text-align: center; }
+  #syncBar { position: fixed; bottom: calc(var(--strip-h) + 6px); left: 50%; transform: translateX(-50%); background: #fff; border-radius: 14px; padding: 8px 16px; z-index: 25; font-size: 22px; font-weight: 800; color: #b9612a; box-shadow: 0 4px 16px #0004; text-align: center; }
   #syncOut textarea { width: min(80vw, 560px); height: 40vh; direction: ltr; font: 13px monospace; }
 </style>
 </head>
 <body>
 <div id="sky"><div id="moon"></div><div id="sun"></div></div>
 <div id="stage"></div>
+<div id="chorusSide"></div>
 <div id="strip" aria-label="האותיות"></div>
 
 <button class="round-btn door-btn" id="door" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
@@ -142,9 +149,9 @@
   if (LA) LA.sound = false;   // the song is the only sound: no breathing, no "בוקר טוב" clip
   const ORDER = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
   // the letter names as sung (games/abc-song/lyrics-draft.md)
-  const NAMES = { "א": "אָלֶף", "ב": "בֵּית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵא", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית", "ט": "טֵית", "י": "יוּד", "כ": "כַּף",
+  const NAMES = { "א": "אָלֶף", "ב": "בֵּת", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵא", "ו": "וָו", "ז": "זַיִן", "ח": "חֵת", "ט": "טֵת", "י": "יוּד", "כ": "כַּף",
     "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פ": "פֵּא", "צ": "צָדִי", "ק": "קוּף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו" };
-  const CHORUS = ["אָלֶף-בֵּית, אָלֶף-בֵּית,", "כָּל הָאוֹתִיּוֹת קָמוֹת בְּשִׂמְחָה!", "בֹּקֶר טוֹב, בֹּקֶר טוֹב,", "שָׁרִים יַחַד בְּקוֹל גָּדוֹל!"];
+  const CHORUS = ["אָלֶף-בֵּת, אָלֶף-בֵּת,", "כָּל הָאוֹתִיּוֹת קָמוֹת בְּשִׂמְחָה!", "בֹּקֶר טוֹב, בֹּקֶר טוֹב,", "שָׁרִים יַחַד בְּקוֹל גָּדוֹל!"];
   const EV = (window.SONG_TIMING || []).slice().sort((a, b) => a.t - b.t);
   const END_T = (EV.find((e) => e.end) || { t: (EV.length ? EV[EV.length - 1].t + 4 : 60) }).t;
   const params = new URLSearchParams(location.search), SYNC = params.has("sync");
@@ -188,11 +195,20 @@
     const el = c.firstChild; if (!el || !el.wake) return; up ? el.wake() : el.sleep();
   }
   function showEvent(e) {
-    const stage = $("stage"); stage.innerHTML = "";
-    document.body.classList.toggle("dance", !!(e && e.chorus));
+    const stage = $("stage"), side = $("chorusSide");
+    document.body.classList.toggle("dance", !!(e && e.chorus)); document.body.classList.toggle("chorus-on", !!(e && e.chorus));
     for (const l of ORDER) cells[l].classList.toggle("now", !!(e && e.letter === l));
+    side.innerHTML = "";
+    if (e && e.chorus) { const ch = document.createElement("div"); ch.id = "chorus"; ch.innerHTML = CHORUS.map((x) => `<div>${x}</div>`).join(""); side.append(ch);
+      // the big stage keeps the letter sung last (nothing before the first letter)
+      const last = EV.slice(0, EV.indexOf(e)).reverse().find((x) => x.letter); if (last) { if (stage.dataset.l !== last.letter) showLetter(last.letter, false); } else { stage.innerHTML = ""; stage.dataset.l = ""; }
+      return; }
+    stage.innerHTML = ""; stage.dataset.l = "";
     if (!e || e.end) return;
-    if (e.chorus) { const ch = document.createElement("div"); ch.id = "chorus"; ch.innerHTML = CHORUS.map((x) => `<div>${x}</div>`).join(""); stage.append(ch); return; }
+    showLetter(e.letter, true);
+  }
+  function showLetter(letter, wake) {
+    const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = letter; const e = { letter };
     const pair = document.createElement("div"); pair.className = "pair"; stage.append(pair);
     const big = document.createElement("div"); big.className = "big"; const el = LA && LA.make(e.letter); if (el) { big.append(el); requestAnimationFrame(() => el.wake()); } pair.append(big);
     const pic = document.createElement("div"); pic.className = "pic"; pic.innerHTML = picSvg(e.letter); if (pic.innerHTML) pair.append(pic);
@@ -200,13 +216,14 @@
   }
   // draw the state at time t (works forward and backward, so seek() just works)
   function render(t) {
+    if (SYNC && syncOn) return renderSync(t);
     state.t = t; state.q = state.mode === "play" ? (EV[state.idx] || true) : null;
     let idx = -1; for (let i = 0; i < EV.length; i++) if (EV[i].t <= t) idx = i;
     for (const e of EV) if (e.letter) setAwake(cells[e.letter], e.t <= t);
     const sung = EV.filter((e) => e.letter && e.t <= t).length;
     $("sky").style.setProperty("--day", Math.min(1, sung / ORDER.length).toFixed(3));
     if (idx !== state.idx) { state.idx = idx; showEvent(EV[idx]); }
-    if (state.mode === "play" && t >= END_T) finish();
+    if (state.mode === "play" && !(hasSong && !state.fast) && t >= END_T) finish();   // with song.mp3 the "ended" event finishes
   }
   function tick() { if (state.mode === "play" && state.playing) render(curTime()); requestAnimationFrame(tick); }
   requestAnimationFrame(tick);
@@ -227,7 +244,7 @@
     clockT = curTime(); state.playing = false; if (hasSong) audio.pause(); setPlayIcon();
   }
   function seek(t) {
-    t = Math.max(0, Math.min(END_T, t)); clockT = t; clock0 = now(); if (hasSong) { try { audio.currentTime = t; } catch (e) {} }
+    t = Math.max(0, Math.min(hasSong && !state.fast && audio.duration ? audio.duration : END_T, t)); clockT = t; clock0 = now(); if (hasSong) { try { audio.currentTime = t; } catch (e) {} }
     if (state.mode === "end") state.mode = "play"; render(t);
   }
   function again() { $("end").hidden = true; seek(0); state.idx = -2; render(0); state.mode = "play"; state.playing = false; play(); }
@@ -276,9 +293,16 @@
   $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
 
   // ---------- sync mode for the parent (?sync=1): space / tap on each letter and each chorus ----------
-  let syncTimes = [];
+  let syncTimes = [], syncOn = false;
+  // in sync mode the screen follows the parent's taps, not the old timing
+  function renderSync(t) {
+    state.t = t; const evs = EV.filter((x) => !x.end), n = syncTimes.length;
+    evs.forEach((e, i) => { if (e.letter) setAwake(cells[e.letter], i < n); });
+    $("sky").style.setProperty("--day", Math.min(1, evs.slice(0, n).filter((e) => e.letter).length / ORDER.length).toFixed(3));
+    const idx = n - 1; if (idx !== state.idx) { state.idx = idx; showEvent(evs[idx]); }
+  }
   function syncLabel() { const n = syncTimes.length, e = EV.filter((x) => !x.end)[n]; return e ? "הבא: " + (e.chorus ? "פזמון" : "האות " + e.letter) + " (רווח או נגיעה)" : "סיום: עוד רווח אחד בסוף השיר"; }
-  function startSync() { syncTimes = []; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
+  function startSync() { syncTimes = []; syncOn = true; state.idx = -2; $("syncBar").hidden = false; $("syncBar").textContent = "מצב סנכרון. " + syncLabel(); }
   function syncMark() { if (state.mode !== "play") return; syncTimes.push(Math.round(curTime() * 10) / 10); $("syncBar").textContent = "נרשמו " + syncTimes.length + ". " + syncLabel();
     if (syncTimes.length > EV.filter((x) => !x.end).length) finish(); }
   function showSync() {
@@ -290,7 +314,8 @@
     $("syncSave").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/javascript" })); a.download = "timing.js"; a.click(); };
   }
   if (SYNC) {
-    window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); syncMark(); } });
+    window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); syncMark(); }
+      else if (e.code === "Backspace" && syncTimes.length) { e.preventDefault(); syncTimes.pop(); $("syncBar").textContent = "נמחקה הלחיצה האחרונה. " + syncLabel(); } });
     window.addEventListener("pointerdown", (e) => { if (!e.target.closest("button, .overlay")) syncMark(); });
   }
 
