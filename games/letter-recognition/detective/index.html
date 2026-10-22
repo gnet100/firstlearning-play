@@ -623,7 +623,7 @@
   function clipFor(text) { return CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text] || null; }
   function getClip(id) {
     if (!clipCache[id]) {
-      const a = new Audio("audio/" + id + ".mp3"); a.preload = "auto";
+      const a = new Audio("../../../voice/audio/" + id + ".mp3"); a.preload = "auto";
       a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
       a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
       clipCache[id] = a;

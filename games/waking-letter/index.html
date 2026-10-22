@@ -593,7 +593,7 @@
   for (const l of window.WAKE_LINES) LINE_TEXT[l.id] = l.text;
   const whereOf = (id) => (id.startsWith("fin_") ? "lc_" + id : "lc_name_" + id.slice(5));   // "איפה האות ...?": lc_name_bet, lc_fin_kaf
   for (const [l, id] of Object.entries(NAME_CLIP)) { LINE_TEXT[id] = LETTER_NAME[l]; LINE_TEXT[whereOf(id)] = "אֵיפֹה הָאוֹת " + LETTER_NAME[l] + "?"; }
-  const AUDIO = "audio/";
+  const AUDIO = "../../voice/audio/";
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   function getClip(id) {
     if (!clipCache[id]) {
