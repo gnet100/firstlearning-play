@@ -374,6 +374,8 @@
   @keyframes memPop { 0% { transform: rotateY(180deg) scale(1); } 40% { transform: rotateY(180deg) scale(1.18); filter: brightness(1.2) drop-shadow(0 0 12px #ffd54f); } 100% { transform: rotateY(180deg) scale(1); } }
   @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   /* the level question: two drawn boards, the child touches one */
+  #levelAsk .panel { width: 100%; }
+  .boards button svg { width: 0; height: 0; }
   #levelAsk .panel h1 { font-size: max(calc(40 * var(--u, 1px)), 24px); }
   .boards { display: flex; gap: max(calc(30 * var(--u, 1px)), 16px); justify-content: center; align-items: flex-end; margin-top: 10px; }
   .boards button { border: 3px solid #d5dde6; background: #eaf6ff; border-radius: 22px; padding: 10px; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
@@ -888,25 +890,32 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   }
   // spec 12/13: after 2 wins on a rung, Hila asks; the child touches the small board (stay) or the bigger board (the next rung)
   function boardPic(n) {
-    const B = BOARDS[n], shape = cellsOf(B.wide), k = Math.max(shape.cols, shape.rows), s = 100 / k, g = s * 0.12, hint = new Set(middleCells(B.wide, B.hints)); let r = "";
-    const ox = (100 - shape.cols * s) / 2, oy = (100 - shape.rows * s) / 2;
-    shape.cells.forEach((c, i) => { const x = ox + c.x * s, y = oy + c.y * s;
+    // the picture is cut to the board's own shape, so a wide board is not squeezed into a square (Golan 22.10)
+    const B = BOARDS[n], shape = cellsOf(B.wide), s = 10, g = s * 0.12, hint = new Set(middleCells(B.wide, B.hints)); let r = "";
+    shape.cells.forEach((c, i) => { const x = c.x * s, y = c.y * s;
       r += `<rect x="${(x + g / 2).toFixed(1)}" y="${(y + g / 2).toFixed(1)}" width="${(s - g).toFixed(1)}" height="${(s - g).toFixed(1)}" rx="${(s * 0.14).toFixed(1)}" fill="${hint.has(i) ? "#3DA5FF" : "#25307a"}"/>` +
         (hint.has(i) ? "" : `<circle cx="${(x + s * 0.62).toFixed(1)}" cy="${(y + s * 0.38).toFixed(1)}" r="${(s * 0.13).toFixed(1)}" fill="#FFF0A8"/>`); });
-    return `<svg viewBox="0 0 100 100" aria-hidden="true">${r}</svg>`;
+    return `<svg viewBox="0 0 ${shape.cols * s} ${shape.rows * s}" aria-hidden="true">${r}</svg>`;
   }
   let askT = [];
   function askLevel() {
     state.mode = "levelask";
     const R = rung(), box = $("boards"); box.innerHTML = "";
-    const unit = Math.max(26, Math.min(innerWidth, innerHeight) * 0.11);
-    for (const [n, up] of [[RUNGS[R], false], [RUNGS[R + 1], true]]) {
+    const pair = [[RUNGS[R], false], [RUNGS[R + 1], true]];
+    for (const [n, up] of pair) {
       const b = document.createElement("button"); b.type = "button"; b.dataset.up = up ? "1" : "0";
       b.setAttribute("aria-label", up ? "לוח גדול" : "לוח קטן");
-      const sz = Math.round(unit * Math.sqrt(n)); b.innerHTML = boardPic(n); b.querySelector("svg").style.width = b.querySelector("svg").style.height = Math.min(sz, innerHeight * 0.42) + "px";
+      b.innerHTML = boardPic(n);
       b.addEventListener("click", () => answerLevel(up)); box.append(b);
     }
     $("levelAsk").hidden = false; genderTexts();
+    // one card size for both pictures, so the bigger board looks bigger, and both fit inside the window side by side (Golan 22.10)
+    const shapes = pair.map(([n]) => cellsOf(BOARDS[n].wide)), btn = box.firstChild, cs = getComputedStyle(btn);
+    const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) * 2;
+    const gap = parseFloat(getComputedStyle(box).columnGap) || 16;
+    const roomW = box.clientWidth - gap - padX * 2, roomH = innerHeight * 0.42;
+    const cell = Math.max(8, Math.min(Math.min(innerWidth, innerHeight) * 0.11, roomW / (shapes[0].cols + shapes[1].cols), roomH / Math.max(shapes[0].rows, shapes[1].rows)));
+    [...box.children].forEach((b, i) => { const sv = b.querySelector("svg"); sv.style.width = Math.floor(cell * shapes[i].cols) + "px"; sv.style.height = Math.floor(cell * shapes[i].rows) + "px"; });
     say("mem_next");
     const flash = () => { [...box.children].forEach((b, i) => askT.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 500))); };
     askT.push(setTimeout(flash, 2500));
