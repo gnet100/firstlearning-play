@@ -375,7 +375,9 @@
   @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   /* the level question: two drawn boards, the child touches one */
   #levelAsk .panel { width: 100%; }
+  .fl-hg { display: none !important; }   /* the hourglass still times the round, it is just not shown (Golan 22.10) */
   .boards button svg { width: 0; height: 0; }
+  .boards .bcount { font-weight: 800; font-size: max(calc(26 * var(--u, 1px)), 17px); color: #25307a; line-height: 1.1; }
   #levelAsk .panel h1 { font-size: max(calc(40 * var(--u, 1px)), 24px); }
   .boards { display: flex; gap: max(calc(30 * var(--u, 1px)), 16px); justify-content: center; align-items: flex-end; margin-top: 10px; }
   .boards button { border: 3px solid #d5dde6; background: #eaf6ff; border-radius: 22px; padding: 10px; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
@@ -778,10 +780,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
     const W = innerWidth, H = innerHeight, et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
     const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
-    const g = Math.max(8, px("--gap", 10) * 0.6), hgW = pill.height * 1.4 + 8, left = Math.max(door.right, el + 60) + g;
+    const g = Math.max(8, px("--gap", 10) * 0.6), hgW = 0, left = Math.max(door.right, el + 60) + g;
     // A: a full-height column between the door column and the stars / hourglass column; B: under the star pill, full width
     // C: under the door / gear column and the hourglass, the whole width (a standing phone)
-    const gear = $("gear").getBoundingClientRect(), hgB = pill.bottom + 8 + pill.height * 1.35 * 1.725;
+    const gear = $("gear").getBoundingClientRect(), hgB = pill.bottom;   // no hourglass on screen (Golan 22.10)
     return [{ x0: left, x1: Math.min(pill.left, W - er - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: W - er - hgW - g, y0: pill.bottom + g, y1: H - eb },
       { x0: el, x1: W - er, y0: Math.max(gear.bottom, hgB) + g, y1: H - eb }];
   }
@@ -905,7 +907,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     for (const [n, up] of pair) {
       const b = document.createElement("button"); b.type = "button"; b.dataset.up = up ? "1" : "0";
       b.setAttribute("aria-label", up ? "לוח גדול" : "לוח קטן");
-      b.innerHTML = boardPic(n);
+      b.innerHTML = boardPic(n) + `<span class="bcount">${BOARDS[n].letters + BOARDS[n].hints} קלפים</span>`;   // the number of cards under each board (Golan 22.10)
       b.addEventListener("click", () => answerLevel(up)); box.append(b);
     }
     $("levelAsk").hidden = false; genderTexts();
@@ -913,7 +915,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const shapes = pair.map(([n]) => cellsOf(BOARDS[n].wide)), btn = box.firstChild, cs = getComputedStyle(btn);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) * 2;
     const gap = parseFloat(getComputedStyle(box).columnGap) || 16;
-    const roomW = box.clientWidth - gap - padX * 2, roomH = innerHeight * 0.42;
+    const roomW = box.clientWidth - gap - padX * 2, roomH = innerHeight * 0.42 - btn.querySelector(".bcount").offsetHeight;
     const cell = Math.max(8, Math.min(Math.min(innerWidth, innerHeight) * 0.11, roomW / (shapes[0].cols + shapes[1].cols), roomH / Math.max(shapes[0].rows, shapes[1].rows)));
     [...box.children].forEach((b, i) => { const sv = b.querySelector("svg"); sv.style.width = Math.floor(cell * shapes[i].cols) + "px"; sv.style.height = Math.floor(cell * shapes[i].rows) + "px"; });
     say("mem_next");
@@ -926,7 +928,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     $("levelAsk").hidden = true; $("board").hidden = true; progress.wins = 0; saveProgress();   // no flash of the old board before the new one (Golan 22.10)
     if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); }
     say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");
-    later(800, () => { if (HG && HG.done()) endRound(); else newBoard(); });
+    // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
+    later(800, () => { if (HG && HG.done()) endRound(); else whenQuiet(() => later(150, newBoard)); });
   }
 
   // ---------- one round = the golden hourglass (spec 10): board after board ----------
