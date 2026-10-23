@@ -6,6 +6,9 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
 /* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
    1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
    --tap-play 20 mm, --gap 5 mm), and every distance from an edge is --edge-* (safe area or 12 --u). The variables come from
@@ -311,10 +314,10 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
-<script src="../shared/letter-pairs.js"></script>
 <script src="../shared/screen.js"></script>
 <script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');</script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
+<script src="../shared/letter-pairs.js"></script>
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js" data-fl-hub="../../index.html"><\/script>');</script>
 <script>
@@ -370,7 +373,12 @@
     }
   }
   const sfx = { bonk: () => { tone([180, 120], 0.07, "square", 0.22); setTimeout(() => tone([659, 880, 1046], 0.1, "triangle", 0.4), 90); },
-    tap: () => tone([440], 0.05, "sine", 0.06), oops: () => tone([300, 220], 0.18, "sine", 0.6), pop: () => tone([520 + Math.random() * 120], 0.05, "sine", 0.08) };
+    tap: () => tone([440], 0.05, "sine", 0.06), oops: () => tone([300, 220], 0.18, "sine", 0.6), pop: () => tone([520 + Math.random() * 120], 0.05, "sine", 0.08),
+    // a little rising "bloop" when a mole peeks out of its hole (Golan 23.10)
+    peek: () => { if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), f = 330 + Math.random() * 90;
+      o.type = "sine"; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 2.6, t + 0.16);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.25); } };
   const CLIP_OF_LETTER = { "א": "name_alef", "ב": "name_bet", "ג": "name_gimel", "ד": "name_dalet", "ה": "name_he", "ו": "name_vav", "ז": "name_zayin",
     "ח": "name_het", "ט": "name_tet", "י": "name_yod", "כ": "name_kaf", "ל": "name_lamed", "מ": "name_mem", "נ": "name_nun", "ס": "name_samekh",
     "ע": "name_ayin", "פ": "name_pe", "צ": "name_tsadi", "ק": "name_qof", "ר": "name_resh", "ש": "name_shin", "ת": "name_tav",
@@ -667,9 +675,9 @@
   const moles = [];
   function buildMoles(kinds) {
     moles.splice(0).forEach(disposeMole);
-    for (let i = 0; i < 5; i++) moles.push(makeMole(KINDS[kinds[i % kinds.length]], scene));
+    for (const k of kinds) moles.push(makeMole(KINDS[k], scene));
   }
-  buildMoles([0, 1, 2, 3]);
+  buildMoles(KINDS.map((K, i) => i));   // all 9 kinds in the game, picked at random each time (Golan 23.10: no picker)
   // the picture of each kind for the picker: drawn once with the game's own 3D mole, away from the island
   let thumbs = null;
   function moleThumbs() {
@@ -699,15 +707,40 @@
     m.high = pose !== "low"; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (m.high ? 0.55 : 0.75);
     m.paws.forEach((p, k) => p.position.set(P.paws[k][0] * S, P.paws[k][1] * S, P.paws[k][2] * S));
     m.poles.forEach((p) => p.setEnabled(pose === "poles"));
-    m.down = pose === "poles" ? -2.9 * S : m.high ? -2.5 * S : -1.5 * S;
+    m.down = pose === "poles" ? -2.9 * S : m.high ? -2.5 * S : -1.5 * S; m.pose = pose;
   }
   // each kind mostly holds its sign its own way, now and then another way
   function posePick(K) { const r = Math.random(); if (r < 0.65) return K.pose; return ["low", "high", "poles"].filter((p) => p !== K.pose)[r < 0.83 ? 0 : 1]; }
   // a mole comes up in a hole with a letter
-  function placeMole(m, hi, letter, hint, delay) {
+  // Golan 23.10: no mole or sign may hide behind another one. Before a mole comes up, the place it will take on the screen
+  // (its body and its sign, in the sign pose) is measured, and only a hole and a pose that touch no mole that is out are used.
+  const POSES = { low: SIGN_LOW, high: SIGN_HIGH, poles: SIGN_POLES };
+  function screenBox(K, hi, pose) {
+    const h = holes[hi], P = POSES[pose], wm = island.getWorldMatrix(), bw = K.bw, top = (1.5 * K.bh + (K.helmet ? 0.35 : 0.05)) * S;
+    cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    const pts = [];
+    for (const sx of [-1, 1]) {
+      pts.push([sx * 0.58 * bw * S, 0, -0.3 * S], [sx * 0.58 * bw * S, top, -0.3 * S]);
+      for (const sy of [-1, 1]) pts.push([sx * (signW / 2 + 0.12 * S), P.y * S + sy * (signH / 2 + 0.1 * S), P.z * S]);
+    }
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [x, y, z] of pts) { const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x, TOP + h.y + y, h.z + z), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    return { x0, y0, x1, y1 };
+  }
+  const hits = (a, b, g = 4) => a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.y0 < b.y1 + g && b.y0 < a.y1 + g;
+  // a free hole and a sign pose for mole m that hide nothing and are hidden by nothing; null when there is none now
+  function freePlace(m, avoid = []) {
+    const others = moles.filter((k) => k !== m && (k.state === "rise" || k.state === "up")), taken = others.map((k) => k.hole);
+    const boxes = others.map((k) => screenBox(k.K, k.hole, k.pose));
+    const want = posePick(m.K), poses = [want, ...["low", "high", "poles"].filter((p) => p !== want)];
+    const cand = shuffle(holes.map((h, i) => (h.on && !taken.includes(i) && !avoid.includes(i) ? i : -1)).filter((i) => i >= 0));
+    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (!boxes.some((o) => hits(o, b))) return { hi, pose }; }
+    return null;
+  }
+  function placeMole(m, hi, letter, hint, delay, pose) {
     const h = holes[hi];
     m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
-    poseSign(m, posePick(m.K));
+    poseSign(m, pose || posePick(m.K));
     m.root.position.set(h.x, TOP + h.y, h.z); m.root.setEnabled(true);
     m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
     m.state = "rise"; m.t = 0; m.delay = delay;
@@ -949,39 +982,52 @@
     const fresh = shuffle(on.filter((i) => !q.lastHoles.includes(i))), old = shuffle(on.filter((i) => q.lastHoles.includes(i)));
     const use = [...fresh, ...old].slice(0, live.length);
     q.lastHoles = use; q.phase = "rising"; q.stayLeft = STAY_MS[lvl()] * (0.85 + Math.random() * 0.3);
-    moles.forEach((m, i) => {
-      if (i >= live.length) { m.state = "off"; m.root.setEnabled(false); return; }
-      placeMole(m, use[i], live[i], q.hint && live[i] === q.letter, i * 0.12 + Math.random() * 0.1);
-    });
+    moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
+    // any of the 9 kinds (Golan 23.10), each where it hides no other one; the letter we look for first, so it is always out
+    const order = [q.letter, ...live.filter((l) => l !== q.letter)].filter((l) => live.includes(l));
+    for (let tries = 0; tries < 12; tries++) {   // a few shuffles, so all of them find a place that hides nothing
+      moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
+      const kinds = shuffle(moles.slice()), slot = shuffle(order.map((l, i) => i));   // placed target first, but it does not always come up first
+      let k = 0;
+      order.forEach((l, i) => { const m = kinds[k]; if (!m) return; const f = freePlace(m); if (!f) return; k++; placeMole(m, f.hi, l, q.hint && l === q.letter, 0.3 + slot[i] * 0.75, f.pose); m.state = "rise"; });   // slowly, one after another (Golan 23.10)
+      if (k === order.length) break;
+    }
   }
+  // a mole of a random kind that is not out now (and not the one that just went down)
+  function spareMole(except) { const c = shuffle(moles.filter((k) => k !== except && k.state === "off")); return c[0] || null; }
   // Golan 23.10 (levels 2 and 3): after the first time, the moles go down and come up one after another: a mole goes down,
   // 2 s later it comes up in another hole with another letter, 2 s later the next mole goes down, and so on
   const ROT_GAP = 1000;   // faster (Golan 23.10, was 2 s)
   function rotateStep(q) {
     const n = MOLES[lvl()], out = moles.filter((m) => m.state === "rise" || m.state === "up");
     if (q.rotPhase === "duck") {
-      const gone = moles.find((m, i) => i < n && m.state === "off");   // a mole that went down after a wrong touch comes back first
-      if (gone && out.length < n) { q.rotMole = gone; q.rotPhase = "rise"; return 0; }
-      const up = out.filter((m) => m.state === "up").sort((a, b) => a.upAt - b.upAt);
+      if (out.length < n && !moles.some((k) => k.state === "duck" || k.state === "sad" || k.state === "bonk")) { q.rotMole = null; q.rotPhase = "rise"; return 0; }   // one short (after a wrong touch): one comes up first
+      const up = out.filter((m) => m.state === "up" && m.letter !== q.letter).sort((a, b) => a.upAt - b.upAt);   // the mole with the letter we look for stays (Golan 23.10)
       if (!up.length) return 300;
       const m = up[0]; m.state = "duck"; m.t = 0; q.rotMole = m; q.rotPhase = "rise";
       return ROT_GAP + 650;
     }
-    const m = q.rotMole;
-    if (!m || m.state === "rise" || m.state === "up") { q.rotPhase = "duck"; return ROT_GAP; }   // it came up already (after a right touch)
-    if (m.state !== "off") return 200;
+    const gone = q.rotMole, m = spareMole(gone);   // another kind comes up, in another hole, with another letter (Golan 23.10)
+    if (!m || out.length >= n) { q.rotPhase = "duck"; return ROT_GAP; }
     const shownL = out.map((k) => k.letter), takenH = out.map((k) => k.hole);
-    const ok = (l) => !shownL.includes(l) && !q.out.has(l) && l !== m.letter;
+    const ok = (l) => !shownL.includes(l) && !q.out.has(l) && (!gone || l !== gone.letter);
     let letter = !shownL.includes(q.letter) && ok(q.letter) ? q.letter : null;   // the letter we look for is always back soon
     if (!letter) letter = letterPool(q).find(ok) || null;
     q.rotPhase = "duck";
     if (!letter) return ROT_GAP;
-    const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
-    if (!free.length) return ROT_GAP;
-    placeMole(m, free[0], letter, q.hint && letter === q.letter, 0);
+    const f = freePlace(m, gone ? [gone.hole] : []);
+    if (!f) return ROT_GAP;   // no place that hides nothing now: try again a little later
+    placeMole(m, f.hi, letter, q.hint && letter === q.letter, 0, f.pose);
     return ROT_GAP + 750;
   }
   function speakQuestion(q, rate) {
+    // never "where is X" while no X is up (Golan 23.10): wait until its mole is fully out
+    if (!moles.some((m) => m.letter === q.letter && m.state === "up")) {
+      if (q.waitSay) return; q.waitSay = true;
+      const tick = () => { if (state.q !== q || q.done) return;
+        if (moles.some((m) => m.letter === q.letter && m.state === "up")) { q.waitSay = false; speakQuestion(q, rate); } else setTimeout(tick, 200); };
+      return void setTimeout(tick, 200);
+    }
     playSeq([whereId(q.letter)], rate, () => {
       if (state.q !== q || q.done) return;
       const t = clock(); q.armed = true; q.firstEnd = q.firstEnd || t; q.lastEnd = t;
@@ -1052,10 +1098,8 @@
     return letterPool(q).find((l) => !shownL.includes(l) && l !== m.letter && !(q && q.out.has(l))) || null;
   }
   function replaceMole(m, q) {
-    const takenH = moles.filter((k) => k.state === "rise" || k.state === "up").map((k) => k.hole);
-    const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
-    const letter = newLetterFor(m, null);
-    if (free.length && letter) placeMole(m, free[0], letter, false, 0.15);
+    const letter = newLetterFor(m, null), nm = spareMole(m), f = nm ? freePlace(nm, [m.hole]) : null;
+    if (letter && f) placeMole(nm, f.hi, letter, false, 0.15, f.pose);
     whenQuiet(() => { if (state.q === q) nextFromSigns(q); });
   }
   // the next letter to find: one of the letters the moles hold now (the learner's pick when it is on a sign)
@@ -1222,7 +1266,7 @@
       const k0 = m.t - m.delay;
       if (m.state === "rise") {
         if (k0 < 0) { m.body.position.y = m.down; continue; }
-        if (k0 < dt + 0.001) sfx.pop();
+        if (k0 < dt + 0.001) sfx.peek();
         const k = Math.min(1, k0 / 0.75); m.body.position.y = m.down * (1 - easeOutBack(k));
         if (k >= 1) { m.state = "up"; m.t = 0; m.upAt = state.gameT; }
       } else if (m.state === "up") {
@@ -1306,7 +1350,6 @@
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
   }
   const whoReady = LRN ? LRN.chooseChild() : Promise.resolve();
-  whoReady.then(() => setTimeout(moleThumbs, 300));   // the picker's pictures are ready before the child gets there
   whoReady.then(() => { genderTexts(); renderLetters(); layoutHoles(); drawGuide(); }).then(() => later(autoIntro, 1500));
   $("doorStart").addEventListener("click", (e) => {
     e.stopPropagation(); leaveScreen(); $("go").classList.remove("pressed");
@@ -1322,9 +1365,11 @@
     if ($("go").classList.contains("pressed")) return;
     $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
     leaveScreen(); say(LINES.go);
-    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
+    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; startPlay(); }, 1600);
   });
-  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; openPick(); }
+  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; startPlay(); }
+  // Golan 23.10: no picker; straight to 3, 2, 1
+  function startPlay() { if (starCount) starCount.reset(); $("hud").hidden = false; countdown(); }
   // ---------- mole picker (Golan 23.10, instead of the balloon): 9 kinds of moles, the child picks 4 for this round ----------
   const PICK_STEP = 420, PICK_N = 4;
   let pickNagT = 0, pickFlashTs = [], picking = false, pickSaid = 0, picked = [];

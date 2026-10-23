@@ -4,6 +4,9 @@
 <!-- Noto Sans Hebrew 3.001 (full nikud, OFL) from games/shared/fonts, built into the page: no internet needed, same on the PC
      and in the published page (screens audit 8; the fonts are owned by the screens thread) -->
 <style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
 @font-face {
   font-family: "Noto Sans Hebrew";
   font-style: normal;
@@ -416,11 +419,11 @@
   </div>
 </div>
 
+<script src="../../shared/screen.js"></script>
+<script>if (!(window.FL && window.FL.screen)) document.write('<script src="screen.js"><\/script>');</script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <!-- the child's shared letter card (games/shared, owned by the scoring thread). On Golan's PC the shared folder; in the published page, copies next to this file -->
 <!-- one fit for every screen (games/shared/screen.js, owned by the screens thread; standard: screens/screens-standard.md) -->
-<script src="../../shared/screen.js"></script>
-<script>if (!(window.FL && window.FL.screen)) document.write('<script src="screen.js"><\/script>');</script>
 <script src="../../shared/letter-pairs.js"></script>
 <script src="../../shared/learner.js" data-fl-hub="../../../index.html"></script>
 <script>if (!(window.FL && window.FL.learner)) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js" data-fl-hub="../../../index.html"><\/script>');</script>

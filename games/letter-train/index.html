@@ -6,6 +6,9 @@
 <title>רכבת האותיות</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- the font travels with the game: no internet needed (screens standard sec 9) -->
 <style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
   /* Screens, buttons, sizes and colours are copied from the car-and-gates game (voice/race-gates-voice), so both feel like one game. */
   :root {
     --sky: #bfe6ff;
@@ -389,12 +392,12 @@
   </div>
 </div>
 
+<script src="../shared/screen.js"></script>
+<script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');</script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.27.1/babylonjs.loaders.min.js"></script>
 <script src="trees/trees.js"></script>
 <script src="../shared/letter-pairs.js"></script>
-<script src="../shared/screen.js"></script>
-<script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');</script>
 <script src="../shared/learner.js"></script>
 <script src="../../hub-cards-animated/train-locos.js"></script>
 <script>

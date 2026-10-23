@@ -15,6 +15,9 @@
   differs, a comment says why. Content is a draft until the language advisor approves it.
 -->
 <style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
   :root {
     --sky: #bfe6ff;
     --ink: #1d2a3a;
@@ -473,14 +476,15 @@
   </div>
 </div>
 
+<script src="../shared/screen.js"></script>
+<script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');</script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.27.1/babylonjs.loaders.min.js"></script>
 <script src="trees/trees.js"></script>
 <!-- shared child card (games/shared, owned by the scoring thread). Published copies sit next to index.html. -->
-<script src="../shared/screen.js"></script>
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/learner.js"></script>
-<script>if (!window.FL || !FL.screen) document.write('<script src="screen.js"><\/script>');
+<script>
 if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js"><\/script>');</script>
 <script>
 (() => {

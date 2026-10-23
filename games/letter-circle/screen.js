@@ -152,5 +152,11 @@
   const mmToPx = (mm) => mm / info.mmpx;
 
   FL.screen = { info, onChange: (f) => { if (!info.w) measure(); listeners.push(f); f(info); }, renderScale, attachEngine, freeRect, fitBox, mmToPx, refresh: measure, MM };
-  if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", start); else start();
+  // measure at once when <body> is already there (script at the end of the page), not after the big 3D script loads:
+  // the start panel no longer grows and shrinks on refresh (Golan 23.10)
+  if (doc.readyState === "loading" && !doc.body) doc.addEventListener("DOMContentLoaded", start); else start();
+  // the start panel shows only once the screen is measured and the fonts are in (each game's CSS hides
+  // html:not(.fl-ready) #start, and shows it anyway after 1.5 s), so it does not jump in size (Golan 23.10)
+  const ready = () => requestAnimationFrame(() => html.classList.add("fl-ready"));
+  if (doc.fonts && doc.fonts.ready) Promise.race([doc.fonts.ready, new Promise((r) => setTimeout(r, 1200))]).then(ready, ready); else ready();
 })(typeof window !== "undefined" ? window : this);
