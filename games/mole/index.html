@@ -456,7 +456,7 @@
     s.material = mat(i % 2 ? "#8A6A55" : "#7a5c49", 0.06); s.parent = island; s.position.set(Math.cos(a) * R * 0.55, TOP - 4.6 - (i % 3) * 0.5, Math.sin(a) * R * 0.55); s.scaling.y = 1.3;
   }
   // rolling sand dunes on top: a round mesh whose height is a few soft waves; flat at the rim and around every hole (Golan 22.10)
-  const DUNE_RINGS = 40, DUNE_SEGS = 96;
+  const DUNE_RINGS = 56, DUNE_SEGS = 120;
   const dunes = (() => {
     const pos = [], idx = [], uv = [];
     pos.push(0, 0, 0); uv.push(0.5, 0.5);
@@ -471,19 +471,22 @@
     const dm = new BABYLON.StandardMaterial("duneMat", scene); dm.diffuseColor = new BABYLON.Color3(1, 1, 1); dm.specularColor = new BABYLON.Color3(0, 0, 0);
     m.material = dm; m.parent = island; m.position.y = TOP + 0.004; m.isPickable = false; return m;
   })();
+  // hills everywhere, and mountains at the back and the sides (Golan 23.10: "גבעות והרים"); flat round every hole
+  const PEAKS = [[-4.1, 3.4, 1.5, 0.95], [-1.4, 4.8, 1.8, 0.95], [1.7, 4.8, 1.6, 0.9], [4.1, 3.3, 1.4, 0.95], [-5.1, 0.9, 1.0, 0.8], [5.1, 0.4, 1.1, 0.8]];
   function duneH(x, z) {
-      const rr = Math.hypot(x, z);
-      let h = 0.36 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.15 + z * 0.4 + 0.6), 2) + 0.2 * Math.pow(0.5 + 0.5 * Math.sin(z * 1.25 - x * 0.55 + 2.1), 2) + 0.04 * Math.sin(x * 3.1 + z * 2.3);
-      h *= Math.min(1, Math.max(0, (R * 0.97 - rr) / (R * 0.22)));   // down to the flat rim
-      for (const o of holes) if (o.on) h *= Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.15) / (HOLE_R * 1.1)));   // flat round the holes
-      return Math.max(0, h);
+    const rr = Math.hypot(x, z);
+    let h = 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.15 + z * 0.4 + 0.6), 2) + 0.35 * Math.pow(0.5 + 0.5 * Math.sin(z * 1.25 - x * 0.55 + 2.1), 2) + 0.06 * Math.sin(x * 3.1 + z * 2.3);
+    for (const [px, pz, ph, sg] of PEAKS) h += ph * Math.exp(-((x - px * 0.86) ** 2 + (z - pz * 0.86) ** 2) / (2 * sg * sg));
+    { const e = Math.min(1, Math.max(0, (R * 0.99 - rr) / (R * 0.2))); h *= e * e * (3 - 2 * e); }   // softly down to the rim
+    for (const o of holes) if (o.on) { const k = Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.05) / (HOLE_R * 0.9))); h *= k * k * (3 - 2 * k); }   // flat round the holes
+    return Math.max(0, h);
   }
   function sculptDunes() {
     const pos = dunes.getVerticesData(BABYLON.VertexBuffer.PositionKind), idx = dunes.getIndices();
     const col = [];
     for (let k = 0; k < pos.length; k += 3) {
-      const h = (pos[k + 1] = duneH(pos[k], pos[k + 2])), t = Math.min(1, h / 0.45);   // darker sand in the hollows, light on the crests
-      col.push(0.88 + 0.12 * t, 0.70 + 0.18 * t, 0.45 + 0.17 * t, 1);
+      const h = (pos[k + 1] = duneH(pos[k], pos[k + 2])), t = Math.min(1, h / 1.6);   // darker sand in the hollows, light on the crests
+      col.push(0.86 + 0.14 * t, 0.66 + 0.24 * t, 0.42 + 0.26 * t, 1);
     }
     dunes.setVerticesData(BABYLON.VertexBuffer.ColorKind, col, true);
     dunes.updateVerticesData(BABYLON.VertexBuffer.PositionKind, pos);
@@ -522,7 +525,7 @@
   for (let i = 0; i < 10; i++) {
     const disc = BABYLON.MeshBuilder.CreateDisc("hole", { radius: HOLE_R, tessellation: 28 }, scene);
     disc.material = holeMat; disc.rotation.x = Math.PI / 2; disc.parent = island; disc.isPickable = false;
-    const rim = BABYLON.MeshBuilder.CreateTorus("rim", { diameter: HOLE_R * 2.05, thickness: 0.26, tessellation: 28 }, scene);
+    const rim = BABYLON.MeshBuilder.CreateTorus("rim", { diameter: HOLE_R * 2.02, thickness: 0.07, tessellation: 32 }, scene);   // a thin rim (Golan 23.10)
     rim.material = rimMat; rim.parent = island; rim.scaling.y = 0.45; rim.isPickable = false;
     holes.push({ disc, rim, x: 0, z: 0, on: false });
   }
@@ -824,7 +827,8 @@
     if (HG && HG.done()) return endRound();   // the sand ran out: the round ends after the mole that was out
     const v = pickLetter(), t = v.letter, n = MOLES[lvl()];
     const shown = lvl() === 1 && !v.listen && !seenSet().has(t);
-    const q = { letter: t, listen: !!v.listen, shown, letters: shuffle([t, ...otherLetters(t, n - 1)]), out: new Set(), wrongs: 0, firstWrong: null, hint: false,
+    const pool = otherLetters(t, n + 3);   // the other letters; a mole that comes up again takes one that is not out
+    const q = { letter: t, listen: !!v.listen, shown, pool, letters: shuffle([t, ...pool.slice(0, n - 1)]), out: new Set(), rotLeft: null, rotPhase: "duck", rotMole: null, wrongs: 0, firstWrong: null, hint: false,
       armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0, phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false };
     state.q = q; state.mode = "play"; state.n++;
     setSign(shown ? t : "?", false);
@@ -844,6 +848,35 @@
       m.body.position.y = DOWN_Y; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
       m.state = "rise"; m.t = 0; m.delay = i * 0.12 + Math.random() * 0.1;
     });
+  }
+  // Golan 23.10 (levels 2 and 3): after the first time, the moles go down and come up one after another: a mole goes down,
+  // 2 s later it comes up in another hole with another letter, 2 s later the next mole goes down, and so on
+  const ROT_GAP = 2000;
+  function rotateStep(q) {
+    const n = MOLES[lvl()], out = moles.filter((m) => m.state === "rise" || m.state === "up");
+    if (q.rotPhase === "duck") {
+      const gone = moles.find((m, i) => i < n && m.state === "off");   // a mole that went down after a wrong touch comes back first
+      if (gone && out.length < n) { q.rotMole = gone; q.rotPhase = "rise"; return 0; }
+      const up = out.filter((m) => m.state === "up").sort((a, b) => a.upAt - b.upAt);
+      if (!up.length) return 300;
+      const m = up[0]; m.state = "duck"; m.t = 0; q.rotMole = m; q.rotPhase = "rise";
+      return ROT_GAP + 320;
+    }
+    const m = q.rotMole; if (!m || m.state !== "off") return 200;
+    const shownL = out.map((k) => k.letter), takenH = out.map((k) => k.hole);
+    const ok = (l) => !shownL.includes(l) && !q.out.has(l) && l !== m.letter;
+    let letter = !shownL.includes(q.letter) && ok(q.letter) ? q.letter : null;   // the letter we look for is always back soon
+    if (!letter) { const c = shuffle(q.pool.filter(ok)); letter = c[0] || null; }
+    q.rotPhase = "duck";
+    if (!letter) return ROT_GAP;
+    const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
+    if (!free.length) return ROT_GAP;
+    const h = holes[free[0]];
+    m.letter = letter; m.hole = free[0]; m.hint = q.hint && letter === q.letter; drawSign(m, letter, m.hint);
+    m.root.position.set(h.x, TOP, h.z); m.root.setEnabled(true);
+    m.body.position.y = DOWN_Y; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
+    m.state = "rise"; m.t = 0; m.delay = 0;
+    return ROT_GAP + 380;
   }
   function speakQuestion(q, rate) {
     playSeq([whereId(q.letter)], rate, () => {
@@ -1050,7 +1083,7 @@
         if (k0 < 0) { m.body.position.y = DOWN_Y; continue; }
         if (k0 < dt + 0.001) sfx.pop();
         const k = Math.min(1, k0 / 0.38); m.body.position.y = DOWN_Y * (1 - easeOutBack(k));
-        if (k >= 1) { m.state = "up"; m.t = 0; }
+        if (k >= 1) { m.state = "up"; m.t = 0; m.upAt = state.gameT; }
       } else if (m.state === "up") {
         m.body.position.y = Math.sin(T * 2.2 + m.ph) * 0.04 * S;
         m.tilt.rotation.z = Math.sin(T * 1.6 + m.ph) * 0.04;
@@ -1081,15 +1114,14 @@
         // the question at the first coming up, and every second time the moles come back (levels 2 and 3)
         if (q.cycle === 0 || q.cycle % 2 === 0) whenQuiet(() => { if (state.q === q && !q.done) speakQuestion(q, q.cycle ? 0.92 : 1); });
       }
+      if (q.phase === "up" && STAY_MS[lvl()] !== Infinity && q.armed) {
+        // levels 2 and 3: all out for 4 / 2.5 s the first time, then one after another (Golan 23.10); the speed slider too
+        if (q.rotLeft == null) q.rotLeft = q.stayLeft;
+        q.rotLeft -= rdt * 1000 * motionK();
+        if (q.rotLeft <= 0) q.rotLeft = rotateStep(q);
+      }
       if (q.phase === "up" && !busy()) {
-        if (STAY_MS[lvl()] !== Infinity && q.armed) {
-          // levels 2 and 3: out for 4 / 2.5 s (the speed slider too), then down and up again in other holes
-          q.stayLeft -= rdt * 1000 * motionK();
-          if (q.stayLeft <= 0) {
-            q.phase = "away"; duckAll(q); if (q.cycle % 2 === 1) guideReact("timeup");
-            setTimeout(() => { if (state.q === q && !q.done && state.mode === "play") { q.cycle++; popMoles(q); } else if (state.q === q && !q.done) q.phase = "wait"; }, 650 / motionK());
-          }
-        } else if (STAY_MS[lvl()] === Infinity && q.firstEnd) {
+        if (q.firstEnd) {
           const t = clock(), since = (t - q.firstEnd) / 1000, sinceLast = (t - q.lastEnd) / 1000;
           if (q.autoRep < 2 && (q.autoRep === 0 ? since > REPEAT_S : sinceLast > 8)) { q.autoRep++; q.repeats++; q.lastEnd = Infinity; speakQuestion(q, 0.85); }
         }
@@ -1218,7 +1250,7 @@
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
 
   // test hook for automated checks (games/tests/check-games.js): targets() = where the right and wrong moles are on the screen
-  window.__mole = { state, moles, holes, answer, endRound, askNext, screenOf, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
+  window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, screenOf, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
     region: () => fitInfo,
     targets: () => { const q = state.q; if (state.mode !== "play" || !q || q.done) return null;
       const up = moles.filter((m) => m.state === "up"), r = canvas.getBoundingClientRect(), at = (m) => { const s = screenOf(m); return { x: r.left + s.x, y: r.top + s.y, letter: m.letter }; };
