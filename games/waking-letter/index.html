@@ -1452,6 +1452,36 @@
   // ---------- input ----------
   $("mCard").addEventListener("pointerdown", (e) => { e.preventDefault(); if (!paused && state.mode === "card") touchMagic(); });
   $("mAnim").addEventListener("pointerdown", (e) => { e.preventDefault(); if (!paused && state.mode === "card") touchMagic(); });
+  // Golan 23.10: the child can also drag the balloon; let go on the letter (the picture's letter, or a cloud) = a touch on it.
+  // Let go anywhere else: it floats back to its place.
+  let drag = null;
+  const onBalloon = (e) => { const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
+    const h = scene.pick((e.clientX - r.left) * k, (e.clientY - r.top) * k, (m) => m.isEnabled() && m.isDescendantOf(balloon));
+    return !!(h && h.hit); };
+  canvas.addEventListener("pointerdown", (e) => {
+    if (paused || (state.mode !== "find" && state.mode !== "card") || !onBalloon(e)) return;
+    const r = canvas.getBoundingClientRect(), w = screenToBalloonPlane(e.clientX - r.left, e.clientY - r.top, state.bal.z);
+    drag = { id: e.pointerId, dx: state.bal.x - w.x, dy: state.bal.y - w.y, x: e.clientX, y: e.clientY, moved: false };
+    state.drag = drag; if (state.spotFly) state.spotFly.done = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    e.stopImmediatePropagation();
+  }, true);
+  canvas.addEventListener("pointermove", (e) => { if (!drag || e.pointerId !== drag.id) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; drag.x = e.clientX; drag.y = e.clientY; });
+  const dropBalloon = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null; state.drag = null;
+    if (!d.moved || paused || e.type === "pointercancel") return;
+    if (state.mode === "card") {
+      const inEl = (el) => { if (!el || el.hidden) return false; const b = el.getBoundingClientRect(); return e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom; };
+      if (inEl($("mAnim")) || inEl($("mCard"))) touchMagic();
+    } else if (state.mode === "find") {
+      const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
+      const hit = scene.pick((e.clientX - r.left) * k, (e.clientY - r.top) * k, (m) => m.metadata && m.metadata.sign != null && m.isEnabled());
+      if (hit && hit.hit) chooseSign(hit.pickedMesh.metadata.sign);
+    }
+  };
+  canvas.addEventListener("pointerup", dropBalloon); canvas.addEventListener("pointercancel", dropBalloon);
   canvas.addEventListener("pointerdown", (e) => {
     if (paused || state.mode !== "find") return;
     const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
@@ -1638,6 +1668,8 @@
     const speed = state.balGoal ? p.fly * (LRN ? LRN.pace() : 1) : spot ? 2.5 : 6;   // beside the letter: it moves on slowly (the letter steps aside)   // the child's pace (0.6-1.5) from the learner model
     if (state.spotFly && !state.spotFly.done) { const f = state.spotFly; state.bal.x = f.x + (goal.x - f.x) * spotE; state.bal.y = f.y + (goal.y - f.y) * spotE; }
     else if (dist > 0.001) state.bal.addInPlace(toGoal.scale(Math.min(1, (speed * dt) / dist) * Math.min(1, 0.35 + dist / 3)));
+    if (state.drag) { const r = canvas.getBoundingClientRect(), w = screenToBalloonPlane(state.drag.x - r.left, state.drag.y - r.top, state.bal.z), f = Math.min(1, dt * 18);   // dragged: it follows the finger
+      state.bal.x += (w.x + state.drag.dx - state.bal.x) * f; state.bal.y += (w.y + state.drag.dy - state.bal.y) * f; }
     if (!state.balGoal) state.bal.z += dz;   // keep up with the forward drift
     if (state.balGoal && state.flyTo >= 0 && dist < 0.25 && state.mode === "find") arrive(state.flyTo);
     if (state.bounce > 0) state.bounce = Math.max(0, state.bounce - dt * 2.2);
