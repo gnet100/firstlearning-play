@@ -72,9 +72,19 @@
   }
   html[data-screen~="portrait"] { --lp-top: calc(var(--edge-t) + var(--btn-s) + 10 * var(--u)); }   /* standing phone: one row down, under the door */
   .prompt { position: absolute; left: 50%; transform: translateX(-50%); top: var(--lp-top); box-sizing: border-box;
-    width: var(--lp-w); height: var(--lp-h); padding: 0; display: flex; align-items: center; justify-content: center;
-    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002; }
-  .prompt .target, .prompt .pips { display: none !important; }
+    width: var(--lp-w); height: var(--lp-h); padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002; z-index: 5; }
+  /* the letter pill of every game (Golan 23.10): the letter on the right, the orange speaker on the left; a letter the child
+     already met: the speaker alone, centred */
+  .prompt .pips { display: none !important; }
+  .prompt .target { width: var(--lp-lw); height: var(--lp-t); font-size: var(--lp-t); font-weight: 800; line-height: 1; text-align: center; color: var(--ink); }
+  .prompt.listen { justify-content: center; padding: 0; }
+  .prompt.listen .target { display: none; }
+  .prompt.hint { box-shadow: 0 0 0 4px #ffc233, 0 4px 16px #0002; }
+  .prompt.yay { animation: pJump .55s ease-out 2; }
+  @keyframes pJump { 0%, 100% { transform: translateX(-50%); } 40% { transform: translateX(-50%) translateY(-8px) scale(1.05); } }
+  .prompt.oops { animation: pShake .6s ease-in-out; }
+  @keyframes pShake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 8px)); } 60% { transform: translateX(calc(-50% + 7px)); } }
   .prompt #replay { width: var(--lp-spk); height: var(--lp-spk); min-width: 0; min-height: 0; font-size: calc(var(--lp-spk) * 0.7); padding: 0; line-height: 1; overflow: hidden; }
   .stars { position: absolute; top: var(--edge-t); right: var(--edge-r); min-height: var(--pill-h); display: flex; align-items: center;
     background: var(--card); border-radius: 999px; padding: 0 max(calc(20 * var(--u)), 12px); font-size: max(calc(30 * var(--u)), 20px); font-weight: 800;
@@ -142,6 +152,16 @@
   .balloons button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 6px; cursor: pointer; aspect-ratio: 1;
     display: grid; place-items: center; min-width: var(--tap); }
   .balloons button svg { width: 94%; height: 94%; display: block; }
+  .balloons button { position: relative; }
+  .balloons button img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+  .balloons button img:not([src]) { visibility: hidden; }
+  .balloons button.sel { border-color: var(--accent); background: #fff3ea; box-shadow: 0 0 0 3px #ff8a3d55; }
+  .pick-n { position: absolute; top: 4px; right: 4px; min-width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+    font: 800 16px/26px "Noto Sans Hebrew", system-ui, sans-serif; text-align: center; }
+  .pick-n:empty { display: none; }
+  .pick-dots { display: flex; gap: 10px; justify-content: center; margin: 0 0 6px; }
+  .pick-dots span { width: 16px; height: 16px; border-radius: 50%; background: #0002; }
+  .pick-dots span.on { background: var(--good); }
   .balloons button:active { transform: scale(.96); }
   .balloons button.flash { animation: carFlash 1s ease-in-out; }   /* slower flash and grow (Golan 16.10) */
   @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
@@ -198,7 +218,7 @@
 
   /* ---------- the mole game (Golan 21.10, station 1) ---------- */
   html, body { background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
-  .prompt, .dots-wrap { display: none !important; }
+  .dots-wrap { display: none !important; }
   /* the guide: the child's own companion in the chosen balloon, holding the sign with the letter we look for (Golan 21.10).
      Lying screen: a column on the left under the door and the gear. Standing screen: at the top in the middle. */
   .guide { position: absolute; display: flex; flex-direction: column; align-items: center; gap: max(calc(6 * var(--u)), 4px); pointer-events: none; }
@@ -228,9 +248,9 @@
 <canvas id="game" aria-label="הכה את החפרפרת"></canvas>
 
 <div class="hud" id="hud" hidden>
-  <!-- the guide (Golan 21.10): the child's companion in the chosen balloon holds the sign; 🔊 says the question again -->
-  <div class="guide" id="guide">
-    <div id="guidePic"></div>
+  <!-- the letter pill (Golan 23.10, as in every game): a new letter is written next to the speaker; 🔊 says the question again -->
+  <div class="prompt listen" id="prompt" role="status">
+    <span class="target" id="target"></span>
     <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
   </div>
   <div class="stars" id="stars" data-fl-stars data-fl-title="הכה את החפרפרת"></div>
@@ -267,7 +287,8 @@
   <button class="round-btn door-btn" id="doorPick" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <button class="round-btn gear under-door" id="gearPick" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
-    <h1 id="pickTitle">בוחרים כדור פורח</h1>
+    <h1 id="pickTitle">בוחרים 4 חפרפרות</h1>
+    <div class="pick-dots" id="pickDots"></div>
     <div class="balloons" id="balloons"></div>
   </div>
 </div>
@@ -360,9 +381,9 @@
   const FALLBACK = {}; for (const l of [...LETTERS, ...FINALS]) FALLBACK[whereId(l)] = CLIP_OF_LETTER[l] === "name_zayin" ? ["name_zayin"] : ["lc_where", CLIP_OF_LETTER[l]];
   // a wrong mole: "זֹאת הָאוֹת" (this_is, tell-me's clip) + the touched letter's name, then the question again
   const CLIP_END = { this_is: 1.0 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (tell-me, Golan 15.10)
-  const GENDERED = ["ins_balloon", "ins_mole"];
+  const GENDERED = ["ins_molepick", "ins_mole"];   // ins_molepick (requested 23.10): "בְּחַר / בַּחֲרִי / בַּחֲרוּ 4 חֲפַרְפָּרוֹת"
   GENDERED.forEach((id) => { FALLBACK[id + "_m"] = [id]; FALLBACK[id + "_f"] = [id]; });
-  const LINES = { go: "fb_go", done: "fb_round_done", choice1: "fb_choice1", choice2: "fb_choice2", pick: "ins_balloon", correct: "fb_correct", thisIs: "this_is",
+  const LINES = { go: "fb_go", done: "fb_round_done", choice1: "fb_choice1", choice2: "fb_choice2", pick: "ins_molepick", correct: "fb_correct", thisIs: "this_is",
     intro: "ins_mole" };   // new (requested): "מַקְשִׁיבִים לְשֵׁם הָאוֹת, וְנוֹגְעִים בַּחֲפַרְפֶּרֶת שֶׁמַּחְזִיקָה אוֹתָהּ" _m / _f
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   function getClip(id) {
@@ -557,81 +578,136 @@
 
   // ---------- the moles: a round brown body, a pink nose, two paws holding a sign with a letter ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
-  // three kinds of moles (Golan 23.10: "עוד 2 גרסאות"): the brown one, a grey miner with a yellow helmet and a lamp,
-  // and a ginger one with round glasses
+  // nine kinds of moles (Golan 23.10): slim / full bodies, small / big eyes, noses of different shapes, three kinds of glasses,
+  // two kinds of helmets, and each kind holds its sign its own way (in front, over the head, on two wooden legs)
   const KINDS = [
-    // Golan 23.10: the miner is dark chocolate (not grey), and each kind has its own nose and eyes
-    { fur: "#7b5a4c", belly: "#d7b9a3", nose: "#ff7f9b", noseK: 1, eye: 0.1, eyeY: 1 },
-    { fur: "#4f3328", belly: "#c9a185", nose: "#d9534f", noseK: 1.3, eye: 0.13, eyeY: 1.15, helmet: true },
-    { fur: "#b0703f", belly: "#f0cfa8", nose: "#7a3b2e", noseK: 0.8, eye: 0.085, eyeY: 0.7, glasses: true },
+    { fur: "#7b5a4c", belly: "#d7b9a3", bw: 1, bh: 1, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#ff7f9b", pose: "low" },
+    { fur: "#4f3328", belly: "#c9a185", bw: 1.1, bh: 1, eye: 0.13, eyeY: 1.15, nose: "ball", noseK: 1.3, noseC: "#d9534f", helmet: "miner", pose: "high" },
+    { fur: "#b0703f", belly: "#f0cfa8", bw: 0.92, bh: 1, eye: 0.085, eyeY: 0.7, nose: "ball", noseK: 0.8, noseC: "#7a3b2e", glasses: "round", pose: "low" },
+    { fur: "#8a6248", belly: "#e3c7ad", bw: 0.8, bh: 1.1, eye: 0.09, eyeY: 1, nose: "long", noseC: "#ff8fab", pose: "poles" },
+    { fur: "#6a4a3c", belly: "#e6cdb6", bw: 1.3, bh: 0.95, eye: 0.12, eyeY: 1, nose: "heart", noseC: "#ff5c8a", pose: "low" },
+    { fur: "#9b6b4f", belly: "#ecd2b8", bw: 1.05, bh: 1, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#5a3a30", helmet: "builder", pose: "poles" },
+    { fur: "#5c4436", belly: "#d4b59a", bw: 1, bh: 1, eye: 0.09, eyeY: 1, nose: "button", noseC: "#ff9fb5", glasses: "square", pose: "high" },
+    { fur: "#a57d62", belly: "#f2dcc6", bw: 1.05, bh: 1, eye: 0.16, eyeY: 1.05, nose: "cone", noseC: "#ff6f91", pose: "high" },
+    { fur: "#c28a5c", belly: "#f6dfc2", bw: 0.95, bh: 1.02, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#e0607e", glasses: "big", pose: "low" },
   ];
-  const snoutMat = mat("#f2c9a8", 0.2), noseMat = mat("#ff7f9b", 0.35),
-    eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20"),
-    helmetMat = mat("#ffc233", 0.15), lampMat = mat("#fff6c0", 0.9), glassMat = mat("#2b2b3a", 0.05);
+  const snoutMat = mat("#f2c9a8", 0.2), eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20"),
+    lampMat = mat("#fff6c0", 0.9), poleMat = mat("#a0703f", 0.05);
+  const GLASSES = { round: { c: "#2b2b3a", d: 0.25, th: 0.035, tess: 20 }, square: { c: "#2f6fd6", d: 0.27, th: 0.04, tess: 4 }, big: { c: "#e8443a", d: 0.33, th: 0.055, tess: 24 } };
   const signW = 1.08 * S, signH = 0.84 * S;
   const SIGN_LOW = { y: 0.5, z: -0.62, paws: [[-0.5, 0.86, -0.64], [0.5, 0.86, -0.64]] };
   const SIGN_HIGH = { y: 1.95, z: -0.32, paws: [[-0.5, 1.6, -0.36], [0.5, 1.6, -0.36]] };   // held up over the head
   const SIGN_POLES = { y: 2.25, z: -0.5, paws: [[-0.34, 0.95, -0.62], [0.34, 0.95, -0.62]] };   // on two wooden legs (Golan 23.10)
-  const poleMat = mat("#a0703f", 0.05);
-  const moles = Array.from({ length: 5 }, (_, i) => {
-    const K = KINDS[i % KINDS.length], furMat = mat(K.fur, 0.12), bellyMat = mat(K.belly, 0.15);
-    const root = new BABYLON.TransformNode("mole" + i, scene); root.parent = island;
-    const body = new BABYLON.TransformNode("moleBody" + i, scene); body.parent = root;   // moves up and down
-    const tilt = new BABYLON.TransformNode("moleTilt" + i, scene); tilt.parent = body;   // wiggles, squashes
+  let moleN = 0;
+  function makeMole(K, sc) {
+    const n = moleN++, M = (hex, em) => mat(hex, em);
+    const furMat = M(K.fur, 0.12), bellyMat = M(K.belly, 0.15), noseMat = M(K.noseC, 0.35);
+    const root = new BABYLON.TransformNode("mole" + n, sc); root.parent = island;
+    const body = new BABYLON.TransformNode("moleBody" + n, sc); body.parent = root;   // moves up and down
+    const tilt = new BABYLON.TransformNode("moleTilt" + n, sc); tilt.parent = body;   // wiggles, squashes
     const part = (mesh, m, x, y, z, sx = 1, sy = 1, sz = 1) => { mesh.material = m; mesh.parent = tilt; mesh.position.set(x * S, y * S, z * S); mesh.scaling.set(sx, sy, sz); mesh.isPickable = false; return mesh; };
-    const sph = (d, seg = 14) => BABYLON.MeshBuilder.CreateSphere("mp", { diameter: d * S, segments: seg }, scene);
-    part(sph(1.0, 18), furMat, 0, 0.68, 0, 1, 1.38, 0.95);
-    part(sph(0.62), bellyMat, 0, 0.62, -0.25, 1, 1.25, 0.6);
-    part(sph(0.2, 8), furMat, -0.4, 1.12, 0.05, 1, 0.55, 0.5);          // small ears, low on the head
-    part(sph(0.2, 8), furMat, 0.4, 1.12, 0.05, 1, 0.55, 0.5);
-    part(sph(0.4), snoutMat, 0, 1.0, -0.42, 1.1, 0.75, 1.45);   // a long snout, the mole's nose sticks out
-    part(sph(0.22 * K.noseK, 10), mat(K.nose, 0.35), 0, 1.04, -0.7 - 0.03 * (K.noseK - 1), 1.15, 0.85, 1);
-    part(sph(K.eye, 8), eyeMat, -0.19, 1.2, -0.37, 1, K.eyeY, 1);
-    part(sph(K.eye, 8), eyeMat, 0.19, 1.2, -0.37, 1, K.eyeY, 1);
-    part(sph(0.4 * K.eye, 6), glintMat, -0.17, 1.2 + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
-    part(sph(0.4 * K.eye, 6), glintMat, 0.21, 1.2 + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
-    if (K.helmet) {   // a miner's helmet with a lamp
-      const hel = BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.86 * S, segments: 16, slice: 0.5 }, scene);
-      part(hel, helmetMat, 0, 1.3, 0.02, 1.02, 0.62, 1);
-      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 0.98 * S, height: 0.04 * S, tessellation: 24 }, scene), helmetMat, 0, 1.3, 0.0);
-      const lamp = part(BABYLON.MeshBuilder.CreateCylinder("lamp", { diameter: 0.16 * S, height: 0.08 * S, tessellation: 16 }, scene), lampMat, 0, 1.47, -0.36);
-      lamp.rotation.x = -Math.PI / 2.6;
+    const sph = (d, seg = 14) => BABYLON.MeshBuilder.CreateSphere("mp", { diameter: d * S, segments: seg }, sc);
+    const bw = K.bw, bh = K.bh;
+    part(sph(1.0, 18), furMat, 0, 0.68 * bh, 0, bw, 1.38 * bh, 0.95 * Math.min(1.15, Math.max(1, bw)));
+    part(sph(0.62), bellyMat, 0, 0.62 * bh, -0.25 - 0.04 * (bw - 1), bw, 1.25 * bh, 0.6);
+    const hy = 1.12 * bh;   // the head line
+    part(sph(0.2, 8), furMat, -0.4 * Math.min(1.1, bw), hy, 0.05, 1, 0.55, 0.5);          // small ears, low on the head
+    part(sph(0.2, 8), furMat, 0.4 * Math.min(1.1, bw), hy, 0.05, 1, 0.55, 0.5);
+    const ey = hy + 0.08, ny = hy - 0.08;
+    part(sph(0.4), snoutMat, 0, hy - 0.12, -0.42, 1.1, 0.75, 1.45);   // a long snout, the mole's nose sticks out
+    const nk = K.noseK || 1;
+    if (K.nose === "ball") part(sph(0.22 * nk, 10), noseMat, 0, ny, -0.7 - 0.03 * (nk - 1), 1.15, 0.85, 1);
+    else if (K.nose === "long") part(sph(0.2, 10), noseMat, 0, ny, -0.76, 0.8, 0.7, 1.9);
+    else if (K.nose === "button") part(sph(0.2, 10), noseMat, 0, ny, -0.7, 1.7, 0.75, 0.6);
+    else if (K.nose === "heart") { part(sph(0.15, 10), noseMat, -0.055, ny + 0.03, -0.7); part(sph(0.15, 10), noseMat, 0.055, ny + 0.03, -0.7); part(sph(0.11, 8), noseMat, 0, ny - 0.04, -0.71, 1, 1.1, 1); }
+    else if (K.nose === "cone") { const c = part(BABYLON.MeshBuilder.CreateCylinder("nose", { diameterTop: 0, diameterBottom: 0.24 * S, height: 0.24 * S, tessellation: 14 }, sc), noseMat, 0, ny, -0.74); c.rotation.x = -Math.PI / 2; }
+    for (const sx of [-1, 1]) {
+      part(sph(K.eye, 8), eyeMat, sx * 0.19, ey, -0.37, 1, K.eyeY, 1);
+      part(sph(0.4 * K.eye, 6), glintMat, sx * 0.19 + 0.02, ey + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
     }
-    if (K.glasses) {   // round glasses in front of the eyes
-      for (const x of [-0.19, 0.19]) { const g = part(BABYLON.MeshBuilder.CreateTorus("glass", { diameter: 0.25 * S, thickness: 0.035 * S, tessellation: 20 }, scene), glassMat, x, 1.2, -0.44); g.rotation.x = Math.PI / 2; }
-      part(BABYLON.MeshBuilder.CreateBox("bridge", { width: 0.13 * S, height: 0.03 * S, depth: 0.03 * S }, scene), glassMat, 0, 1.22, -0.46);
+    if (K.helmet === "miner") {   // a yellow miner's helmet with a lamp
+      const hm = M("#ffc233", 0.15);
+      part(BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.86 * S, segments: 16, slice: 0.5 }, sc), hm, 0, hy + 0.18, 0.02, bw * 1.02, 0.62, 1);
+      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 0.98 * S, height: 0.04 * S, tessellation: 24 }, sc), hm, 0, hy + 0.18, 0.0, bw, 1, 1);
+      const lamp = part(BABYLON.MeshBuilder.CreateCylinder("lamp", { diameter: 0.16 * S, height: 0.08 * S, tessellation: 16 }, sc), lampMat, 0, hy + 0.35, -0.36);
+      lamp.rotation.x = -Math.PI / 2.6;
+    } else if (K.helmet === "builder") {   // an orange builder's hard hat: a dome, a ridge on top and a wide brim all round
+      const hm = M("#ff8a1f", 0.12);
+      part(BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.84 * S, segments: 16, slice: 0.5 }, sc), hm, 0, hy + 0.2, 0.02, bw, 0.72, 1);
+      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 1.12 * S, height: 0.035 * S, tessellation: 28 }, sc), hm, 0, hy + 0.2, -0.03, bw, 1, 1);
+      part(BABYLON.MeshBuilder.CreateBox("ridge", { width: 0.1 * S, height: 0.1 * S, depth: 0.7 * S }, sc), hm, 0, hy + 0.48, 0.02);
+    }
+    if (K.glasses) {
+      const G = GLASSES[K.glasses], gm = M(G.c, 0.08);
+      for (const x of [-0.19, 0.19]) { const g = part(BABYLON.MeshBuilder.CreateTorus("glass", { diameter: G.d * S, thickness: G.th * S, tessellation: G.tess }, sc), gm, x, ey, -0.44); g.rotation.x = Math.PI / 2; if (G.tess === 4) g.rotation.y = Math.PI / 4; }
+      part(BABYLON.MeshBuilder.CreateBox("bridge", { width: 0.13 * S, height: 0.03 * S, depth: 0.03 * S }, sc), gm, 0, ey + 0.02, -0.46);
     }
     // sad brows, shown only when the mole is upset
-    const browL = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, scene), browMat, -0.18, 1.31, -0.42); browL.rotation.z = -0.45;
-    const browR = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, scene), browMat, 0.18, 1.31, -0.42); browR.rotation.z = 0.45;
-    if (K.glasses || K.helmet) { browL.position.y = browR.position.y = 1.36 * S; browL.position.z = browR.position.z = -0.46 * S; }
-    // the sign, held in front of the belly (or over the head now and then), turned up to the camera
-    const tex = new BABYLON.DynamicTexture("signTex" + i, { width: 256, height: 200 }, scene, true);
-    const sm = new BABYLON.StandardMaterial("signMat" + i, scene);
+    const by = ey + 0.11 + (K.glasses || K.helmet ? 0.05 : 0), bz = K.glasses || K.helmet ? -0.46 : -0.42;
+    const browL = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, sc), browMat, -0.18, by, bz); browL.rotation.z = -0.45;
+    const browR = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, sc), browMat, 0.18, by, bz); browR.rotation.z = 0.45;
+    browL.setEnabled(false); browR.setEnabled(false);
+    // the sign, turned up to the camera
+    const tex = new BABYLON.DynamicTexture("signTex" + n, { width: 256, height: 200 }, sc, true);
+    const sm = new BABYLON.StandardMaterial("signMat" + n, sc);
     tex.hasAlpha = true; sm.useAlphaFromDiffuseTexture = true;
     sm.diffuseTexture = tex; sm.emissiveColor = new BABYLON.Color3(1, 1, 1); sm.disableLighting = true; sm.backFaceCulling = false;
-    const sign = BABYLON.MeshBuilder.CreatePlane("sign" + i, { width: signW, height: signH }, scene);
+    const sign = BABYLON.MeshBuilder.CreatePlane("sign" + n, { width: signW, height: signH }, sc);
     sign.material = sm; sign.parent = tilt; sign.rotation.x = PITCH * 0.75; sign.isPickable = false;
     const paws = [part(sph(0.24, 8), pawMat, -0.5, 0.86, -0.64), part(sph(0.24, 8), pawMat, 0.5, 0.86, -0.64)];   // paws on the sign's corners
-    const poles = [-0.34, 0.34].map((x) => part(BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07 * S, height: 1.0 * S, tessellation: 10 }, scene), poleMat, x, 1.38, -0.56));
+    const poles = [-0.34, 0.34].map((x) => part(BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07 * S, height: 1.0 * S, tessellation: 10 }, sc), poleMat, x, 1.38, -0.56));
     poles.forEach((p) => { p.rotation.x = -0.12; p.setEnabled(false); });
     root.setEnabled(false);
-    return { root, body, tilt, sign, paws, poles, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
-  });
-  // the sign low (in front) or high (over the head, Golan 23.10: "מדי פעם"); a mole with the sign up goes deeper, so the sign hides in the hole too
-  function poseSign(m, pose) {   // "low" (in front), "high" (in the paws over the head), "poles" (on two legs over the head)
+    const m = { K, root, body, tilt, sign, sm, paws, poles, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
+    poseSign(m, "low");
+    return m;
+  }
+  function disposeMole(m) { m.tex.dispose(); m.sm.dispose(); m.root.dispose(); }
+  // the moles in the game: the 4 the child picked (the 5th, at the hard level, is the first one again)
+  const moles = [];
+  function buildMoles(kinds) {
+    moles.splice(0).forEach(disposeMole);
+    for (let i = 0; i < 5; i++) moles.push(makeMole(KINDS[kinds[i % kinds.length]], scene));
+  }
+  buildMoles([0, 1, 2, 3]);
+  // the picture of each kind for the picker: drawn once with the game's own 3D mole, away from the island
+  let thumbs = null;
+  function moleThumbs() {
+    if (thumbs) return thumbs;
+    thumbs = (async () => {
+      await scene.whenReadyAsync();
+      const pcam = new BABYLON.FreeCamera("thumbCam", new BABYLON.Vector3(0, 0, 0), scene); pcam.fov = 0.62; pcam.minZ = 0.1;
+      const out = [];
+      for (let i = 0; i < KINDS.length; i++) {
+        const m = makeMole(KINDS[i], scene); m.root.parent = null; m.root.position.set(0, 200, 0); m.root.setEnabled(true);
+        // the mole itself, no sign (its paws at its sides), all at one size, so a slim mole looks slim next to a full one
+        poseSign(m, "low"); m.sign.setEnabled(false); m.paws.forEach((pw, k) => pw.position.set((k ? 1 : -1) * 0.52 * KINDS[i].bw * S, 0.62 * S, -0.3 * S)); m.body.position.y = 0;
+        const top = 1.75 * S;
+        pcam.position.set(0, 200 + top * 0.75, -top * 2.0); pcam.setTarget(new BABYLON.Vector3(0, 200 + top * 0.5, 0));
+        try { out.push(await BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine, pcam, { width: 320, height: 320 })); } catch (e) { out.push(""); }
+        disposeMole(m);
+      }
+      pcam.dispose();
+      return out;
+    })();
+    return thumbs;
+  }
+  // the sign low (in front), "high" (in the paws over the head) or "poles" (on two legs over the head); a mole with the
+  // sign up goes deeper, so the sign hides in the hole too
+  function poseSign(m, pose) {
     const P = pose === "poles" ? SIGN_POLES : pose === "high" ? SIGN_HIGH : SIGN_LOW;
     m.high = pose !== "low"; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (m.high ? 0.55 : 0.75);
     m.paws.forEach((p, k) => p.position.set(P.paws[k][0] * S, P.paws[k][1] * S, P.paws[k][2] * S));
     m.poles.forEach((p) => p.setEnabled(pose === "poles"));
     m.down = pose === "poles" ? -2.9 * S : m.high ? -2.5 * S : -1.5 * S;
   }
-  moles.forEach((m) => poseSign(m, "low"));
+  // each kind mostly holds its sign its own way, now and then another way
+  function posePick(K) { const r = Math.random(); if (r < 0.65) return K.pose; return ["low", "high", "poles"].filter((p) => p !== K.pose)[r < 0.83 ? 0 : 1]; }
   // a mole comes up in a hole with a letter
   function placeMole(m, hi, letter, hint, delay) {
     const h = holes[hi];
     m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
-    { const r = Math.random(); poseSign(m, r < 0.2 ? "poles" : r < 0.4 ? "high" : "low"); }
+    poseSign(m, posePick(m.K));
     m.root.position.set(h.x, TOP + h.y, h.z); m.root.setEnabled(true);
     m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
     m.state = "rise"; m.t = 0; m.delay = delay;
@@ -681,27 +757,13 @@
   let region = { x0: 0, y0: 0, x1: 100, y1: 100 };
   const lying = () => canvas.clientWidth >= canvas.clientHeight * 1.15;
   function measure(el) { return el && el.offsetParent !== null ? el.getBoundingClientRect() : null; }
-  function placeGuide() {
-    const W = innerWidth, H = innerHeight, g = $("guide"), btn = $("doorGame").getBoundingClientRect().width || 60;
-    const eT = css("--edge-t") || 12, eL = css("--edge-l") || 12, eB = css("--edge-b") || 12, gap = Math.max(8, btn * 0.2);
-    let w;
-    if (lying()) {
-      const colGap = $("gear").getBoundingClientRect().top - $("doorGame").getBoundingClientRect().bottom || 20;
-      w = Math.min(W * 0.2, (H - eT - eB - btn - gap) * 120 / 172, 300);
-      g.style.left = (eL + btn + colGap) + "px"; g.style.top = eT + "px"; g.style.width = w + "px"; g.style.transform = "";
-      $("guidePic").style.width = w + "px";
-    } else {
-      const pill = measure($("stars")), top = Math.max(eT, pill ? pill.bottom + 8 : eT + btn + 8);
-      w = Math.min(W * 0.4, (H * 0.3) * 120 / 172, 260);
-      g.style.left = "50%"; g.style.top = top + "px"; g.style.width = "auto"; g.style.transform = "translateX(-50%)";
-      $("guidePic").style.width = w + "px";
-    }
-  }
+  function placeGuide() {}   // the letter pill sits in the CSS place of every game
   function measureRegion() {
-    const W = canvas.clientWidth, H = canvas.clientHeight, gr = $("guide").getBoundingClientRect(), m = Math.max(8, Math.min(W, H) * 0.02);
+    const W = canvas.clientWidth, H = canvas.clientHeight, gr = $("prompt").getBoundingClientRect(), m = Math.max(8, Math.min(W, H) * 0.02);
     const pill = measure($("stars")), hg = HG && HG.el && !HG.el.hidden ? HG.el.getBoundingClientRect() : null;
     const gearB = $("gear").getBoundingClientRect().bottom || 150, hgW = hg ? hg.width : 64;
-    if (lying()) region = { x0: (gr.width ? gr.right : 200) + m, y0: (pill ? pill.bottom : 70) + m, x1: W - (css("--edge-r") || 12) - hgW - m, y1: H - (css("--edge-b") || 12) };
+    const doorR = $("doorGame").getBoundingClientRect().right || 90;
+    if (lying()) region = { x0: doorR + m, y0: Math.max(pill ? pill.bottom : 70, gr.height ? gr.bottom : 70) + m, x1: W - (css("--edge-r") || 12) - hgW - m, y1: H - (css("--edge-b") || 12) };
     else region = { x0: m, y0: Math.max(gr.height ? gr.bottom : 220, gearB, hg ? hg.bottom : 0) + m, x1: W - m, y1: H - (css("--edge-b") || 12) };
   }
   const tmpM = new BABYLON.Matrix();
@@ -819,21 +881,12 @@
     return s.replace(/^<svg /, '<svg x="28" y="52" width="64" height="66" ');
   }
   function drawGuide() {
-    const bi = settings.balloon != null ? settings.balloon : 0, p = prof();
-    const col = p && LRN ? LRN.COMP_COLORS[p.color || 0] : "#ffa94d";
-    const ball = balloonSvg(bi, "gb").replace("<svg ", '<svg x="24" y="-6" width="72" height="96" ');
-    const isQ = guide.letter === "?";
-    $("guidePic").innerHTML = `<svg class="g-pic" viewBox="0 0 120 172" role="img" aria-label="השלט">
-<g class="g-all">${ball}
-<g class="g-comp">${compSvg(guide.face)}</g>
-<g class="g-sign${guide.hint ? " hint" : ""}">
-<rect class="board" x="16" y="108" width="88" height="62" rx="10" fill="#fffaf0" stroke="#a0703f" stroke-width="4"/>
-<text x="60" y="${isQ ? 141 : 140}" font-size="${isQ ? 42 : 46}" font-weight="800" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans Hebrew, sans-serif" fill="${isQ ? "#7c5cff" : "#1d2a3a"}">${guide.letter}</text>
-<circle cx="22" cy="111" r="7.5" fill="${col}"/><circle cx="98" cy="111" r="7.5" fill="${col}"/></g>
-<text class="g-clock" x="104" y="80" font-size="20" text-anchor="middle">⏰</text></g></svg>`;
+    const pr = $("prompt"), show = guide.letter && guide.letter !== "?";
+    $("target").textContent = show ? guide.letter : "";
+    pr.classList.toggle("listen", !show); pr.classList.toggle("hint", !!guide.hint);
   }
   function guideReact(kind) {
-    const g = $("guide"); clearTimeout(guide.react);
+    const g = $("prompt"); clearTimeout(guide.react);
     g.classList.remove("yay", "oops", "timeup"); void g.offsetWidth;
     guide.face = kind; drawGuide(); g.classList.add(kind);
     guide.react = setTimeout(() => { g.classList.remove(kind); guide.face = "calm"; drawGuide(); }, kind === "timeup" ? 1500 : 1300);
@@ -851,6 +904,11 @@
   const seenSet = () => (freeSeen[pid()] = freeSeen[pid()] || new Set());
   let form = null, pk = null;
   const chosenLetters = () => { try { return pk && !pk.isAuto() ? pk.get().slice() : []; } catch (e) { return []; } };
+  // Golan 23.10: only a new letter is written next to the speaker; a letter the child has met is heard only
+  function isNewLetter(l) {
+    if (!LRN || !LRN.card) return true;
+    try { const k = LRN.card(l); if (!k) return true; return k.recognize.state === "new" && (!k.name || k.name.state !== "known"); } catch (e) { return true; }
+  }
   function pickLetter() {
     const chosen = chosenLetters(), all = [...LETTERS, ...FINALS];
     if (visit && LRN) {
@@ -877,7 +935,7 @@
   function askNext() {
     if (HG && HG.done()) return endRound();   // the sand ran out: the round ends after the mole that was out
     const v = pickLetter(), t = v.letter, n = MOLES[lvl()];
-    const shown = lvl() === 1 && !v.listen && !seenSet().has(t);
+    const shown = !v.listen && isNewLetter(t);
     const pool = otherLetters(t, n + 3);   // the other letters; a mole that comes up again takes one that is not out
     const q = { letter: t, listen: !!v.listen, shown, pool, letters: shuffle([t, ...pool.slice(0, n - 1)]), out: new Set(), rotLeft: null, rotPhase: "duck", rotMole: null, wrongs: 0, firstWrong: null, hint: false,
       armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0, phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false };
@@ -898,7 +956,7 @@
   }
   // Golan 23.10 (levels 2 and 3): after the first time, the moles go down and come up one after another: a mole goes down,
   // 2 s later it comes up in another hole with another letter, 2 s later the next mole goes down, and so on
-  const ROT_GAP = 2000;
+  const ROT_GAP = 1000;   // faster (Golan 23.10, was 2 s)
   function rotateStep(q) {
     const n = MOLES[lvl()], out = moles.filter((m) => m.state === "rise" || m.state === "up");
     if (q.rotPhase === "duck") {
@@ -1008,7 +1066,7 @@
     const v = pickLetter();
     const t = L.includes(v.letter) ? v.letter : pick(L.filter((l) => l !== state.lastLetter).length ? L.filter((l) => l !== state.lastLetter) : L);
     const listen = L.includes(v.letter) ? !!v.listen : false;
-    const shown = lvl() === 1 && !listen && !seenSet().has(t);
+    const shown = !listen && isNewLetter(t);
     const q = { letter: t, listen, shown, pool: prev.pool, letters: L.slice(), out: new Set(), rotLeft: prev.rotLeft, rotPhase: prev.rotPhase, rotMole: prev.rotMole,
       wrongs: 0, firstWrong: null, hint: false, armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0,
       phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: out.map((k) => k.hole), rec: false };
@@ -1248,6 +1306,7 @@
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
   }
   const whoReady = LRN ? LRN.chooseChild() : Promise.resolve();
+  whoReady.then(() => setTimeout(moleThumbs, 300));   // the picker's pictures are ready before the child gets there
   whoReady.then(() => { genderTexts(); renderLetters(); layoutHoles(); drawGuide(); }).then(() => later(autoIntro, 1500));
   $("doorStart").addEventListener("click", (e) => {
     e.stopPropagation(); leaveScreen(); $("go").classList.remove("pressed");
@@ -1266,18 +1325,25 @@
     later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
   });
   function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; openPick(); }
-  // ---------- balloon picker: the same 9 balloons, voice and reminder as every game; the companion rides in it ----------
-  const PICK_STEP = 420;
-  let pickNagT = 0, pickFlashTs = [], picking = false, pickSaid = 0;
+  // ---------- mole picker (Golan 23.10, instead of the balloon): 9 kinds of moles, the child picks 4 for this round ----------
+  const PICK_STEP = 420, PICK_N = 4;
+  let pickNagT = 0, pickFlashTs = [], picking = false, pickSaid = 0, picked = [];
   function openPick() {
     if (starCount) starCount.reset();
-    const box = $("balloons"); box.textContent = "";
-    BALLOONS.forEach((d, i) => {
-      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "כדור " + (i + 1)); b.innerHTML = balloonSvg(i);
-      b.addEventListener("click", () => pickBalloon(i)); box.append(b);
+    const box = $("balloons"); box.textContent = ""; box.dataset.need = String(PICK_N); picked = [];
+    KINDS.forEach((K, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "חפרפרת " + (i + 1)); b.setAttribute("aria-pressed", "false");
+      b.innerHTML = '<img alt="" draggable="false"><span class="pick-n"></span>';
+      b.addEventListener("click", () => pickMole(i)); box.append(b);
     });
+    moleThumbs().then((list) => list.forEach((src, i) => { const im = box.children[i] && box.children[i].querySelector("img"); if (im && src) im.src = src; }));
+    drawPickDots();
     $("balloonPick").hidden = false; clearTimeout(pickNagT); pickSaid = 0;
     later(() => { if (!$("balloonPick").hidden && !picking) { say(gl(LINES.pick)); pickSaid++; setTimeout(() => whenQuiet(pickNag), 300); } }, 700);
+  }
+  function drawPickDots() {
+    const d = $("pickDots"); d.textContent = "";
+    for (let k = 0; k < PICK_N; k++) { const sp = document.createElement("span"); if (k < picked.length) sp.className = "on"; d.append(sp); }
   }
   function stopPickFlash() { clearTimeout(pickNagT); pickFlashTs.forEach(clearTimeout); pickFlashTs = []; [...$("balloons").children].forEach((b) => b.classList.remove("flash")); }
   function pickNag() {
@@ -1285,17 +1351,22 @@
     pickNagT = setTimeout(() => {
       if ($("balloonPick").hidden || picking) return;
       if (pickSaid < 2) { say(gl(LINES.pick)); pickSaid++; }
-      const btns = shuffle([...$("balloons").children]);
+      const btns = shuffle([...$("balloons").children].filter((b, i) => !picked.includes(i)));
       btns.forEach((b, i) => pickFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * PICK_STEP)));
       pickFlashTs.push(setTimeout(() => whenQuiet(pickNag), btns.length * PICK_STEP + 1000));
     }, 4000);
   }
-  function pickBalloon(i) {
-    if (picking) return; picking = true; stopPickFlash(); const pickedAt = performance.now();
-    settings.balloon = i; saveSettings();
-    [...$("balloons").children].forEach((b, k) => { b.setAttribute("aria-pressed", String(k === i)); b.classList.toggle("chosen", k === i); });
+  function pickMole(i) {
+    if (picking) return; stopPickFlash(); sfx.tap();
+    const k = picked.indexOf(i);
+    if (k >= 0) picked.splice(k, 1); else if (picked.length < PICK_N) picked.push(i);
+    [...$("balloons").children].forEach((b, j) => { const n = picked.indexOf(j); b.setAttribute("aria-pressed", String(n >= 0)); b.classList.toggle("sel", n >= 0); b.querySelector(".pick-n").textContent = n >= 0 ? String(n + 1) : ""; });
+    drawPickDots();
+    if (picked.length < PICK_N) { whenQuiet(pickNag); return; }
+    picking = true; const pickedAt = performance.now();
     say(Math.random() < 0.5 ? LINES.choice1 : LINES.choice2);
-    whenQuiet(() => setTimeout(() => { picking = false; if ($("balloonPick").hidden) return; $("balloonPick").hidden = true; $("hud").hidden = false; countdown(); }, Math.max(250, 1900 - (performance.now() - pickedAt))));
+    buildMoles(picked.slice());
+    whenQuiet(() => setTimeout(() => { picking = false; if ($("balloonPick").hidden) return; $("balloonPick").hidden = true; $("hud").hidden = false; countdown(); }, Math.max(250, 1500 - (performance.now() - pickedAt))));
   }
 
   // ---------- 3, 2, 1, then the first moles come up ----------
@@ -1333,7 +1404,7 @@
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
 
   // test hook for automated checks (games/tests/check-games.js): targets() = where the right and wrong moles are on the screen
-  window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, screenOf, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
+  window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, openPick, buildMoles, moleThumbs, screenOf, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
     region: () => fitInfo,
     targets: () => { const q = state.q; if (state.mode !== "play" || !q || q.done) return null;
       const up = moles.filter((m) => m.state === "up"), r = canvas.getBoundingClientRect(), at = (m) => { const s = screenOf(m); return { x: r.left + s.x, y: r.top + s.y, letter: m.letter }; };
