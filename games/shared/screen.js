@@ -201,7 +201,7 @@
 
   // "התחל מחדש" (Golan 23.10, all games): a round button under the gear, a green arrow in a circle. It copies the gear's
   // look and sits under it at the same gap as the gear under the door; the game says what a restart does.
-  const RESTART_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:58%;height:58%"><path d="M12 4.2a7.8 7.8 0 1 1-7.5 9.9" fill="none" stroke="#34b36b" stroke-width="2.9" stroke-linecap="round"/><path d="M12 0.6 L16.6 4.3 L12 8 Z" fill="#34b36b" stroke="#34b36b" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  const RESTART_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:66%;height:66%"><path d="M5.6 8.6A7.6 7.6 0 1 1 4.6 13.4" fill="none" stroke="#34b36b" stroke-width="4" stroke-linecap="round"/><path d="M2.4 2.6 L2.2 11.2 L10.4 9.8 Z" fill="#34b36b" stroke="#34b36b" stroke-width="1.6" stroke-linejoin="round"/></svg>';   // option 1, thicker, turning left (Golan 23.10)
   function restartButton(onClick) {
     const gear = doc.getElementById("gear"); if (!gear || doc.getElementById("flRestart")) return null;
     const b = doc.createElement("button"); b.type = "button"; b.id = "flRestart"; b.className = gear.className.replace(/\bgear\b/, "").trim() + " fl-restart";
