@@ -606,7 +606,7 @@
     }
     return clipCache[id];
   }
-  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "ins_memory", "ins_balloon", "mem_next", "day_break", "day_end"];
+  const LINES = ["fb_bravo", "fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "ins_memory", "ins_balloon", "mem_next", "day_break", "day_end"];
   const CHILD_LINES = ["ins_memory", "ins_balloon", "mem_next", "day_break"];   // boy / girl versions first, else the plural clip
   LINES.forEach(getClip); Object.values(NAME_CLIP).forEach(getClip);
   if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
@@ -940,7 +940,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     askT.forEach(clearTimeout); askT = [];
     $("levelAsk").hidden = true; $("board").hidden = true; progress.wins = 0; saveProgress();   // no flash of the old board before the new one (Golan 22.10)
     if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); }
-    say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");
+    say(up ? "fb_bravo" : Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
     // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
     later(800, () => { if (HG && HG.done()) endRound(); else whenQuiet(() => later(150, newBoard)); });
   }
