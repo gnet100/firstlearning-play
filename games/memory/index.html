@@ -6,8 +6,8 @@
 <title>משחק זיכרון</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
   :root {
@@ -374,6 +374,12 @@
   .mstar { position: absolute; left: 0; top: 0; translate: -38% -38%; line-height: 0; z-index: 2; pointer-events: none; animation: cardIn .45s cubic-bezier(.3, 1.6, .5, 1) both; }
   /* the surprise card: every closed card peeks for a moment */
   .card.surprise-pop .face.front { animation: memPop .8s ease-out both; }
+  /* the balloon flies up out of its card and is gone (Golan 23.10); its card stays empty behind it */
+  .card.flown .face.front svg { visibility: hidden; }
+  .fly-balloon { position: absolute; translate: -50% -50%; pointer-events: none; z-index: 30; filter: drop-shadow(0 0 10px #ffe082); animation: memFly var(--fd, 1.4s) cubic-bezier(.45, 0, .7, .4) forwards; }
+  .fly-balloon svg { width: 100%; height: 100%; }
+  @keyframes memFly { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 30% { transform: translate(-8%, -40%) scale(1.08) rotate(-6deg); }
+    60% { transform: translate(10%, -110%) scale(1.04) rotate(5deg); opacity: 1; } 100% { transform: translate(-6%, -230%) scale(.9) rotate(-3deg); opacity: 0; } }
   @keyframes memPop { 0% { transform: rotateY(180deg) scale(1); } 40% { transform: rotateY(180deg) scale(1.18); filter: brightness(1.2) drop-shadow(0 0 12px #ffd54f); } 100% { transform: rotateY(180deg) scale(1); } }
   @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   /* the level question: two drawn boards, the child touches one */
@@ -750,7 +756,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     });
     // the cards are dealt face down one after another, each with a card flick (Golan 21.10), then a shuffle mixes them
     // into their own cells (spec 13)
-    const start = shuffle(state.cards.map((c) => c.cell)); state.cards.forEach((c, k) => (c.at = start[k]));
+    // the balloon (hint) cards go straight to their own cells and stay there; only the letter cards mix (Golan 23.10)
+    const lettersC = state.cards.filter((c) => !c.surprise), start = shuffle(lettersC.map((c) => c.cell));
+    lettersC.forEach((c, k) => (c.at = start[k])); state.cards.forEach((c) => { if (c.surprise) c.at = c.cell; });
     box.hidden = false; layout();
     state.mode = "shuffle";
     const br = box.getBoundingClientRect();
@@ -770,9 +778,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function shuffleAnim(passes, done) {
     const pass = (k) => {
       if (state.mode !== "shuffle") return;
-      const to = k > 1 ? shuffle(state.cards.map((c) => c.cell)) : state.cards.map((c) => c.cell);
+      const mix = state.cards.filter((c) => !c.surprise), to = k > 1 ? shuffle(mix.map((c) => c.cell)) : mix.map((c) => c.cell);
       const d = ms(560);
-      state.cards.forEach((c, j) => { c.at = to[j]; c.el.style.transition = `left ${d}ms cubic-bezier(.5,.05,.3,1), top ${d}ms cubic-bezier(.5,.05,.3,1)`; c.el.style.zIndex = 1 + Math.floor(Math.random() * 5); });
+      mix.forEach((c, j) => { c.at = to[j]; c.el.style.transition = `left ${d}ms cubic-bezier(.5,.05,.3,1), top ${d}ms cubic-bezier(.5,.05,.3,1)`; c.el.style.zIndex = 1 + Math.floor(Math.random() * 5); });
       layout(); cardSnd(true); later(d * 0.45, () => cardSnd(true));
       later(d + 60, () => { if (k > 1) pass(k - 1); else { state.cards.forEach((c) => { c.el.style.transition = ""; c.el.style.zIndex = ""; }); done(); } });
     };
@@ -855,15 +863,21 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     });
   }
   // a hint card (the balloon): every closed card peeks for a moment, then the hint card is gone (spec 4, Golan 21.10: works once)
+  // a hint card (the balloon), Golan 23.10: the balloon flies up out of the card and is gone, then the card is gone,
+  // then every closed card peeks for a moment (spec 4, Golan 21.10: works once)
   function surprise(c) {
     state.busy = true; c.el.classList.add("surprise-pop"); sfx.magic();
-    later(ms(900), () => {
-      const closed = state.cards.filter((x) => x.state === "closed" && !x.surprise);
-      closed.forEach((x) => x.el.classList.add("peek"));
-      later(ms(1600), () => {
-        closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide();
+    later(ms(700), () => {
+      const p = cardCenter(c), f = document.createElement("div"); f.className = "fly-balloon"; f.innerHTML = balloonSvg(balloonIndex());
+      f.style.left = p.x + "px"; f.style.top = p.y + "px"; f.style.width = f.style.height = Math.round(p.w * 0.78) + "px"; f.style.setProperty("--fd", ms(1400) + "ms");
+      $("fx").append(f); c.el.classList.add("flown"); setTimeout(() => f.remove(), ms(1500));
+      later(ms(1100), () => {
         c.state = "used"; c.el.classList.remove("surprise-pop"); c.el.classList.add("gone");
-        later(ms(450), () => { state.busy = false; });
+        later(ms(650), () => {
+          const closed = state.cards.filter((x) => x.state === "closed" && !x.surprise);
+          closed.forEach((x) => x.el.classList.add("peek"));
+          later(ms(1600), () => { closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
+        });
       });
     });
   }
@@ -1072,6 +1086,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     state.mode = "ready"; $("board").hidden = true;
     const box = $("count");
     ["3", "2", "1"].forEach((n, i) => setTimeout(() => {

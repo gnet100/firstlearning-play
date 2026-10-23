@@ -6,8 +6,8 @@
 <title>האות שמתעוררת</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
   :root {
@@ -1823,6 +1823,7 @@
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     state.mode = "ready"; state.q = null; hideSigns(true); showMagic(false); $("prompt").classList.remove("listen");
     setPrompt(gt("מוכנים?", "מוכן?", "מוכנה?"), ""); state.qIndex = 0; setRoundLength(); renderDots();
     const box = $("count"), steps = [["3", "#10b947"], ["2", "#10b947"], ["1", "#10b947"]];   // all glowing green, as in the car game (Golan, 15.10)

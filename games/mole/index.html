@@ -6,8 +6,8 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
 /* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
    1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
@@ -388,7 +388,7 @@
   const whereId = (l) => "lc_" + CLIP_OF_LETTER[l];   // lc_name_bet, lc_fin_kaf
   const FALLBACK = {}; for (const l of [...LETTERS, ...FINALS]) FALLBACK[whereId(l)] = CLIP_OF_LETTER[l] === "name_zayin" ? ["name_zayin"] : ["lc_where", CLIP_OF_LETTER[l]];
   // a wrong mole: "זֹאת הָאוֹת" (this_is, tell-me's clip) + the touched letter's name, then the question again
-  const CLIP_END = { this_is: 1.0 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (tell-me, Golan 15.10)
+  const CLIP_END = { this_is: 0.97 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (tell-me, Golan 15.10)
   const GENDERED = ["ins_molepick", "ins_mole"];   // ins_molepick (requested 23.10): "בְּחַר / בַּחֲרִי / בַּחֲרוּ 4 חֲפַרְפָּרוֹת"
   GENDERED.forEach((id) => { FALLBACK[id + "_m"] = [id]; FALLBACK[id + "_f"] = [id]; });
   const LINES = { go: "fb_go", done: "fb_round_done", choice1: "fb_choice1", choice2: "fb_choice2", pick: "ins_molepick", correct: "fb_correct", thisIs: "this_is",
@@ -411,7 +411,7 @@
     if (voiceHold()) { heldSeq = [ids, rate, onEnd, onEach]; return; }
     curSeq = [ids, rate, onEnd, onEach];
     const my = ++seqTok; if (clipNow) clipNow.pause(); seqBusy = true;
-    const list = ids.slice(); let i = 0;
+    const list = ids.slice(); let i = 0; list.forEach(getClip);   // all the clips start loading now, so the next one follows at once
     const finish = () => { if (my !== seqTok) return; seqBusy = false; clipNow = null; curSeq = null; if (onEnd) onEnd(); };
     const next = () => {
       if (my !== seqTok) return;
@@ -421,8 +421,10 @@
       if (a._bad) { if (FALLBACK[id]) list.splice(i, 0, ...FALLBACK[id]); return next(); }
       a._failed = false;
       try {
-        a.currentTime = 0; a.playbackRate = rate; clipNow = a;
-        let gone = false; const done = () => { if (gone || my !== seqTok) return; gone = true; a.ontimeupdate = null; setTimeout(next, 60); };
+        // a letter's name right after "זֹאת הָאוֹת" skips its quiet start, with no pause between (Golan 23.10: the gap was too long)
+        const glued = /^name_/.test(id) && list[i - 2] === "this_is";
+        a.currentTime = glued ? 0.1 : 0; a.playbackRate = rate; clipNow = a;
+        let gone = false; const done = () => { if (gone || my !== seqTok) return; gone = true; a.ontimeupdate = null; if (id === "this_is") next(); else setTimeout(next, 60); };
         a.onended = done;
         a.ontimeupdate = CLIP_END[id] ? () => { if (a.currentTime >= CLIP_END[id]) { a.pause(); done(); } } : null;
         const p = a.play(); if (p && p.catch) p.catch(fail);
@@ -734,7 +736,9 @@
     const boxes = others.map((k) => screenBox(k.K, k.hole, k.pose));
     const want = posePick(m.K), poses = [want, ...["low", "high", "poles"].filter((p) => p !== want)];
     const cand = shuffle(holes.map((h, i) => (h.on && !taken.includes(i) && !avoid.includes(i) ? i : -1)).filter((i) => i >= 0));
-    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (!boxes.some((o) => hits(o, b))) return { hi, pose }; }
+    // nothing under the letter strip, the door, the gear or the stars either (Golan 23.10: the speaker hid a sign)
+    const inside = (b) => b.y0 >= region.y0 - 2 && b.x0 >= region.x0 - 2 && b.x1 <= region.x1 + 2;
+    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (inside(b) && !boxes.some((o) => hits(o, b))) return { hi, pose }; }
     return null;
   }
   function placeMole(m, hi, letter, hint, delay, pose) {
@@ -1418,6 +1422,7 @@
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     state.mode = "ready"; state.q = null;
     moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
     layoutHoles(); setSign("?", false); onScreen();
@@ -1449,7 +1454,7 @@
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
 
   // test hook for automated checks (games/tests/check-games.js): targets() = where the right and wrong moles are on the screen
-  window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, openPick, buildMoles, moleThumbs, screenOf, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
+  window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, openPick, buildMoles, moleThumbs, screenOf, screenBox, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
     region: () => fitInfo,
     targets: () => { const q = state.q; if (state.mode !== "play" || !q || q.done) return null;
       const up = moles.filter((m) => m.state === "up"), r = canvas.getBoundingClientRect(), at = (m) => { const s = screenOf(m); return { x: r.left + s.x, y: r.top + s.y, letter: m.letter }; };

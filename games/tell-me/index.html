@@ -15,8 +15,8 @@
   differs, a comment says why. Content is a draft until the language advisor approves it.
 -->
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   :root {
     --sky: #bfe6ff;
@@ -629,7 +629,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     "ט": "טֵית", "י": "יוֹד", "כ": "כַּף", "ל": "לָמֶד", "מ": "מֵם", "נ": "נוּן", "ס": "סָמֶךְ", "ע": "עַיִן", "פ": "פֵּא",
     "צ": "צָדִי", "ק": "קוֹף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו",
     "ך": "כַף סוֹפִית", "ם": "מֵם סוֹפִית", "ן": "נוּן סוֹפִית", "ף": "פֵּא סוֹפִית", "ץ": "צָדִי סוֹפִית" };
-  const CLIP_END = { this_is: 1.0 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (Golan 15.10: gap too long)
+  const CLIP_END = { this_is: 0.97 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (Golan 15.10: gap too long)
   // Lines that speak to the child alone get a boy and a girl version (<id>_m / <id>_f, by the child's card);
   // until those are recorded the neutral clip plays. Co-play lines stay plural.
   const GENDERED = ["say_too", "day_break", "ins_tellme", "ins_balloon4", "ins_balloon", "ask_letters"];   // Golan 16.10: spoken lines to the child follow boy/girl too
@@ -669,9 +669,9 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   // Golan 16.10 (all games): no voice while settings is open. A line asked for then waits until it closes.
   let settingsWaiters = [];
   const settingsOpen = () => !$("settings").hidden;
-  function speak(text, rate = 0.8, fromSpeaker = false, fallback = null) {
-    if (settingsOpen()) { const tok = voiceToken; return new Promise((r) => settingsWaiters.push(r)).then(() => (tok === voiceToken ? speak(text, rate, fromSpeaker, fallback) : undefined)); }
-    if (!fromSpeaker && spkLine) { const tok = voiceToken; return spkLine.then(() => (tok === voiceToken ? speak(text, rate, false, fallback) : undefined)); }
+  function speak(text, rate = 0.8, fromSpeaker = false, fallback = null, from = 0) {
+    if (settingsOpen()) { const tok = voiceToken; return new Promise((r) => settingsWaiters.push(r)).then(() => (tok === voiceToken ? speak(text, rate, fromSpeaker, fallback, from) : undefined)); }
+    if (!fromSpeaker && spkLine) { const tok = voiceToken; return spkLine.then(() => (tok === voiceToken ? speak(text, rate, false, fallback, from) : undefined)); }
     return new Promise((resolve) => {
       if (settings.voice !== "on") { pulsePrompt(); return later(resolve, 700); }
       const my = voiceToken;
@@ -686,7 +686,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
       if (!a || a._bad) return viaBrowser();
       try {
         if (clipNow && clipNow !== a) clipNow.pause();
-        a.currentTime = 0; a.playbackRate = rate <= 0.6 ? 0.85 : 1;   // the replay hint plays a little slower
+        a.currentTime = from; a.playbackRate = rate <= 0.6 ? 0.85 : 1;   // the replay hint plays a little slower
         clipNow = a;
         a.onended = () => { if (my === voiceToken) finish(); };
         // some clips end with a long silence: stop at the end of the speech so the next word follows quickly
@@ -1282,8 +1282,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
       state.cardAnim = { phase: "show", t: 0 };
       state.roundLater++;
       await speak("זאת האות", 0.8); if (my !== state.flow) return;
-      await gap(120); if (my !== state.flow) return;   // a short pause before the name (language advisor), kept short (Golan 15.10)
-      await speak(q.letter, 0.6); if (my !== state.flow) return;
+      await speak(q.letter, 0.6, false, null, 0.1);   // right after, without the name's quiet start (Golan 23.10: the gap was too long) if (my !== state.flow) return;
       await gap(450); if (my !== state.flow) return;
       $("label").textContent = "עכשיו תגידו אתם!";   // also on screen, while the clip is not recorded yet
       await speak("עכשיו אתם", 1); if (my !== state.flow) return;
@@ -1737,6 +1736,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     state.mode = "ready"; state.q = null; state.queue = []; state.results = []; renderDots(); setJudge(false); card.setEnabled(false);
     const box = $("count"), steps = [["3", "#10b947"], ["2", "#10b947"], ["1", "#10b947"]];   // all glowing green (Golan, 15.10)
     steps.forEach(([n, col], i) => setTimeout(() => {

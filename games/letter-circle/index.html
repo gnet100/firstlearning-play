@@ -6,8 +6,8 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
 /* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
    1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
@@ -1492,6 +1492,7 @@
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     state.mode = "ready"; state.q = null; state.liftGoal = 0; state.lift = 0;
     clouds.forEach((c) => { c.state = "off"; c.root.setEnabled(false); }); clearTags();
     state.s = null; renderDots(); layout(ringSize(), 0);

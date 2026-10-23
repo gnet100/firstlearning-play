@@ -6,8 +6,8 @@
 <title>רכבת האותיות</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- the font travels with the game: no internet needed (screens standard sec 9) -->
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Screens, buttons, sizes and colours are copied from the car-and-gates game (voice/race-gates-voice), so both feel like one game. */
   :root {
@@ -2358,6 +2358,7 @@
   let countToken = 0;
   function countdown() {
     const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     clearTimers(); state.phase = "ready"; state.letter = null; state.flyUp = null; state.lift = 0; state.needCrate = false; dropStar();
     for (const c of cars) { for (const k of c.cubes || []) { k.root.dispose(); crates.splice(crates.indexOf(k), 1); } c.cubes = []; c.count = 0; }
     if (state.crate) { state.crate.root.dispose(); crates.splice(crates.indexOf(state.crate), 1); state.crate = null; } for (const m of state.lost) { m.cr.root.dispose(); crates.splice(crates.indexOf(m.cr), 1); } state.lost.length = 0;

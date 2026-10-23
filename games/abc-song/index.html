@@ -6,8 +6,8 @@
 <title>שיר האלף-בית</title>
 <link rel="stylesheet" href="../shared/fonts/fonts.css">
 <style>
-    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 1.5 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 1.5s forwards; }
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* שיר האלף-בית (Golan 21.10, spec summaries/station1-new-games-spec.md): a live animation that follows the song.
      The 22 sleeping letters of "האות שמתעוררת" wake one by one as they are sung, the word picture pops up big in the

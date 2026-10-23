@@ -157,6 +157,40 @@
   if (doc.readyState === "loading" && !doc.body) doc.addEventListener("DOMContentLoaded", start); else start();
   // the start panel shows only once the screen is measured and the fonts are in (each game's CSS hides
   // html:not(.fl-ready) #start, and shows it anyway after 1.5 s), so it does not jump in size (Golan 23.10)
-  const ready = () => requestAnimationFrame(() => html.classList.add("fl-ready"));
-  if (doc.fonts && doc.fonts.ready) Promise.race([doc.fonts.ready, new Promise((r) => setTimeout(r, 1200))]).then(ready, ready); else ready();
+  // also waits for the whole page (the 3D script and the first picture of the world behind it), so the panel does not
+  // first show on an empty background and then move (Golan 23.10)
+  const ready = () => requestAnimationFrame(() => requestAnimationFrame(() => html.classList.add("fl-ready")));
+  const loaded = new Promise((r) => (doc.readyState === "complete" ? r() : root.addEventListener("load", r, { once: true })));
+  const fonts = doc.fonts && doc.fonts.ready ? doc.fonts.ready : Promise.resolve();
+  Promise.race([Promise.all([loaded, fonts]), new Promise((r) => setTimeout(r, 2800))]).then(ready, ready);
+
+  // one start window for every game (Golan 23.10: same size and same fonts everywhere), drawn on the 1280x720 board
+  const std = doc.createElement("style"); std.id = "fl-start-std";
+  std.textContent = `
+    html[data-screen] #start > .panel { width: min(100%, max(calc(640 * var(--u)), 340px)); max-width: none; box-sizing: border-box;
+      padding: max(calc(28 * var(--u)), 14px) max(calc(24 * var(--u)), 14px); border-radius: max(calc(28 * var(--u)), 18px); }
+    html[data-screen] #start > .panel h1 { font-size: max(calc(44 * var(--u)), 24px); margin: 0 0 calc(8 * var(--u)); line-height: 1.3; }
+    html[data-screen] #start > .panel > p { font-size: max(calc(24 * var(--u)), 17px); margin: calc(6 * var(--u)) 0 calc(18 * var(--u)); line-height: 1.35; }
+    html[data-screen] #start { --h: max(calc(76 * var(--u)), var(--tap)); place-items: center; padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+    html[data-screen] #start #go { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--h); height: var(--h); padding-block: 0; }
+    html[data-screen] #start #hear { width: var(--h); min-width: var(--h); height: var(--h); min-height: 0; padding: 0; }
+    html.fl-counting #count { z-index: 60; }
+    html.fl-counting #count::before { content: ""; position: fixed; inset: 0; background: var(--sky, #bfe6ff); z-index: -1; }`;
+  (doc.head || html).appendChild(std);
+
+  // the 3-2-1 countdown is on the page's clean light blue, with nothing of the game behind it (Golan 23.10, all games):
+  // each game's countdown() adds html.fl-counting; it goes when the count ends (the numbers box empties) or the start window is back
+  function watchCount() {
+    const st = doc.getElementById("start"), cnt = doc.getElementById("count");
+    if (!st || !cnt) return;
+    let had = false;
+    new MutationObserver(() => {
+      if (!st.hidden) { html.classList.remove("fl-counting"); had = false; }
+    }).observe(st, { attributes: true, attributeFilter: ["hidden"] });
+    new MutationObserver(() => {
+      if (cnt.childElementCount) { had = true; html.classList.add("fl-counting"); }
+      else if (had) { had = false; html.classList.remove("fl-counting"); }
+    }).observe(cnt, { childList: true });
+  }
+  if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", watchCount); else watchCount();
 })(typeof window !== "undefined" ? window : this);
