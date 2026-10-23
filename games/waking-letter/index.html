@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
   :root {
@@ -1850,6 +1850,8 @@
     $("start").hidden = false;
   }
   ["doorGame", "doorPick", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; clearTags(); openPick(); });
   // a tap outside a popup closes it, like one step back (Golan 16.10, all games). The press and the release must both be outside,
   // so a drag that starts inside the panel never closes it.
   function outsideTap(el, inside, close) {

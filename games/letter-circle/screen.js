@@ -174,6 +174,11 @@
     html[data-screen] #start { --h: max(calc(76 * var(--u)), var(--tap)); place-items: center; padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
     html[data-screen] #start #go { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--h); height: var(--h); padding-block: 0; }
     html[data-screen] #start #hear { width: var(--h); min-width: var(--h); height: var(--h); min-height: 0; padding: 0; }
+    #flRestart { background: var(--card, #fff); box-shadow: 0 4px 16px #0002; display: grid; place-items: center; padding: 0; }
+    body:has(#end:not([hidden])) #flRestart { visibility: hidden; }
+    /* until the game starts: the page's clean light blue, nothing of the 3D world behind (Golan 23.10, all games but the song) */
+    html:not(.fl-keep-bg) #start, html:not(.fl-keep-bg) #pick, html:not(.fl-keep-bg) #balloonPick, html:not(.fl-keep-bg) #carPick,
+    html:not(.fl-keep-bg) #agePick, html:not(.fl-keep-bg) #levelAsk { background: var(--sky, #bfe6ff); }
     html.fl-counting #count { z-index: 60; }
     html.fl-counting #count::before { content: ""; position: fixed; inset: 0; background: var(--sky, #bfe6ff); z-index: -1; }`;
   (doc.head || html).appendChild(std);
@@ -193,4 +198,25 @@
     }).observe(cnt, { childList: true });
   }
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", watchCount); else watchCount();
+
+  // "התחל מחדש" (Golan 23.10, all games): a round button under the gear, a green arrow in a circle. It copies the gear's
+  // look and sits under it at the same gap as the gear under the door; the game says what a restart does.
+  const RESTART_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:58%;height:58%"><path d="M12 4.2a7.8 7.8 0 1 1-7.5 9.9" fill="none" stroke="#34b36b" stroke-width="2.9" stroke-linecap="round"/><path d="M12 0.6 L16.6 4.3 L12 8 Z" fill="#34b36b" stroke="#34b36b" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  function restartButton(onClick) {
+    const gear = doc.getElementById("gear"); if (!gear || doc.getElementById("flRestart")) return null;
+    const b = doc.createElement("button"); b.type = "button"; b.id = "flRestart"; b.className = gear.className.replace(/\bgear\b/, "").trim() + " fl-restart";
+    b.setAttribute("aria-label", "התחל מחדש"); b.setAttribute("data-tip", "התחל מחדש"); b.innerHTML = RESTART_ICO;
+    gear.after(b);
+    const place = () => { const gs = getComputedStyle(gear), door = doc.getElementById("doorGame");
+      const gap = door && door.offsetParent === gear.offsetParent ? Math.max(6, gear.offsetTop - door.offsetTop - door.offsetHeight) : 10;
+      b.style.position = "absolute"; b.style.left = gs.left; b.style.width = gs.width; b.style.height = gs.height;
+      b.style.top = (gear.offsetTop + gear.offsetHeight + gap) + "px"; };
+    let busy = false;
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (busy) return; busy = true; setTimeout(() => (busy = false), 1200); onClick(); });
+    listeners.push(() => requestAnimationFrame(place)); root.addEventListener("resize", () => requestAnimationFrame(place));
+    new MutationObserver(() => requestAnimationFrame(place)).observe(gear.parentElement, { attributes: true, attributeFilter: ["hidden"] });
+    requestAnimationFrame(place);
+    return b;
+  }
+  FL.screen.restartButton = restartButton;
 })(typeof window !== "undefined" ? window : this);

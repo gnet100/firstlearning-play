@@ -5,7 +5,7 @@
      and in the published page (screens audit 8; the fonts are owned by the screens thread) -->
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
 @font-face {
   font-family: "Noto Sans Hebrew";
@@ -1763,6 +1763,8 @@
     $("start").hidden = false;
   }
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", backToStart));   // a door on every screen (Golan, 16.10)
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; clearTags(); state.swap = null; openPick(); });
 
   // test hook for automated checks
   window.__detective = { state, clouds, makeQuestion, cloudAt, layout, showHint, view, endRound, endP, tags, judge, balloon };

@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
   :root {
@@ -1016,6 +1016,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     $("start").hidden = false;
   }
   ["doorGame", "doorPick", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; openPick(); });
   $("doorStart").addEventListener("click", (e) => {
     e.stopPropagation(); cancelIntro(); stopVoice(); if (!LRN || toHub()) return;
     choosingKid = true;

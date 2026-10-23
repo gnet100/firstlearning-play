@@ -16,7 +16,7 @@
 -->
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   :root {
     --sky: #bfe6ff;
@@ -1768,6 +1768,8 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   function toHub() { screenTok++; hush(); state.flow++; countToken++; hgStop(); timers.length = 0; stopPickFlash(); location.href = FL.learner.hubUrl + "#games"; }
   ["doorGame", "doorCar", "doorEnd", "doorReport", "doorStart"].forEach((id) => $(id).addEventListener("click", (e) => { if (inHub()) { e.stopImmediatePropagation(); toHub(); } }, true));
   ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; openPick(); });
   // door on the start screen = back one screen, to "מי משחק?" (Golan 16.10, all games)
   $("doorStart").addEventListener("click", () => {
     screenTok++; hush(); $("go").classList.remove("pressed"); heardIntro = false;

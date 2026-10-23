@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
 /* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
    1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
@@ -717,6 +717,8 @@
   // Golan 23.10: no mole or sign may hide behind another one. Before a mole comes up, the place it will take on the screen
   // (its body and its sign, in the sign pose) is measured, and only a hole and a pose that touch no mole that is out are used.
   const POSES = { low: SIGN_LOW, high: SIGN_HIGH, poles: SIGN_POLES };
+  // each mole turns a little toward the middle of the screen, not outward (Golan 23.10)
+  const yawOf = (h) => 0.6 * Math.max(-1, Math.min(1, h.x / R));
   function screenBox(K, hi, pose) {
     const h = holes[hi], P = POSES[pose], wm = island.getWorldMatrix(), bw = K.bw, top = (1.5 * K.bh + (K.helmet ? 0.35 : 0.05)) * S;
     cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
@@ -726,7 +728,8 @@
       for (const sy of [-1, 1]) pts.push([sx * (signW / 2 + 0.12 * S), P.y * S + sy * (signH / 2 + 0.1 * S), P.z * S]);
     }
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    for (const [x, y, z] of pts) { const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x, TOP + h.y + y, h.z + z), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const yw = yawOf(h), cy = Math.cos(yw), sy = Math.sin(yw);
+    for (const [x, y, z] of pts) { const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x * cy + z * sy, TOP + h.y + y, h.z - x * sy + z * cy), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
     return { x0, y0, x1, y1 };
   }
   const hits = (a, b, g = 4) => a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.y0 < b.y1 + g && b.y0 < a.y1 + g;
@@ -745,7 +748,7 @@
     const h = holes[hi];
     m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
     poseSign(m, pose || posePick(m.K));
-    m.root.position.set(h.x, TOP + h.y, h.z); m.root.setEnabled(true);
+    m.root.position.set(h.x, TOP + h.y, h.z); m.root.rotation.y = yawOf(h); m.root.setEnabled(true);
     m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
     m.state = "rise"; m.t = 0; m.delay = delay;
   }
@@ -1452,6 +1455,8 @@
   }
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
 
   // test hook for automated checks (games/tests/check-games.js): targets() = where the right and wrong moles are on the screen
   window.__mole = { state, moles, holes, answer, endRound, askNext, layoutHoles, openPick, buildMoles, moleThumbs, screenOf, screenBox, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,

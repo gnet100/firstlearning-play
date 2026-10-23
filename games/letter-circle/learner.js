@@ -1305,7 +1305,7 @@ ${items[item]}</svg>`;
           btn.append(label);
           if (!ghost && label === "עוד סיבוב") { const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
             sp.onclick = (e) => { e.stopPropagation(); sayClip("btn_again"); }; btn.append(sp); }   // Hila reads "עוֹד סִבוּב" (btn_again; silent until the clip exists)
-          if (b.id) btn.id = b.id; btn.hidden = !!b.hidden; btn.onclick = b.onClick || null; row.append(btn); }
+          if (b.id) btn.id = b.id; btn.hidden = !!b.hidden || label === "חזור"; btn.onclick = b.onClick || null; row.append(btn); }   // no "חזור" (Golan 23.10, all games): the door at the top leaves
         el.append(row); }
       fit();
     };

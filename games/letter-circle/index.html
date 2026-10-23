@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
 /* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
    1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
@@ -1524,6 +1524,8 @@
   // opened from the hub: every door goes straight back to the hub's game list (Golan 16.10); voice and timers stop first
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
   ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; clearTags(); openPick(); });
 
   // test hook for automated checks
   window.__circle = { endRound, state, clouds, layout, cloudAt, answer, nextQuestion, newSession, clock, engine, scene, cam, canvas, balloonSize: () => [balloonBase, balloonGrow], hg: HG };

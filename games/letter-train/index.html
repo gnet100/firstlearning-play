@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- the font travels with the game: no internet needed (screens standard sec 9) -->
 <style>
     /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
-    html:not(.fl-ready) #start { visibility: hidden; animation: flShow 0s 3s forwards; }
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
     @keyframes flShow { to { visibility: visible; } }
   /* Screens, buttons, sizes and colours are copied from the car-and-gates game (voice/race-gates-voice), so both feel like one game. */
   :root {
@@ -2401,6 +2401,8 @@
     location.href = LRN.hubUrl + "#games"; return true;
   }
   ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { if (!toHub()) backToStart(e); }));
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; openCarPick(); });
   // The opening screen's door goes back one screen (Golan 16.10, all games): to the page we came from, else to "מי משחק?"
   $("doorStart").addEventListener("click", (e) => {
     e.stopPropagation(); stopVoice(); clearTimeout(goT); $("go").classList.remove("pressed");
