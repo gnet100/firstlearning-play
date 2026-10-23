@@ -524,7 +524,7 @@
   const HOLE_SETS = {
     5: [[-0.45, 0.62], [0.5, 0.55], [-0.05, 0.02], [-0.6, -0.6], [0.55, -0.55]],
     7: [[-0.42, 0.72], [0.45, 0.68], [-0.82, 0.05], [0.0, 0.12], [0.82, 0.0], [-0.4, -0.7], [0.45, -0.68]],
-    10: [[-0.55, 0.74], [0.08, 0.84], [0.62, 0.62], [-0.86, 0.18], [-0.3, 0.3], [0.32, 0.18], [0.88, -0.05], [-0.62, -0.42], [0.02, -0.38], [0.5, -0.72]],
+    10: [[-0.55, 0.74], [0.05, 0.82], [0.6, 0.66], [-0.8, 0.2], [-0.12, 0.24], [0.62, 0.16], [-0.52, -0.36], [0.15, -0.3], [0.8, -0.4], [-0.12, -0.86]],   // rows of 3 at most, one at the bottom (Golan 23.10)
   };
   const HOLE_R = 0.6 * S;
   const holes = [];
@@ -560,9 +560,10 @@
   // three kinds of moles (Golan 23.10: "עוד 2 גרסאות"): the brown one, a grey miner with a yellow helmet and a lamp,
   // and a ginger one with round glasses
   const KINDS = [
-    { fur: "#7b5a4c", belly: "#d7b9a3" },
-    { fur: "#8b909c", belly: "#dfe2e8", helmet: true },
-    { fur: "#b0703f", belly: "#f0cfa8", glasses: true },
+    // Golan 23.10: the miner is dark chocolate (not grey), and each kind has its own nose and eyes
+    { fur: "#7b5a4c", belly: "#d7b9a3", nose: "#ff7f9b", noseK: 1, eye: 0.1, eyeY: 1 },
+    { fur: "#4f3328", belly: "#c9a185", nose: "#d9534f", noseK: 1.3, eye: 0.13, eyeY: 1.15, helmet: true },
+    { fur: "#b0703f", belly: "#f0cfa8", nose: "#7a3b2e", noseK: 0.8, eye: 0.085, eyeY: 0.7, glasses: true },
   ];
   const snoutMat = mat("#f2c9a8", 0.2), noseMat = mat("#ff7f9b", 0.35),
     eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20"),
@@ -570,6 +571,8 @@
   const signW = 1.08 * S, signH = 0.84 * S;
   const SIGN_LOW = { y: 0.5, z: -0.62, paws: [[-0.5, 0.86, -0.64], [0.5, 0.86, -0.64]] };
   const SIGN_HIGH = { y: 1.95, z: -0.32, paws: [[-0.5, 1.6, -0.36], [0.5, 1.6, -0.36]] };   // held up over the head
+  const SIGN_POLES = { y: 2.25, z: -0.5, paws: [[-0.34, 0.95, -0.62], [0.34, 0.95, -0.62]] };   // on two wooden legs (Golan 23.10)
+  const poleMat = mat("#a0703f", 0.05);
   const moles = Array.from({ length: 5 }, (_, i) => {
     const K = KINDS[i % KINDS.length], furMat = mat(K.fur, 0.12), bellyMat = mat(K.belly, 0.15);
     const root = new BABYLON.TransformNode("mole" + i, scene); root.parent = island;
@@ -582,11 +585,11 @@
     part(sph(0.2, 8), furMat, -0.4, 1.12, 0.05, 1, 0.55, 0.5);          // small ears, low on the head
     part(sph(0.2, 8), furMat, 0.4, 1.12, 0.05, 1, 0.55, 0.5);
     part(sph(0.4), snoutMat, 0, 1.0, -0.42, 1.1, 0.75, 1.45);   // a long snout, the mole's nose sticks out
-    part(sph(0.22, 10), noseMat, 0, 1.04, -0.7, 1.15, 0.85, 1);
-    part(sph(0.1, 8), eyeMat, -0.19, 1.2, -0.37);
-    part(sph(0.1, 8), eyeMat, 0.19, 1.2, -0.37);
-    part(sph(0.04, 6), glintMat, -0.17, 1.225, -0.42);
-    part(sph(0.04, 6), glintMat, 0.21, 1.225, -0.42);
+    part(sph(0.22 * K.noseK, 10), mat(K.nose, 0.35), 0, 1.04, -0.7 - 0.03 * (K.noseK - 1), 1.15, 0.85, 1);
+    part(sph(K.eye, 8), eyeMat, -0.19, 1.2, -0.37, 1, K.eyeY, 1);
+    part(sph(K.eye, 8), eyeMat, 0.19, 1.2, -0.37, 1, K.eyeY, 1);
+    part(sph(0.4 * K.eye, 6), glintMat, -0.17, 1.2 + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
+    part(sph(0.4 * K.eye, 6), glintMat, 0.21, 1.2 + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
     if (K.helmet) {   // a miner's helmet with a lamp
       const hel = BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.86 * S, segments: 16, slice: 0.5 }, scene);
       part(hel, helmetMat, 0, 1.3, 0.02, 1.02, 0.62, 1);
@@ -610,22 +613,25 @@
     const sign = BABYLON.MeshBuilder.CreatePlane("sign" + i, { width: signW, height: signH }, scene);
     sign.material = sm; sign.parent = tilt; sign.rotation.x = PITCH * 0.75; sign.isPickable = false;
     const paws = [part(sph(0.24, 8), pawMat, -0.5, 0.86, -0.64), part(sph(0.24, 8), pawMat, 0.5, 0.86, -0.64)];   // paws on the sign's corners
+    const poles = [-0.34, 0.34].map((x) => part(BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07 * S, height: 1.0 * S, tessellation: 10 }, scene), poleMat, x, 1.38, -0.56));
+    poles.forEach((p) => { p.rotation.x = -0.12; p.setEnabled(false); });
     root.setEnabled(false);
-    return { root, body, tilt, sign, paws, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
+    return { root, body, tilt, sign, paws, poles, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
   });
   // the sign low (in front) or high (over the head, Golan 23.10: "מדי פעם"); a mole with the sign up goes deeper, so the sign hides in the hole too
-  function poseSign(m, high) {
-    const P = high ? SIGN_HIGH : SIGN_LOW;
-    m.high = high; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (high ? 0.55 : 0.75);
+  function poseSign(m, pose) {   // "low" (in front), "high" (in the paws over the head), "poles" (on two legs over the head)
+    const P = pose === "poles" ? SIGN_POLES : pose === "high" ? SIGN_HIGH : SIGN_LOW;
+    m.high = pose !== "low"; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (m.high ? 0.55 : 0.75);
     m.paws.forEach((p, k) => p.position.set(P.paws[k][0] * S, P.paws[k][1] * S, P.paws[k][2] * S));
-    m.down = high ? -2.5 * S : -1.5 * S;
+    m.poles.forEach((p) => p.setEnabled(pose === "poles"));
+    m.down = pose === "poles" ? -2.9 * S : m.high ? -2.5 * S : -1.5 * S;
   }
-  moles.forEach((m) => poseSign(m, false));
+  moles.forEach((m) => poseSign(m, "low"));
   // a mole comes up in a hole with a letter
   function placeMole(m, hi, letter, hint, delay) {
     const h = holes[hi];
     m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
-    poseSign(m, Math.random() < 0.25);
+    { const r = Math.random(); poseSign(m, r < 0.2 ? "poles" : r < 0.4 ? "high" : "low"); }
     m.root.position.set(h.x, TOP + h.y, h.z); m.root.setEnabled(true);
     m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
     m.state = "rise"; m.t = 0; m.delay = delay;
@@ -901,7 +907,7 @@
       const up = out.filter((m) => m.state === "up").sort((a, b) => a.upAt - b.upAt);
       if (!up.length) return 300;
       const m = up[0]; m.state = "duck"; m.t = 0; q.rotMole = m; q.rotPhase = "rise";
-      return ROT_GAP + 320;
+      return ROT_GAP + 650;
     }
     const m = q.rotMole;
     if (!m || m.state === "rise" || m.state === "up") { q.rotPhase = "duck"; return ROT_GAP; }   // it came up already (after a right touch)
@@ -915,7 +921,7 @@
     const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
     if (!free.length) return ROT_GAP;
     placeMole(m, free[0], letter, q.hint && letter === q.letter, 0);
-    return ROT_GAP + 380;
+    return ROT_GAP + 750;
   }
   function speakQuestion(q, rate) {
     playSeq([whereId(q.letter)], rate, () => {
@@ -1159,7 +1165,7 @@
       if (m.state === "rise") {
         if (k0 < 0) { m.body.position.y = m.down; continue; }
         if (k0 < dt + 0.001) sfx.pop();
-        const k = Math.min(1, k0 / 0.38); m.body.position.y = m.down * (1 - easeOutBack(k));
+        const k = Math.min(1, k0 / 0.75); m.body.position.y = m.down * (1 - easeOutBack(k));
         if (k >= 1) { m.state = "up"; m.t = 0; m.upAt = state.gameT; }
       } else if (m.state === "up") {
         m.body.position.y = Math.sin(T * 2.2 + m.ph) * 0.04 * S;
@@ -1177,7 +1183,7 @@
         m.body.position.y = k < 0.5 ? 0 : m.down * Math.pow((k - 0.5) / 0.5, 2);
         if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
       } else if (m.state === "duck") {
-        const k = Math.min(1, m.t / 0.32); m.body.position.y = Math.min(m.body.position.y, m.down * k * k);
+        const k = Math.min(1, m.t / 0.65); m.body.position.y = Math.min(m.body.position.y, m.down * k * k);
         if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
       }
     }
