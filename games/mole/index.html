@@ -372,7 +372,7 @@
       t += dur * 0.9;
     }
   }
-  const sfx = { bonk: () => { tone([180, 120], 0.07, "square", 0.22); setTimeout(() => tone([659, 880, 1046], 0.1, "triangle", 0.4), 90); },
+  const sfx = { bonk: () => tone([659, 880, 1046], 0.1, "triangle", 0.4),   // only the tune: no creaky knock before it (Golan 23.10)
     tap: () => tone([440], 0.05, "sine", 0.06), oops: () => tone([300, 220], 0.18, "sine", 0.6), pop: () => tone([520 + Math.random() * 120], 0.05, "sine", 0.08),
     // a little rising "bloop" when a mole peeks out of its hole (Golan 23.10)
     peek: () => { if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), f = 330 + Math.random() * 90;
