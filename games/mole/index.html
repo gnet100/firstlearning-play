@@ -471,14 +471,20 @@
     const dm = new BABYLON.StandardMaterial("duneMat", scene); dm.diffuseColor = new BABYLON.Color3(1, 1, 1); dm.specularColor = new BABYLON.Color3(0, 0, 0);
     m.material = dm; m.parent = island; m.position.y = TOP + 0.004; m.isPickable = false; return m;
   })();
-  // hills everywhere, and mountains at the back and the sides (Golan 23.10: "גבעות והרים"); flat round every hole
-  const PEAKS = [[-4.1, 3.4, 1.5, 0.95], [-1.4, 4.8, 1.8, 0.95], [1.7, 4.8, 1.6, 0.9], [4.1, 3.3, 1.4, 0.95], [-5.1, 0.9, 1.0, 0.8], [5.1, 0.4, 1.1, 0.8]];
-  function duneH(x, z) {
+  // hills everywhere, and mountains at the back, the sides and in the middle (Golan 23.10: "גבעות והרים", "הרים גם באמצע")
+  const PEAKS = [[-4.1, 3.4, 1.5, 0.95], [-1.4, 4.8, 1.8, 0.95], [1.7, 4.8, 1.6, 0.9], [4.1, 3.3, 1.4, 0.95], [-5.1, 0.9, 1.0, 0.8], [5.1, 0.4, 1.1, 0.8],
+    [-0.3, 0.2, 0.95, 0.75], [2.1, -1.2, 0.8, 0.7], [-2.1, -1.0, 0.75, 0.7]];
+  function baseH(x, z) {   // the ground without the holes
     const rr = Math.hypot(x, z);
     let h = 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.15 + z * 0.4 + 0.6), 2) + 0.35 * Math.pow(0.5 + 0.5 * Math.sin(z * 1.25 - x * 0.55 + 2.1), 2) + 0.06 * Math.sin(x * 3.1 + z * 2.3);
     for (const [px, pz, ph, sg] of PEAKS) h += ph * Math.exp(-((x - px * 0.86) ** 2 + (z - pz * 0.86) ** 2) / (2 * sg * sg));
     { const e = Math.min(1, Math.max(0, (R * 0.99 - rr) / (R * 0.2))); h *= e * e * (3 - 2 * e); }   // softly down to the rim
-    for (const o of holes) if (o.on) { const k = Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.05) / (HOLE_R * 0.9))); h *= k * k * (3 - 2 * k); }   // flat round the holes
+    return Math.max(0, h);
+  }
+  // round every hole the ground is a small flat ledge at the hole's own height, so a hole can sit on a mountain side (Golan 23.10)
+  function duneH(x, z) {
+    let h = baseH(x, z);
+    for (const o of holes) if (o.on) { const k = Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.08) / (HOLE_R * 0.9))), w = k * k * (3 - 2 * k); h = o.y + (h - o.y) * w; }
     return Math.max(0, h);
   }
   function sculptDunes() {
@@ -514,10 +520,11 @@
 
   // ---------- holes: scattered on the grass, never a grid (Golan 21.10) ----------
   // Rows from the back (z > 0) to the front; each row shifted, so no mole stands right behind another one.
+  // Golan 23.10: spread over the whole round island, front to back
   const HOLE_SETS = {
-    5: [[-0.42, 0.5], [0.45, 0.45], [-0.66, -0.12], [0.04, -0.02], [0.7, -0.16]].map(([x, z]) => [x, z - 0.1]),
-    7: [[-0.4, 0.62], [0.42, 0.58], [-0.72, 0.1], [0.02, 0.14], [0.74, 0.08], [-0.38, -0.42], [0.4, -0.45]],
-    10: [[-0.58, 0.64], [0.0, 0.7], [0.58, 0.62], [-0.82, 0.16], [-0.28, 0.2], [0.27, 0.15], [0.82, 0.2], [-0.56, -0.36], [0.02, -0.3], [0.58, -0.38]],
+    5: [[-0.45, 0.62], [0.5, 0.55], [-0.05, 0.02], [-0.6, -0.6], [0.55, -0.55]],
+    7: [[-0.42, 0.72], [0.45, 0.68], [-0.82, 0.05], [0.0, 0.12], [0.82, 0.0], [-0.4, -0.7], [0.45, -0.68]],
+    10: [[-0.55, 0.74], [0.08, 0.84], [0.62, 0.62], [-0.86, 0.18], [-0.3, 0.3], [0.32, 0.18], [0.88, -0.05], [-0.62, -0.42], [0.02, -0.38], [0.5, -0.72]],
   };
   const HOLE_R = 0.6 * S;
   const holes = [];
@@ -527,16 +534,16 @@
     disc.material = holeMat; disc.rotation.x = Math.PI / 2; disc.parent = island; disc.isPickable = false;
     const rim = BABYLON.MeshBuilder.CreateTorus("rim", { diameter: HOLE_R * 2.02, thickness: 0.07, tessellation: 32 }, scene);   // a thin rim (Golan 23.10)
     rim.material = rimMat; rim.parent = island; rim.scaling.y = 0.45; rim.isPickable = false;
-    holes.push({ disc, rim, x: 0, z: 0, on: false });
+    holes.push({ disc, rim, x: 0, z: 0, y: 0, on: false });
   }
   function layoutHoles() {
-    const set = HOLE_SETS[HOLES[lvl()]], k = R * 0.8;
+    const set = HOLE_SETS[HOLES[lvl()]], k = R * 0.86;
     holes.forEach((h, i) => {
       h.on = i < set.length;
       h.disc.setEnabled(h.on); h.rim.setEnabled(h.on);
       if (!h.on) return;
-      h.x = set[i][0] * k; h.z = set[i][1] * k;
-      h.disc.position.set(h.x, TOP + 0.012, h.z); h.rim.position.set(h.x, TOP + 0.03, h.z);
+      h.x = set[i][0] * k; h.z = set[i][1] * k; h.y = Math.min(0.9, baseH(h.x, h.z));   // on a mountain side the hole is cut into the slope
+      h.disc.position.set(h.x, TOP + h.y + 0.012, h.z); h.rim.position.set(h.x, TOP + h.y + 0.03, h.z);
     });
     sculptDunes();
     // shells where there is no hole
@@ -550,10 +557,21 @@
 
   // ---------- the moles: a round brown body, a pink nose, two paws holding a sign with a letter ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
-  const furMat = mat("#7b5a4c", 0.12), bellyMat = mat("#d7b9a3", 0.15), snoutMat = mat("#f2c9a8", 0.2), noseMat = mat("#ff7f9b", 0.35),
-    eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20");
+  // three kinds of moles (Golan 23.10: "עוד 2 גרסאות"): the brown one, a grey miner with a yellow helmet and a lamp,
+  // and a ginger one with round glasses
+  const KINDS = [
+    { fur: "#7b5a4c", belly: "#d7b9a3" },
+    { fur: "#8b909c", belly: "#dfe2e8", helmet: true },
+    { fur: "#b0703f", belly: "#f0cfa8", glasses: true },
+  ];
+  const snoutMat = mat("#f2c9a8", 0.2), noseMat = mat("#ff7f9b", 0.35),
+    eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20"),
+    helmetMat = mat("#ffc233", 0.15), lampMat = mat("#fff6c0", 0.9), glassMat = mat("#2b2b3a", 0.05);
   const signW = 1.08 * S, signH = 0.84 * S;
+  const SIGN_LOW = { y: 0.5, z: -0.62, paws: [[-0.5, 0.86, -0.64], [0.5, 0.86, -0.64]] };
+  const SIGN_HIGH = { y: 1.95, z: -0.32, paws: [[-0.5, 1.6, -0.36], [0.5, 1.6, -0.36]] };   // held up over the head
   const moles = Array.from({ length: 5 }, (_, i) => {
+    const K = KINDS[i % KINDS.length], furMat = mat(K.fur, 0.12), bellyMat = mat(K.belly, 0.15);
     const root = new BABYLON.TransformNode("mole" + i, scene); root.parent = island;
     const body = new BABYLON.TransformNode("moleBody" + i, scene); body.parent = root;   // moves up and down
     const tilt = new BABYLON.TransformNode("moleTilt" + i, scene); tilt.parent = body;   // wiggles, squashes
@@ -569,22 +587,49 @@
     part(sph(0.1, 8), eyeMat, 0.19, 1.2, -0.37);
     part(sph(0.04, 6), glintMat, -0.17, 1.225, -0.42);
     part(sph(0.04, 6), glintMat, 0.21, 1.225, -0.42);
+    if (K.helmet) {   // a miner's helmet with a lamp
+      const hel = BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.86 * S, segments: 16, slice: 0.5 }, scene);
+      part(hel, helmetMat, 0, 1.3, 0.02, 1.02, 0.62, 1);
+      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 0.98 * S, height: 0.04 * S, tessellation: 24 }, scene), helmetMat, 0, 1.3, 0.0);
+      const lamp = part(BABYLON.MeshBuilder.CreateCylinder("lamp", { diameter: 0.16 * S, height: 0.08 * S, tessellation: 16 }, scene), lampMat, 0, 1.47, -0.36);
+      lamp.rotation.x = -Math.PI / 2.6;
+    }
+    if (K.glasses) {   // round glasses in front of the eyes
+      for (const x of [-0.19, 0.19]) { const g = part(BABYLON.MeshBuilder.CreateTorus("glass", { diameter: 0.25 * S, thickness: 0.035 * S, tessellation: 20 }, scene), glassMat, x, 1.2, -0.44); g.rotation.x = Math.PI / 2; }
+      part(BABYLON.MeshBuilder.CreateBox("bridge", { width: 0.13 * S, height: 0.03 * S, depth: 0.03 * S }, scene), glassMat, 0, 1.22, -0.46);
+    }
     // sad brows, shown only when the mole is upset
     const browL = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, scene), browMat, -0.18, 1.31, -0.42); browL.rotation.z = -0.45;
     const browR = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, scene), browMat, 0.18, 1.31, -0.42); browR.rotation.z = 0.45;
-    // the sign, held in front of the belly, turned up to the camera
+    if (K.glasses || K.helmet) { browL.position.y = browR.position.y = 1.36 * S; browL.position.z = browR.position.z = -0.46 * S; }
+    // the sign, held in front of the belly (or over the head now and then), turned up to the camera
     const tex = new BABYLON.DynamicTexture("signTex" + i, { width: 256, height: 200 }, scene, true);
     const sm = new BABYLON.StandardMaterial("signMat" + i, scene);
     tex.hasAlpha = true; sm.useAlphaFromDiffuseTexture = true;
     sm.diffuseTexture = tex; sm.emissiveColor = new BABYLON.Color3(1, 1, 1); sm.disableLighting = true; sm.backFaceCulling = false;
     const sign = BABYLON.MeshBuilder.CreatePlane("sign" + i, { width: signW, height: signH }, scene);
-    sign.material = sm; sign.parent = tilt; sign.position.set(0, 0.5 * S, -0.62 * S); sign.rotation.x = PITCH * 0.75; sign.isPickable = false;
-    part(sph(0.24, 8), pawMat, -0.5, 0.86, -0.64);   // paws on the sign's top corners
-    part(sph(0.24, 8), pawMat, 0.5, 0.86, -0.64);
+    sign.material = sm; sign.parent = tilt; sign.rotation.x = PITCH * 0.75; sign.isPickable = false;
+    const paws = [part(sph(0.24, 8), pawMat, -0.5, 0.86, -0.64), part(sph(0.24, 8), pawMat, 0.5, 0.86, -0.64)];   // paws on the sign's corners
     root.setEnabled(false);
-    return { root, body, tilt, sign, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false };
+    return { root, body, tilt, sign, paws, tex, brows: [browL, browR], letter: "", hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
   });
-  const DOWN_Y = -1.5 * S;   // fully inside the island
+  // the sign low (in front) or high (over the head, Golan 23.10: "מדי פעם"); a mole with the sign up goes deeper, so the sign hides in the hole too
+  function poseSign(m, high) {
+    const P = high ? SIGN_HIGH : SIGN_LOW;
+    m.high = high; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (high ? 0.55 : 0.75);
+    m.paws.forEach((p, k) => p.position.set(P.paws[k][0] * S, P.paws[k][1] * S, P.paws[k][2] * S));
+    m.down = high ? -2.5 * S : -1.5 * S;
+  }
+  moles.forEach((m) => poseSign(m, false));
+  // a mole comes up in a hole with a letter
+  function placeMole(m, hi, letter, hint, delay) {
+    const h = holes[hi];
+    m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
+    poseSign(m, Math.random() < 0.25);
+    m.root.position.set(h.x, TOP + h.y, h.z); m.root.setEnabled(true);
+    m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
+    m.state = "rise"; m.t = 0; m.delay = delay;
+  }
   // the sign: a light wooden board with a dark letter; final letters get their tail below the writing line (as in every game)
   function drawSign(m, text, glow) {
     const ctx = m.tex.getContext(), W = 256, H = 200;
@@ -661,8 +706,8 @@
   function fitPoints() {
     const pts = [];
     for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; pts.push(new BABYLON.Vector3(Math.cos(a) * R * 1.03, TOP, Math.sin(a) * R * 1.03)); }
-    pts.push(new BABYLON.Vector3(0, TOP - 3.4, -R * 0.6));   // part of the underside shows
-    for (const h of holes) if (h.on) { pts.push(new BABYLON.Vector3(h.x, TOP + 1.45 * S, h.z)); pts.push(new BABYLON.Vector3(h.x - signW * 0.6, TOP + 0.3 * S, h.z - 0.7 * S)); pts.push(new BABYLON.Vector3(h.x + signW * 0.6, TOP + 0.3 * S, h.z - 0.7 * S)); }
+    pts.push(new BABYLON.Vector3(0, TOP - 2.2, -R * 0.6));   // part of the underside shows
+    for (const h of holes) if (h.on) { const y = TOP + h.y; pts.push(new BABYLON.Vector3(h.x, y + 1.5 * S, h.z)); pts.push(new BABYLON.Vector3(h.x - signW * 0.6, y + 0.3 * S, h.z - 0.7 * S)); pts.push(new BABYLON.Vector3(h.x + signW * 0.6, y + 0.3 * S, h.z - 0.7 * S)); }
     return pts;
   }
   function boxAt(dist, shift, pts) {
@@ -842,11 +887,7 @@
     q.lastHoles = use; q.phase = "rising"; q.stayLeft = STAY_MS[lvl()] * (0.85 + Math.random() * 0.3);
     moles.forEach((m, i) => {
       if (i >= live.length) { m.state = "off"; m.root.setEnabled(false); return; }
-      const h = holes[use[i]];
-      m.letter = live[i]; m.hole = use[i]; m.hint = q.hint && m.letter === q.letter; drawSign(m, m.letter, m.hint);
-      m.root.position.set(h.x, TOP, h.z); m.root.setEnabled(true);
-      m.body.position.y = DOWN_Y; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
-      m.state = "rise"; m.t = 0; m.delay = i * 0.12 + Math.random() * 0.1;
+      placeMole(m, use[i], live[i], q.hint && live[i] === q.letter, i * 0.12 + Math.random() * 0.1);
     });
   }
   // Golan 23.10 (levels 2 and 3): after the first time, the moles go down and come up one after another: a mole goes down,
@@ -862,20 +903,18 @@
       const m = up[0]; m.state = "duck"; m.t = 0; q.rotMole = m; q.rotPhase = "rise";
       return ROT_GAP + 320;
     }
-    const m = q.rotMole; if (!m || m.state !== "off") return 200;
+    const m = q.rotMole;
+    if (!m || m.state === "rise" || m.state === "up") { q.rotPhase = "duck"; return ROT_GAP; }   // it came up already (after a right touch)
+    if (m.state !== "off") return 200;
     const shownL = out.map((k) => k.letter), takenH = out.map((k) => k.hole);
     const ok = (l) => !shownL.includes(l) && !q.out.has(l) && l !== m.letter;
     let letter = !shownL.includes(q.letter) && ok(q.letter) ? q.letter : null;   // the letter we look for is always back soon
-    if (!letter) { const c = shuffle(q.pool.filter(ok)); letter = c[0] || null; }
+    if (!letter) letter = letterPool(q).find(ok) || null;
     q.rotPhase = "duck";
     if (!letter) return ROT_GAP;
     const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
     if (!free.length) return ROT_GAP;
-    const h = holes[free[0]];
-    m.letter = letter; m.hole = free[0]; m.hint = q.hint && letter === q.letter; drawSign(m, letter, m.hint);
-    m.root.position.set(h.x, TOP, h.z); m.root.setEnabled(true);
-    m.body.position.y = DOWN_Y; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
-    m.state = "rise"; m.t = 0; m.delay = 0;
+    placeMole(m, free[0], letter, q.hint && letter === q.letter, 0);
     return ROT_GAP + 380;
   }
   function speakQuestion(q, rate) {
@@ -930,7 +969,45 @@
     recordQ(q, true);
     state.lastLetter = q.letter; state.lastOk = right;
     say(LINES.correct);
-    setTimeout(() => { if (state.q !== q) return; duckAll(q, m); setTimeout(() => { if (state.q === q) whenQuiet(() => { if (state.q === q) askNext(); }); }, 650); }, 900);
+    // Golan 23.10: only this mole goes down; a mole with a new letter comes up instead, and the next letter is one of the signs
+    setTimeout(() => {
+      if (state.q !== q) return;
+      if (HG && HG.done()) { duckAll(q, m); setTimeout(() => { if (state.q === q) whenQuiet(() => { if (state.q === q) askNext(); }); }, 650); return; }
+      const wait = () => { if (state.q !== q) return; if (m.state !== "off") return setTimeout(wait, 100); replaceMole(m, q); };
+      wait();
+    }, 900);
+  }
+  // letters a mole can bring up: the child's letters first, then the others of this game
+  function letterPool(q) {
+    let base = chosenLetters();
+    if (!base.length && LRN && LRN.autoLetters) { try { base = LRN.autoLetters() || []; } catch (e) { base = []; } }
+    return [...shuffle(base), ...shuffle(q && q.pool ? q.pool : []), ...shuffle(LETTERS)];
+  }
+  function newLetterFor(m, q) {
+    const shownL = moles.filter((k) => k !== m && (k.state === "rise" || k.state === "up")).map((k) => k.letter);
+    return letterPool(q).find((l) => !shownL.includes(l) && l !== m.letter && !(q && q.out.has(l))) || null;
+  }
+  function replaceMole(m, q) {
+    const takenH = moles.filter((k) => k.state === "rise" || k.state === "up").map((k) => k.hole);
+    const free = shuffle(holes.map((h, i) => (h.on && !takenH.includes(i) && i !== m.hole ? i : -1)).filter((i) => i >= 0));
+    const letter = newLetterFor(m, null);
+    if (free.length && letter) placeMole(m, free[0], letter, false, 0.15);
+    whenQuiet(() => { if (state.q === q) nextFromSigns(q); });
+  }
+  // the next letter to find: one of the letters the moles hold now (the learner's pick when it is on a sign)
+  function nextFromSigns(prev) {
+    if (HG && HG.done()) return endRound();
+    const out = moles.filter((k) => k.state === "rise" || k.state === "up"), L = out.map((k) => k.letter);
+    if (!L.length) return askNext();
+    const v = pickLetter();
+    const t = L.includes(v.letter) ? v.letter : pick(L.filter((l) => l !== state.lastLetter).length ? L.filter((l) => l !== state.lastLetter) : L);
+    const listen = L.includes(v.letter) ? !!v.listen : false;
+    const shown = lvl() === 1 && !listen && !seenSet().has(t);
+    const q = { letter: t, listen, shown, pool: prev.pool, letters: L.slice(), out: new Set(), rotLeft: prev.rotLeft, rotPhase: prev.rotPhase, rotMole: prev.rotMole,
+      wrongs: 0, firstWrong: null, hint: false, armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0,
+      phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: out.map((k) => k.hole), rec: false };
+    state.q = q; state.mode = "play"; state.n++;
+    setSign(shown ? t : "?", false);
   }
   // one record per letter asked, with the first answer (shared card). A sign showing "?" = heard only (audioOnly), and a
   // perfect heard-only find counts toward "מזהה בביטחון" (as in the detective).
@@ -1080,9 +1157,9 @@
       m.t += dt;
       const k0 = m.t - m.delay;
       if (m.state === "rise") {
-        if (k0 < 0) { m.body.position.y = DOWN_Y; continue; }
+        if (k0 < 0) { m.body.position.y = m.down; continue; }
         if (k0 < dt + 0.001) sfx.pop();
-        const k = Math.min(1, k0 / 0.38); m.body.position.y = DOWN_Y * (1 - easeOutBack(k));
+        const k = Math.min(1, k0 / 0.38); m.body.position.y = m.down * (1 - easeOutBack(k));
         if (k >= 1) { m.state = "up"; m.t = 0; m.upAt = state.gameT; }
       } else if (m.state === "up") {
         m.body.position.y = Math.sin(T * 2.2 + m.ph) * 0.04 * S;
@@ -1091,16 +1168,16 @@
       } else if (m.state === "sad") {   // a shake of the head, a droop, then down into the hole
         const k = Math.min(1, m.t / 1.1);
         m.tilt.rotation.z = Math.sin(k * Math.PI * 5) * 0.16 * (1 - k);
-        m.body.position.y = k < 0.55 ? -0.1 * S * (k / 0.55) : -0.1 * S + (DOWN_Y + 0.1 * S) * Math.pow((k - 0.55) / 0.45, 2);
+        m.body.position.y = k < 0.55 ? -0.1 * S * (k / 0.55) : -0.1 * S + (m.down + 0.1 * S) * Math.pow((k - 0.55) / 0.45, 2);
         if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
       } else if (m.state === "bonk") {   // a soft squash (the touch), then down
         const k = Math.min(1, m.t / 0.85);
         const sq = k < 0.25 ? 1 - 0.32 * Math.sin((k / 0.25) * Math.PI / 2) : 0.68 + 0.32 * Math.min(1, (k - 0.25) / 0.2);
         m.tilt.scaling.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
-        m.body.position.y = k < 0.5 ? 0 : DOWN_Y * Math.pow((k - 0.5) / 0.5, 2);
+        m.body.position.y = k < 0.5 ? 0 : m.down * Math.pow((k - 0.5) / 0.5, 2);
         if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
       } else if (m.state === "duck") {
-        const k = Math.min(1, m.t / 0.32); m.body.position.y = Math.min(m.body.position.y, DOWN_Y * k * k);
+        const k = Math.min(1, m.t / 0.32); m.body.position.y = Math.min(m.body.position.y, m.down * k * k);
         if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
       }
     }
