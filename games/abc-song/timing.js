@@ -13,7 +13,7 @@ window.SONG_TIMING = [
   {t: 60.3, letter: "ט"},
   {t: 62.4, letter: "י"},
   {t: 64, letter: "כ"},
-  {t: 68.5, chorus: true},
+  {t: 66.6, chorus: true},
   {t: 82.2, letter: "ל"},
   {t: 83.8, letter: "מ"},
   {t: 86.2, letter: "נ"},
