@@ -225,6 +225,8 @@
     cursor: pointer; pointer-events: auto; box-sizing: border-box;
     background: #fff; border: 2.6cqw solid #7C5CFF; border-radius: 9cqw; box-shadow: 0 1.5cqw 4cqw #0003; overflow: hidden; animation: cardIn .6s ease-out both; }
   #mAnim[hidden] { display: none; }
+  .drag-bal { position: fixed; z-index: 30; translate: -50% -50%; pointer-events: none; filter: drop-shadow(0 6px 10px #0003); }
+  .drag-bal svg { width: 100%; height: 100%; display: block; }
   #mAnim svg { width: 100%; height: 100%; display: block; }
   #mFace { position: absolute; inset: 0; box-sizing: border-box; background: #fff; border: 4.5cqw solid #7C5CFF; border-radius: 11cqw; display: grid; place-items: center; box-shadow: 0 1.5cqw 4cqw #0003; }
   #mCardL { font: 800 52cqw/1 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: #1d2a3a; transform: translateY(-6%); }
@@ -1463,14 +1465,29 @@
     const r = canvas.getBoundingClientRect(), w = screenToBalloonPlane(e.clientX - r.left, e.clientY - r.top, state.bal.z);
     drag = { id: e.pointerId, dx: state.bal.x - w.x, dy: state.bal.y - w.y, x: e.clientX, y: e.clientY, moved: false };
     state.drag = drag; if (state.spotFly) state.spotFly.done = true;
+    // over the picture's card the 3D balloon would pass behind it: a picture of the balloon follows the finger above it instead
+    // (Golan 24.10), the same drawing as in the balloon picker
+    if (state.mode === "card") {
+      const bb = balloon.getHierarchyBoundingVectors(true), vp = cam.viewport.toGlobal(r.width, r.height), tm = scene.getTransformMatrix();
+      const pts = [bb.min, bb.max, new BABYLON.Vector3(bb.min.x, bb.max.y, bb.min.z), new BABYLON.Vector3(bb.max.x, bb.min.y, bb.min.z)].map((v) => BABYLON.Vector3.Project(v, BABYLON.Matrix.Identity(), tm, vp));
+      const x0 = Math.min(...pts.map((q) => q.x)), x1 = Math.max(...pts.map((q) => q.x)), y0 = Math.min(...pts.map((q) => q.y)), y1 = Math.max(...pts.map((q) => q.y));
+      const gh = document.createElement("div"); gh.className = "drag-bal"; gh.innerHTML = balloonSvg(balloonIndex()).replace(/id="([^"]+)"/g, 'id="$1_drag"').replace(/url\(#([^)]+)\)/g, "url(#$1_drag)").replace(/href="#([^"]+)"/g, 'href="#$1_drag"');   // own ids: the picker\'s hidden copies would hide the clip
+      const h = y1 - y0, w = Math.max(x1 - x0, h * 0.6);
+      Object.assign(gh.style, { width: w + "px", height: h + "px" });
+      drag.ghost = gh; drag.gx = r.left + (x0 + x1) / 2 - e.clientX; drag.gy = r.top + (y0 + y1) / 2 - e.clientY;
+      gh.style.left = (e.clientX + drag.gx) + "px"; gh.style.top = (e.clientY + drag.gy) + "px";
+      document.body.append(gh); balloon.setEnabled(false);
+    }
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     e.stopImmediatePropagation();
   }, true);
   canvas.addEventListener("pointermove", (e) => { if (!drag || e.pointerId !== drag.id) return;
-    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; drag.x = e.clientX; drag.y = e.clientY; });
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.ghost) { drag.ghost.style.left = (e.clientX + drag.gx) + "px"; drag.ghost.style.top = (e.clientY + drag.gy) + "px"; } });
   const dropBalloon = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag; drag = null; state.drag = null;
+    if (d.ghost) { d.ghost.remove(); balloon.setEnabled(true); }
     if (!d.moved || paused || e.type === "pointercancel") return;
     if (state.mode === "card") {
       const inEl = (el) => { if (!el || el.hidden) return false; const b = el.getBoundingClientRect(); return e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom; };
