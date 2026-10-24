@@ -66,6 +66,13 @@
   html[data-screen~="portrait"] #games { justify-content: flex-start; gap: var(--g);
     padding: var(--e-t) var(--e-r) var(--e-b) var(--e-l); }
   html[data-screen~="portrait"] .who { align-self: flex-start; margin-inline-end: calc(var(--btn) + var(--g)); min-height: var(--btn); max-width: calc(100% - var(--btn) - var(--g)); }
+  /* Golan 24.10: the island's topic at the top right of the game list (the speaker reads its map name, map_t<n>) */
+  #topic { position: fixed; top: var(--e-t); right: calc(var(--e-r) + 8px); display: flex; align-items: center; gap: calc(6 * var(--u, 1px));
+    background: #ffffffd9; border-radius: 999px; padding: calc(4 * var(--u, 1px)) calc(18 * var(--u, 1px)) calc(4 * var(--u, 1px)) calc(6 * var(--u, 1px));
+    box-shadow: 0 4px 16px #0002; min-height: var(--btn); box-sizing: border-box; z-index: 3; }
+  #topic b { font-size: max(calc(28 * var(--u, 1px)), 18px); font-weight: 800; color: #1f5f99; white-space: nowrap; }
+  #topic .spk { font-size: max(calc(26 * var(--u, 1px)), 20px); }
+  html[data-screen~="portrait"] #topic { position: static; align-self: flex-start; min-height: 0; }
   html[data-screen~="portrait"] .who h1 { font-size: max(calc(40 * var(--u, 1px)), 20px); }
   html[data-screen~="portrait"] .grid { grid-template-columns: repeat(var(--cols, 2), minmax(0, min(calc(330 * var(--u, 1px)), var(--cw, 9999px)))); margin-top: var(--btn); }
   html[data-screen~="portrait"] .game .pic { aspect-ratio: var(--pa, 16 / 8.5); }
@@ -137,6 +144,7 @@
 <button class="round-btn gear-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
 <main id="games" aria-live="polite">
   <div class="who"><span class="comp"></span><h1 data-nq="בַּמֶּה נְשַׂחֵק?">בַּמֶּה נְשַׂחֵק?</h1><button class="spk" data-clip="hub_what_play" aria-label="הקשבה">🔊</button></div>
+  <div id="topic"><b data-nq="זִהוּי אוֹתִיּוֹת">זִהוּי אוֹתִיּוֹת</b><button class="spk" data-clip="map_t1" aria-label="הקשבה">🔊</button></div>
   <div class="grid"></div>
 </main>
 <div class="toast" id="toast"></div>
