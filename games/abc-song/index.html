@@ -23,8 +23,15 @@
       color-mix(in srgb, #3b3f86 calc((1 - var(--day)) * 100%), #ffe9b8) 100%); }
   #moon { position: absolute; top: 9%; right: 14%; width: 9vmin; height: 9vmin; border-radius: 50%; background: #fff6cf; box-shadow: 0 0 30px #fff6cf88;
     opacity: calc(1 - var(--day) * 1.4); transform: translateY(calc(var(--day) * 30vh)); }
-  #sun { position: absolute; top: 8%; left: 16%; width: 11vmin; height: 11vmin; border-radius: 50%; background: #ffd43b; box-shadow: 0 0 40px #ffd43baa;
+  #sun { position: absolute; top: 8%; left: 16%; width: 11vmin; height: 11vmin;
     opacity: calc(var(--day) * 1.6 - .4); transform: translateY(calc((1 - var(--day)) * 30vh)); }
+  #sun .core { position: absolute; inset: 0; border-radius: 50%; background: #ffd43b; box-shadow: 0 0 40px #ffd43baa; }
+  /* Golan 24.10: dancing sun rays; each ray grows slowly, one after the other, as the day comes */
+  #sun .ray { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform: rotate(var(--a)); }
+  #sun .ray i { position: absolute; left: -.9vmin; bottom: 6.2vmin; width: 1.8vmin; height: 5vmin; border-radius: 1vmin; background: #ffd43b; transform-origin: 50% 100%;
+    transform: scaleY(clamp(0, calc((var(--day) - var(--d)) * 2.2), 1)); }
+  #sun .ray i::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #ffe066; transform-origin: 50% 100%; animation: rayDance 1.1s infinite ease-in-out alternate; animation-delay: calc(var(--d) * -6s); }
+  @keyframes rayDance { from { transform: rotate(-9deg) scaleY(.82); } to { transform: rotate(9deg) scaleY(1.12); } }
   .star { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; opacity: calc(.9 - var(--day)); animation: tw 2.4s infinite ease-in-out; }
   @keyframes tw { 50% { transform: scale(.4); } }
 
@@ -134,7 +141,7 @@
 </style>
 </head>
 <body>
-<div id="sky"><div id="moon"></div><div id="sun"></div></div>
+<div id="sky"><div id="moon"></div><div id="sun"><div class="ray" style="--a:0deg;--d:0.10"><i></i></div><div class="ray" style="--a:30deg;--d:0.14"><i></i></div><div class="ray" style="--a:60deg;--d:0.18"><i></i></div><div class="ray" style="--a:90deg;--d:0.22"><i></i></div><div class="ray" style="--a:120deg;--d:0.26"><i></i></div><div class="ray" style="--a:150deg;--d:0.30"><i></i></div><div class="ray" style="--a:180deg;--d:0.34"><i></i></div><div class="ray" style="--a:210deg;--d:0.38"><i></i></div><div class="ray" style="--a:240deg;--d:0.42"><i></i></div><div class="ray" style="--a:270deg;--d:0.46"><i></i></div><div class="ray" style="--a:300deg;--d:0.50"><i></i></div><div class="ray" style="--a:330deg;--d:0.54"><i></i></div><div class="core"></div></div></div>
 <div id="stage"></div>
 <div id="chorusSide"></div>
 <div id="strip" aria-label="האותיות"></div>
@@ -269,7 +276,7 @@
     let day = Math.min(1, sung / ORDER.length);
     const ce = EV[idx]; if (ce && ce.chorus) {   // in a chorus: night -> morning over the chorus, the letters wake one by one
       const nx = EV[idx + 1], end = nx ? nx.t : END_T, p = Math.max(0, Math.min(1, (t - ce.t) / Math.max(1, end - ce.t)));
-      day = Math.min(1, p / 0.9); ringAt(p); }
+      day = Math.min(1, p / 0.45); ringAt(p); }   // Golan 24.10: morning comes earlier in the chorus
     $("sky").style.setProperty("--day", day.toFixed(3));
     if (state.mode === "play" && !(hasSong && !state.fast) && t >= END_T) finish();   // with song.mp3 the "ended" event finishes
   }
