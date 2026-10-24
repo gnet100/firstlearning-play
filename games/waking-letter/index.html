@@ -1342,7 +1342,7 @@
   function hideSigns(now) { signs.forEach((g) => { g.want = 0; if (now) { g.s = 0; g.root.setEnabled(false); } }); }
   function askFind() {
     state.q = makeQuestion(state.letter, state.q && state.q.order);
-    state.wrongs = 0; state.resolved = false; state.celebrate = null; state.readings = 0; state.flashAt = 0; state.flyTo = -1; state.hintPulse = false;
+    state.wrongs = 0; state.partialRec = false; state.resolved = false; state.celebrate = null; state.readings = 0; state.flashAt = 0; state.flyTo = -1; state.hintPulse = false;
     signs.forEach((g, i) => { g.removed = false; g.wrongTaps = 0; g.holder.position.set(0, 0, 0); g.holder.scaling.set(1, 1, 1); g.board.position.y = 0.55; g.board.scaling.set(1, 1, 1); g.board.isVisible = true; g.flyAway = 0; if (i < state.q.order.length) drawSign(g, state.q.order[i], false); else { g.root.setEnabled(false); g.want = 0; } });
     placeSigns();
     state.mode = "find"; state.qStart = performance.now();
@@ -1538,7 +1538,7 @@
   // opened from the hub: every door goes straight back to its "בַּמֶּה נְשַׂחֵק?" list (Golan 16.10, all games), voice and timers stopped first
   function toHub() {
     if (!LRN || !LRN.fromHub || !LRN.hubUrl) return false;
-    epoch++; cancelIntro(); stopVoice(); countToken++; paused = true; if (HG) HG.stop();
+    flushPartial(); epoch++; cancelIntro(); stopVoice(); countToken++; paused = true; if (HG) HG.stop();
     location.href = LRN.hubUrl.split("#")[0] + "#games";
     return true;
   }
@@ -1889,8 +1889,15 @@
   }
 
   // ---------- door = back to the start screen (as in the car game) ----------
+  // Golan 24.10 (all games): every answer goes into the child's card at once; a letter with a wrong touch that was left
+  // before it was found (door, restart, closing the page) is recorded too, as not found
+  function flushPartial() {
+    if (LRN && kid() && state.mode === "find" && state.letter && state.wrongs > 0 && !state.resolved && !state.partialRec) { state.partialRec = true;
+      LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: state.q ? state.q.order : [], rtMs: state.firstRt || 0, hint: Math.min(state.wrongs, 3), mode: "recognize", pace: LRN.pace() }); }
+  }
+  addEventListener("pagehide", flushPartial);
   function backToStart() {
-    epoch++; cancelIntro(); stopVoice(); if (HG) HG.stop();
+    flushPartial(); epoch++; cancelIntro(); stopVoice(); if (HG) HG.stop();
     if (paused) resumeCore();
     state.q = null; state.celebrate = null; state.resolved = true; state.mode = "intro"; state.flashAt = 0; state.balGoal = null; state.flyTo = -1;
     magic.leave = null; magic.pop = null;

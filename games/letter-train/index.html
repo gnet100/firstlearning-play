@@ -1240,7 +1240,7 @@
     setTarget(L, listen);
     state.phase = "ask";
     sayTarget(0.7); state.passSaid = true;
-    state.askEnd = null; state.firstDropAt = null; state.firstPicked = null; state.letterWrong = false;
+    state.askEnd = null; state.firstDropAt = null; state.firstPicked = null; state.letterWrong = false; state.recDone = false;
     whenQuiet(() => { if (state.letter === L && state.askEnd == null) state.askEnd = performance.now(); });   // reaction time counts from the END of the spoken letter
     renderDots();
   }
@@ -1432,6 +1432,7 @@
     state.starList.push(LRN ? LRN.star(state.wrongs === 0) : state.wrongs === 0 ? "gold" : "silver");   // Golan 15.10: every found letter gets a star: gold on the first try, silver after a mistake
     if (LRN) {
       const rt = state.askEnd != null && state.firstDropAt != null ? Math.max(0, state.firstDropAt - state.askEnd) : null;
+      state.recDone = true;
       LRN.record({ game: "train", letter: state.letter, picked: state.letterWrong ? state.firstPicked : state.letter, firstTry: !state.letterWrong,
         opts: activeCars().map((x) => x.letter), rtMs: rt, changed: false, hint: Math.min(2, state.wrongs), mode: "recognize", pace: LRN.pace(), audioOnly: listen || !!state.hear, perfect });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
       const V = VIS(); if (V) V.result(state.letter, { perfect, listen });
@@ -2383,8 +2384,15 @@
   }
 
   // ---------- door = back to the start screen ----------
+  // Golan 24.10 (all games): every answer goes into the child's card at once; a letter with a wrong touch that was left
+  // before it was found (door, restart, closing the page) is recorded too, as not found
+  function flushPartial() {
+    if (LRN && state.letter && state.letterWrong && !state.recDone) { state.recDone = true;
+      LRN.record({ game: "train", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: activeCars().map((x) => x.letter), rtMs: null, changed: false, hint: Math.min(2, state.wrongs), mode: "recognize", pace: LRN.pace() }); }
+  }
+  addEventListener("pagehide", flushPartial);
   function backToStart() {
-    stopVoice(); stopCarFlash(); picking = false; clearTimeout(goT); $("go").classList.remove("pressed");
+    flushPartial(); stopVoice(); stopCarFlash(); picking = false; clearTimeout(goT); $("go").classList.remove("pressed");
     if (settingsOpen) { $("settings").hidden = true; settingsOpen = false; pausedClip = null; if (pausedFrom === null) unfreeze(); }
     countToken++; state.counting = false; clearTimers(); $("count").innerHTML = "";
     state.phase = "intro"; state.letter = null; state.bounce = null; state.fall = null; state.flashAt = 0; state.hint = false; state.flyUp = null; state.lift = 0; state.needCrate = false; dropStar();
@@ -2397,7 +2405,7 @@
   // Opened from the central hub: every door goes straight back to its "בַּמֶּה נְשַׂחֵק?" list (Golan 16.10); voice and timers stop first
   function toHub() {
     if (!LRN || !LRN.fromHub || !LRN.hubUrl) return false;
-    stopVoice(); stopCarFlash(); picking = false; clearTimeout(goT); countToken++; clearTimers(); freeze();
+    flushPartial(); stopVoice(); stopCarFlash(); picking = false; clearTimeout(goT); countToken++; clearTimers(); freeze();
     location.href = LRN.hubUrl + "#games"; return true;
   }
   ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { if (!toHub()) backToStart(e); }));
