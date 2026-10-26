@@ -445,7 +445,7 @@
   const $ = (id) => document.getElementById(id);
 
   // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
-  const settings = { quality: "high", pace: "normal", gates: "age", nikud: "uniform", stress: "off", perf: "off", voice: "on", letters: [] };
+  const settings = { quality: "high", pace: "normal", gates: "age", nikud: "uniform", stress: "off", perf: "off", voice: "on", letters: [], script: "auto" };
   // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
   // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
   // Waiting times, reaction times and the hourglass stay in real time.
@@ -556,7 +556,7 @@
       while (opts.length < fillTo && setLeft.length) opts.push(setLeft.shift());   // a filler gate: a marked letter first
       while (opts.length < fillTo) { const r = ALL_LETTERS[Math.floor(Math.random() * ALL_LETTERS.length)]; if (!opts.includes(r) && isFinal(r) === isFinal(t) && (FINAL_BASE_OF(r) !== FINAL_BASE_OF(t)) && !isLook(t, r)) opts.push(r); }
       const order = shuffle(opts.slice());
-      return { target: t, letter: t, order, lanes: order.slice(), correctLane: order.indexOf(t), listen };
+      return { target: t, letter: t, order, lanes: order.slice(), correctLane: order.indexOf(t), listen, cur: cursiveFor(t) };
     }
     // Letters chosen by the parent win; the card still decides which of them comes next.
     const t = vq.letter;
@@ -571,7 +571,7 @@
     const mark = () => "";   // letter recognition: no nikud (Golan, 14.10)
     const order = shuffle(opts.slice());
     const lanes = order.map((l) => (isFinal(l) ? l : l + mark()));   // final letters never carry nikud
-    return { target: t + mark(), letter: t, order, lanes, correctLane: order.indexOf(t), listen };
+    return { target: t + mark(), letter: t, order, lanes, correctLane: order.indexOf(t), listen, cur: cursiveFor(t) };
   }
 
   // ---------- audio: synthesized tones + browser Hebrew voice as a placeholder for recordings ----------
@@ -922,6 +922,14 @@
   // ---------- gates with Hebrew signs (text drawn by the browser into a texture, so nikud renders correctly) ----------
   const GATE_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // is this question in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
+  // more as the child learns it, up to about half (FL.learner.cursiveShare). All the gates of one question share it.
+  function cursiveFor(l) {
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    return !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
+  }
   const allGates = [-6.4, -3.2, 0, 3.2, 6.4].map((x, i) => {
     const root = new BABYLON.TransformNode("gate" + i, scene);
     const color = GATE_COLORS[i];
@@ -961,7 +969,7 @@
 
   // Signs are drawn on a canvas, which does not wait for the web font. Without it the final letters'
   // tails come out too short, so redraw the open question's signs once the font has arrived.
-  try { document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אךןץ").then(() => {
+  try { Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אךןץ"), document.fonts.load(`400 170px "FL Cursive"`, "אךןץ")]).then(() => {
     if (state.q && !state.resolved) gates.forEach((g, i) => drawSign(g, state.q.lanes[i], false)); }); } catch (e) {}
   function drawSign(g, text, highlight) {
     const ctx = g.tex.getContext();
@@ -977,12 +985,22 @@
       ctx.fillStyle = "#1d2a3a";
       // Every letter stands on the same baseline, so all tops line up (Golan, 15.10: ך stood higher
       // than the others). Taller letters (ל) rise above it and descenders (ק) go below, as in print.
-      const px = 170;
+      const cur = !!(state.q && state.q.cur);
+      let px = 170, base;
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
-      ctx.font = `800 ${px}px ${FONT}`;
-      const base = Math.round(H / 2 + ctx.measureText("ב").actualBoundingBoxAscent * 0.42);
+      if (cur) {
+        // cursive: one size and one baseline for every letter, fitted so the tallest (ל) and the longest tails (ק ך ץ ף) stay on the sign
+        ctx.font = `400 100px ${CURSIVE}`;
+        const up = Math.max(...[..."לףץךקט"].map((c) => ctx.measureText(c).actualBoundingBoxAscent));
+        const down = Math.max(...[..."קךץף"].map((c) => ctx.measureText(c).actualBoundingBoxDescent));
+        px = Math.floor(100 * (H - 44) / (up + down)); base = Math.round(22 + up * px / 100);
+        ctx.font = `400 ${px}px ${CURSIVE}`;
+      } else {
+        ctx.font = `800 ${px}px ${FONT}`;
+        base = Math.round(H / 2 + ctx.measureText("ב").actualBoundingBoxAscent * 0.42);
+      }
       { const mm = ctx.measureText(text); g.glyph = { x: W / 2 - mm.actualBoundingBoxLeft, y: base - mm.actualBoundingBoxAscent }; }   // where the check mark sits (Golan 18.10)
-      if (isFinal(text)) {
+      if (isFinal(text) && !cur) {
         // A final letter alone looks like ו or ר (Golan, 14.10). So: a writing line, and the tail below it
         // is stretched (up to about twice its length) into the room left under the line.
         const m = ctx.measureText(text), up = m.actualBoundingBoxAscent, down = Math.max(1, m.actualBoundingBoxDescent);
@@ -1111,7 +1129,8 @@
     const q = state.q;
     if (q && q.hear == null) q.hear = !!(LRN && LRN.hearOnly && LRN.hearOnly(q.letter));   // Golan 18.10: a letter already "מוכרת" is only said, not shown (decided once per question)
     const listen = !!(q && (q.listen || q.hear));
-    $("target").textContent = q && !listen ? q.target : ""; $("target").classList.toggle("final", !!q && isFinal(q.letter));
+    $("target").textContent = q && !listen ? q.target : ""; $("target").classList.toggle("final", !!q && isFinal(q.letter) && !q.cur);
+    $("target").style.fontFamily = q && q.cur ? CURSIVE : ""; $("target").style.fontWeight = q && q.cur ? "400" : "";
     document.querySelector(".prompt").classList.toggle("listen", listen);
   }
   function startRound() {
@@ -1140,9 +1159,10 @@
       // No lane change (the car was already in that lane): unknown, kept empty.
       const rt = state.decidedAt == null ? null : Math.max(0, state.decidedAt - (state.promptEndAt != null ? state.promptEndAt : state.askAt));
       if (!firstTry && rt != null && rt < 800) state.roundSlips = (state.roundSlips || 0) + 1;   // drove into a gate before really choosing
+      const cur = !!(q.cur && LRN && LRN.cursiveReady && LRN.cursiveReady(q.letter));   // a cursive gate measures the cursive letter once it is known in print (Golan 24.10)
       if (LRN) LRN.record({ game: "race", letter: q.letter, picked: state.firstPick, firstTry, opts: q.order.slice(), rtMs: rt,
-        changed: state.laneMoves >= 2, hint: state.wrongs >= 3 ? 2 : state.hintPulse ? 1 : 0, mode: "recognize", pace: LRN.pace(),
-        audioOnly: !!(q.listen || q.hear), perfect: firstTry && !state.hintPulse });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
+        changed: state.laneMoves >= 2, hint: state.wrongs >= 3 ? 2 : state.hintPulse ? 1 : 0, mode: cur ? "cursive" : "recognize", pace: LRN.pace(),
+        audioOnly: !cur && !!(q.listen || q.hear), perfect: firstTry && !state.hintPulse && !cur });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
       if (VISIT) VISIT.result(q.letter, { perfect: firstTry && !state.hintPulse, listen: !!q.listen });
       state.lastOk = firstTry; state.lastLetter = q.letter;
       state.stars++; const kind = LRN ? LRN.star(firstTry) : firstTry ? "gold" : "silver"; state.starKinds.push(kind); const sc1 = starCount(); if (sc1) sc1.add(kind);   // every solved gate earns a star: gold on the first try, silver after a mistake; counted from 0 each round (Golan, 15.10)
@@ -1365,6 +1385,7 @@
       onLevel: () => { applyLanes(); lettersChanged = true; },   // the open question is asked again with the new number of gates
       picker: { onChange: (list, mode) => { settings.letters = mode === "auto" ? [] : list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),
+      script: seg("script", () => { lettersChanged = true; }),
       tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
     pk = form.picker;
   }
@@ -1542,7 +1563,7 @@
 
   // ---------- start ----------
   const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
-    Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בָּ"), document.fonts.load(`800 40px "Noto Sans Hebrew"`, "שָׁ")]),
+    Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בָּ"), document.fonts.load(`800 40px "Noto Sans Hebrew"`, "שָׁ"), document.fonts.load(`400 170px "FL Cursive"`, "אבךןץ")]),
     new Promise((r) => setTimeout(r, 4000)),
   ]) : Promise.resolve();
   fontReady.then(() => {
@@ -1681,7 +1702,7 @@
   $("end").addEventListener("pointerdown", (e) => { if (!$("swapAsk").hidden && !e.target.closest("#swapAsk") && !e.target.closest("button")) { $("swapAsk").hidden = true; if (endUi) endUi.fit(); } });
 
   // test hook for automated checks
-  window.__race = { state, setLane, drawSign, get gates() { return gates; }, drag, makeQuestion, endRound };
+  window.__race = { state, settings, askQuestion, setLane, drawSign, get gates() { return gates; }, drag, makeQuestion, endRound };
 })();
 </script>
 </body>

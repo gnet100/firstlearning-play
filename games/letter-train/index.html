@@ -407,7 +407,7 @@
   const $ = (id) => document.getElementById(id);
 
   // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
-  const settings = { quality: "high", move: "auto", pace: "normal", cars: "3", match: "see", stress: "off", perf: "off", voice: "on", letters: [] };
+  const settings = { quality: "high", move: "auto", pace: "normal", cars: "3", match: "see", stress: "off", perf: "off", voice: "on", letters: [], script: "auto" };
   // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
   // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
   // Waiting times, reaction times and the hourglass stay in real time.
@@ -825,6 +825,16 @@
   // ---------- signs: letters drawn by the browser into a texture (same drawing as the gate signs) ----------
   const CAR_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];   // the gate colours of the car game
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // Golan 24.10: a train in cursive = the cars' signs in cursive and the cube in print, so the child matches the printed
+  // letter to its cursive form. "סוג כתב" in settings; automatic = more often as the train's letters are known in print
+  // and then in cursive (FL.learner.cursiveShare; a letter not yet known in print counts 0)
+  function cursiveTrain(letters) {
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    if (!LRN || !LRN.cursiveShare || !letters.length) return false;
+    return Math.random() < letters.reduce((a, l) => a + LRN.cursiveShare(l), 0) / letters.length;
+  }
   function makeSign(name, w, h, parent) {
     const plane = BABYLON.MeshBuilder.CreatePlane(name, { width: w, height: h }, scene);
     plane.parent = parent;
@@ -842,15 +852,15 @@
   }
   // Draws a letter. Every letter shares one size, one top line and one baseline (Golan, 15.10: a final letter must not
   // sit higher than the others). Room is kept below the baseline for the final letters' tails, which are stretched x2.2.
-  function drawLetter(ctx, text, W, H, pad) {
-    const TAIL = 2.2, room = H - pad;
+  function drawLetter(ctx, text, W, H, pad, cur) {
+    const TAIL = 2.2, room = H - pad, F = cur ? "400 {px}px " + CURSIVE : "800 {px}px " + FONT;
     ctx.fillStyle = "#1d2a3a"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
     // fit the tallest case (ל above, a final tail below) into the sign; ל is the only letter that rises above the shared top line
-    const fit = () => { up = ctx.measureText("ל").actualBoundingBoxAscent; down = ctx.measureText("ך").actualBoundingBoxDescent * TAIL; };
-    let px = 170, up, down; ctx.font = `800 ${px}px ${FONT}`; fit();
-    px = Math.floor(px * Math.min(1.4, room / (up + down))); ctx.font = `800 ${px}px ${FONT}`; fit();
+    const fit = () => { up = cur ? Math.max(...[..."לףץךקט"].map((x) => ctx.measureText(x).actualBoundingBoxAscent)) : ctx.measureText("ל").actualBoundingBoxAscent; down = cur ? Math.max(...["ק", "ך", "ץ", "ף"].map((x) => ctx.measureText(x).actualBoundingBoxDescent)) : ctx.measureText("ך").actualBoundingBoxDescent * TAIL; };
+    let px = 170, up, down; ctx.font = F.replace("{px}", px); fit();
+    px = Math.floor(px * Math.min(1.4, room / (up + down))); ctx.font = F.replace("{px}", px); fit();
     const base = Math.round((H - (up + down)) / 2 + up);
-    if (!isFinal(text)) { ctx.fillText(text, W / 2, base); return; }
+    if (cur || !isFinal(text)) { ctx.fillText(text, W / 2, base); return base; }   // cursive finals keep their own tail
     const m = ctx.measureText(text), y0 = Math.ceil(m.actualBoundingBoxAscent) + 6;
     const off = document.createElement("canvas"); off.width = W; off.height = y0 + Math.ceil(m.actualBoundingBoxDescent) + 8;
     const o = off.getContext("2d"); o.font = ctx.font; o.fillStyle = ctx.fillStyle; o.textAlign = "center"; o.textBaseline = "alphabetic"; o.direction = "rtl";
@@ -859,8 +869,10 @@
     ctx.beginPath(); ctx.moveTo(44, base + 3); ctx.lineTo(W - 44, base + 3); ctx.stroke(); ctx.restore();
     ctx.drawImage(off, 0, 0, W, y0, 0, base - y0, W, y0);
     const th = off.height - y0; ctx.drawImage(off, 0, y0, W, th, 0, base, W, th * TAIL);
+    return base;
   }
   // The car's sign. look: "normal", "hint" (yellow frame), "full" (green frame), "removed" (grey, hint 3)
+  const curRec = () => !!(state.train && state.train.cur && state.letter && LRN && LRN.cursiveReady && LRN.cursiveReady(state.letter));
   function drawCarSign(c, look) {
     const ctx = c.sign.tex.getContext(), W = 384, H = 256;
     ctx.clearRect(0, 0, W, H);
@@ -871,10 +883,8 @@
     ctx.lineWidth = look === "hint" ? 26 : look === "full" ? 20 : 14;
     ctx.strokeStyle = look === "hint" ? "#FFC400" : look === "full" ? "#2BB673" : c.color; ctx.stroke();
     if (look !== "removed") {
-      drawLetter(ctx, c.letter, W, H, 36);
+      const base = drawLetter(ctx, c.letter, W, H, 36, !!(state.train && state.train.cur)), m = ctx.measureText(c.letter);
       // where the letter's own top-left corner is on the sign (for the check mark, as in the car game, Golan 18.10)
-      const up = ctx.measureText("ל").actualBoundingBoxAscent, down = ctx.measureText("ך").actualBoundingBoxDescent * 2.2, m = ctx.measureText(c.letter);
-      const base = Math.round((H - (up + down)) / 2 + up);
       c.glyphTL = [(W / 2 - m.actualBoundingBoxLeft) / W, (base - m.actualBoundingBoxAscent) / H];
     }
     c.sign.tex.update(true);
@@ -1216,7 +1226,7 @@
   function newTrain(firstOfRound) {
     for (const c of cars) { for (const k of c.cubes || []) { k.root.dispose(); crates.splice(crates.indexOf(k), 1); } c.cubes = []; c.count = 0; }
     const prev = state.letter;
-    state.train = makeTrain(prev, firstOfRound); state.dropIdx = 0; renderDots();
+    state.train = makeTrain(prev, firstOfRound); state.train.cur = cursiveTrain(state.train.cars); state.dropIdx = 0; renderDots();
     layoutCars();
     activeCars().forEach((c, i) => { c.letter = state.train.cars[i]; c.filled = false; c.count = 0; c.quota = state.train.quota[c.letter]; c.removed = false; c.signRoot.position.y = SIGN_Y; drawCarSign(c, "normal"); });
     loco.setEnabled(false); state.locoX = -60;
@@ -1434,7 +1444,8 @@
       const rt = state.askEnd != null && state.firstDropAt != null ? Math.max(0, state.firstDropAt - state.askEnd) : null;
       state.recDone = true;
       LRN.record({ game: "train", letter: state.letter, picked: state.letterWrong ? state.firstPicked : state.letter, firstTry: !state.letterWrong,
-        opts: activeCars().map((x) => x.letter), rtMs: rt, changed: false, hint: Math.min(2, state.wrongs), mode: "recognize", pace: LRN.pace(), audioOnly: listen || !!state.hear, perfect });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
+        // a cursive train measures the cursive letter once the letter is known in print (Golan 24.10); a heard-only find in cursive is not known at once
+        opts: activeCars().map((x) => x.letter), rtMs: rt, changed: false, hint: Math.min(2, state.wrongs), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace(), audioOnly: !curRec() && (listen || !!state.hear), perfect: perfect && !curRec() });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
       const V = VIS(); if (V) V.result(state.letter, { perfect, listen });
     }
     state.listen = false;
@@ -1731,6 +1742,7 @@
       levels: ["הילד מזיז את הכדור הפורח בעצמו, בלי אותיות דומות.", "הכדור הפורח זז לבד ולאט, יכול להופיע זוג אחד של אותיות דומות.", "הכדור הפורח זז לבד ומהר, ונכנסות גם אותיות סופיות."],
       onLevel: () => { lettersChanged = true; syncSeg(); },   // the train on screen is replaced when the panel closes
       picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },
+      script: seg("script", () => { lettersChanged = true; }),
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),
       tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
     picker = form.picker;
@@ -2235,7 +2247,7 @@
   ["ב", "מ", "ש", "ל", "ד"].forEach((l, i) => { cars[i].letter = l; });
   // the local font first (700 64px with nikud, then the sign weight); after 4 s we go on, and repaint the signs once it arrives
   let fontLate = false;
-  const fontLoad = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 64px "Noto Sans Hebrew"', "אָבּ"), document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אבךןץ")]) : Promise.resolve();
+  const fontLoad = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 64px "Noto Sans Hebrew"', "אָבּ"), document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אבךןץ"), document.fonts.load(`400 170px "FL Cursive"`, "אבךןץ")]) : Promise.resolve();
   const fontReady = Promise.race([fontLoad, new Promise((r) => setTimeout(() => { fontLate = true; r(); }, 4000))]);
   fontLoad.then(() => { if (fontLate) cars.forEach((c) => c.letter && drawCarSign(c, c.removed ? "removed" : "normal")); });
   fontReady.then(() => {
@@ -2388,7 +2400,7 @@
   // before it was found (door, restart, closing the page) is recorded too, as not found
   function flushPartial() {
     if (LRN && state.letter && state.letterWrong && !state.recDone) { state.recDone = true;
-      LRN.record({ game: "train", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: activeCars().map((x) => x.letter), rtMs: null, changed: false, hint: Math.min(2, state.wrongs), mode: "recognize", pace: LRN.pace() }); }
+      LRN.record({ game: "train", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: activeCars().map((x) => x.letter), rtMs: null, changed: false, hint: Math.min(2, state.wrongs), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace() }); }
   }
   addEventListener("pagehide", flushPartial);
   function backToStart() {
@@ -2420,7 +2432,7 @@
   });
 
   // test hook for automated checks
-  window.__train = { state, cars, gnome, fillShelf: (n) => { for (let i = 0; i < n; i++) { const s = nextSlot(); if (!s) return i; const cr = makeCrate(); drawCrate(cr, "ס", false); cr.str.isVisible = false; cr.stuck = true; for (const m of cr.root.getChildMeshes(false)) m.renderingGroupId = 1; gnome.shelf.push({ cr, s }); } return n; }, get lanes() { return LANE_X; }, makeTrain, setLane, requestDrop, endRound, settings, drawCarSign,
+  window.__train = { state, newTrain, cars, gnome, fillShelf: (n) => { for (let i = 0; i < n; i++) { const s = nextSlot(); if (!s) return i; const cr = makeCrate(); drawCrate(cr, "ס", false); cr.str.isVisible = false; cr.stuck = true; for (const m of cr.root.getChildMeshes(false)) m.renderingGroupId = 1; gnome.shelf.push({ cr, s }); } return n; }, get lanes() { return LANE_X; }, makeTrain, setLane, requestDrop, endRound, settings, drawCarSign,
     balloonScreen() { const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(); const p = BABYLON.Vector3.Project(envelope.getAbsolutePosition(), BABYLON.Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(W, H)); return [r.left + p.x * r.width / W, r.top + p.y * r.height / H]; } };
 })();
 </script>

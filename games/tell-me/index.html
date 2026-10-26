@@ -493,7 +493,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   const $ = (id) => document.getElementById(id);
 
   // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
-  const settings = { quality: "high", pace: "normal", count: "auto", check: "off", stress: "off", perf: "off", voice: "on", letters: [], lettersMode: null, balloon: null };
+  const settings = { quality: "high", pace: "normal", count: "auto", check: "off", stress: "off", perf: "off", voice: "on", letters: [], lettersMode: null, balloon: null, script: "auto" };
   // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
   // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
   // Waiting times, reaction times and the hourglass stay in real time.
@@ -1046,6 +1046,14 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
 
   // ---------- the letter card (drawn by the browser into a texture, like the gate signs) ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // is this card in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
+  // more as the child learns it, up to about half (FL.learner.cursiveShare)
+  function cursiveFor(l) {
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    return !!(window.FL && FL.learner && FL.learner.cursiveShare && Math.random() < FL.learner.cursiveShare(l));
+  }
   const card = new BABYLON.TransformNode("card", scene);
   const cardSign = new BABYLON.TransformNode("cardSign", scene); cardSign.parent = card;
   const board = BABYLON.MeshBuilder.CreatePlane("board", { width: 3.0, height: 2.25 }, scene); board.parent = cardSign;
@@ -1062,7 +1070,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   card.setEnabled(false);
   const CARD_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
   let cardColor = CARD_COLORS[0];
-  try { document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אךןץ").then(() => { if (state.q) drawCard(state.q.letter, state.cardGlow); }); } catch (e) {}
+  try { Promise.all([document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אךןץ"), document.fonts.load(`400 260px "FL Cursive"`, "אךןץ")]).then(() => { if (state.q) drawCard(state.q.letter, state.cardGlow); }); } catch (e) {}
   function drawCard(text, glow) {
     const ctx = cardTex.getContext();
     const W = 512, H = 384, r = 56;
@@ -1077,6 +1085,15 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     // ך ן ף ץ, which are stretched 2.2x as in the car game, so ן is not ו and ך is not ר.
     const TAIL = 2.2, room = H - 50;
     ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
+    if (state.q && state.q.cur) {
+      // cursive: one size and one baseline for every letter, fitted so the tallest (ל) and the longest tails (ק ך ץ ף) stay on the card
+      ctx.font = `400 100px ${CURSIVE}`;
+      const cu = Math.max(...[..."לףץךקט"].map((c) => ctx.measureText(c).actualBoundingBoxAscent));
+      const cd = Math.max(...[..."קךץף"].map((c) => ctx.measureText(c).actualBoundingBoxDescent));
+      const cpx = Math.floor(100 * (H - 60) / (cu + cd));
+      ctx.font = `400 ${cpx}px ${CURSIVE}`; ctx.fillText(text, W / 2, Math.round(30 + cu * cpx / 100));
+      cardTex.update(true); return;
+    }
     let px = 320; ctx.font = `800 ${px}px ${FONT}`;
     const fit = () => { const up = ctx.measureText("ל").actualBoundingBoxAscent, down = ctx.measureText("ך").actualBoundingBoxDescent * TAIL; return [up, down]; };
     let [up, down] = fit();
@@ -1238,7 +1255,9 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     if (!state.q.letter) state.q.letter = visitLetter();          // picked now, by the shared visit flow
     else { const v = visitFlow(); if (v) v.setLast(state.q.letter); }   // a re-ask or a check letter still counts as the last one asked
     cardColor = CARD_COLORS[state.qIndex % CARD_COLORS.length];
+    if (state.q.cur == null) state.q.cur = cursiveFor(state.q.letter);   // a whole card in print or in cursive (Golan 24.10)
     drawCard(state.q.letter, false); $("target").textContent = state.q.letter;   // the pill shows the same letter as the card
+    $("target").style.fontFamily = state.q.cur ? CURSIVE : ""; $("target").style.fontWeight = state.q.cur ? "400" : "";
     // hear only (Golan 18.10): decided once per question; the card still shows the letter, only the pill drops it
     state.q.hearOnly = !!(window.FL && FL.learner && typeof FL.learner.hearOnly === "function" && FL.learner.hearOnly(state.q.letter));
     document.querySelector(".prompt").classList.toggle("listen", state.q.hearOnly);
@@ -1267,7 +1286,9 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     // A "נסו שוב" letter is recorded when it is solved on its re-ask (or at once in the 22-letter check, which has none).
     if (window.FL && FL.learner) {
       const rec = (solved) => !state.recorded.has(q.letter) && state.recorded.add(q.letter) && FL.learner.record({ game: "tellme", letter: q.letter, picked: null, firstTry: !q.re && ok, solved,
-        opts: [q.letter], rtMs: performance.now() - (state.spokeAt || state.askedAt), mode: "name", by: "adult",
+        opts: [q.letter], rtMs: performance.now() - (state.spokeAt || state.askedAt), by: "adult",
+        // a cursive card measures the cursive letter once the letter is known in print (Golan 24.10)
+        mode: q.cur && FL.learner.cursiveReady && FL.learner.cursiveReady(q.letter) ? "cursive" : "name",
         timeout: ok ? !!q.to : !!timeout });   // a re-ask solved after a time-out: its "not yet" was not tapped either
       if (!q.re && ok) rec(true);
       else if (q.re) rec(ok);
@@ -1461,7 +1482,8 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
       onLevel: () => { lettersChanged = true; },
       picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),
-      extra: [...$("tellExtras").children],   // Golan 20.10 (recommended on the card): back up, under the level
+      extra: [...$("tellExtras").children],
+      script: seg("script", () => { lettersChanged = true; }),   // Golan 20.10 (recommended on the card): back up, under the level
       tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
     picker = form.picker;
   }
@@ -1632,7 +1654,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
 
   // ---------- start ----------
   const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
-    document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אבגךאָבּ"), new Promise((r) => setTimeout(r, 4000)),
+    Promise.all([document.fonts.load(`800 260px "Noto Sans Hebrew"`, "אבגךאָבּ"), document.fonts.load(`400 260px "FL Cursive"`, "אבגך")]), new Promise((r) => setTimeout(r, 4000)),
   ]) : Promise.resolve();
   fontReady.then(() => { drawCard("ג", false); return scene.whenReadyAsync(); }).then(() => {
     loadMs = performance.now() - T0;
