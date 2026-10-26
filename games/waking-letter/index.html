@@ -410,6 +410,7 @@
 <script src="new-lines.js"></script>
 <script src="letters-animated/letters-animated.js"></script>
 <script src="../shared/letter-pairs.js"></script>
+<script src="../shared/love-balloon.js"></script>
 <script src="../shared/learner.js"></script>
 <script>
 (() => {
@@ -418,7 +419,7 @@
   const $ = (id) => document.getElementById(id);
 
   // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
-  const settings = { quality: "high", pace: "normal", count: "3", motion: "1", stress: "off", perf: "off", voice: "on", letters: [], balloon: null };
+  const settings = { quality: "high", pace: "normal", count: "3", motion: "1", stress: "off", perf: "off", voice: "on", letters: [], balloon: null, script: "auto" };
   // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
   // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
   // Waiting times, reaction times and the hourglass stay in real time.
@@ -799,17 +800,18 @@
     { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
     { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
     { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
-    { c: ["#16B6A8", "#7C5CFF"], pat: "checks", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
     { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
     { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
     { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
     { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [1.02, 1.32] };
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
   // flat: a W x H picture of the balloon front (the caller clips it to the balloon outline). uv: W x H skin, x = around, y = top to bottom.
   function paintBalloon(ctx, W, H, d, uv) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, uv);   // shared/love-balloon.js
     const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
     const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
     const S = uv ? H / 256 : W / 100;   // size unit
@@ -848,7 +850,8 @@
   const envTex = new BABYLON.DynamicTexture("envTex", { width: 512, height: 256 }, scene, true);
   const envMat = ownMat("envMat", "#ffffff"); envMat.diffuseTexture = envTex;
   const ENV_Y = 2.65;
-  const envelope = BABYLON.MeshBuilder.CreateSphere("envelope", { diameter: 3, segments: 20 }, scene);
+  const envelope = BABYLON.MeshBuilder.CreateSphere("envelope", { diameter: 3, segments: 20, updatable: true }, scene);
+  const envBase = envelope.getVerticesData(BABYLON.VertexBuffer.PositionKind).slice();   // kept to bend into the heart balloon and back
   envelope.scaling.y = 1.15; envelope.material = envMat; envelope.parent = balIn; envelope.position.y = ENV_Y;
   const skirt = BABYLON.MeshBuilder.CreateCylinder("skirt", { diameterTop: 1.2, diameterBottom: 0.7, height: 0.6, tessellation: 16 }, scene);
   const skirtMat = ownMat("skirtMat", BALLOONS[0].c[0]);
@@ -910,10 +913,10 @@
   function useBalloon(i) {
     const d = BALLOONS[i] || BALLOONS[0], [sx, sy] = SHAPES[d.shape];
     paintBalloon(envTex.getContext(), 512, 256, d, true); envTex.update(true);
-    envelope.scaling.set(sx, sy, sx);
+    envelope.scaling.set(sx, sy, sx); loveShape(envelope, envBase, d.shape === "heart", 1.5, 1.5, 1.5);
     placeRopes(1.5 * sx, 1.5 * sy);
     skirt.position.y = ENV_Y - 1.5 * sy * 0.97 - 0.12;
-    skirtMat.diffuseColor = BABYLON.Color3.FromHexString(d.c[0]);
+    skirtMat.diffuseColor = BABYLON.Color3.FromHexString(d.pat === "love" ? d.c[1] : d.c[0]);
     paintBasket(d);
     pole.isVisible = flag.isVisible = !!d.flag; pole.position.y = ENV_Y + 1.5 * sy + 0.35;
     if (d.flag) flagMat.diffuseColor = BABYLON.Color3.FromHexString(d.flag);
@@ -924,6 +927,18 @@
   // ---------- letter clouds (signs look like the car game's signs, sitting on a cloud) ----------
   const SIGN_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // is this round's letter in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
+  // more as the child learns it, up to about half (FL.learner.cursiveShare). The sleeping letter, the clouds and the tags all follow it.
+  const CURSIVE_ON = false;   // turned on once Golan approves the cursive sleeping letters (animations thread, 26.10)
+  function cursiveFor(l) {
+    if (!CURSIVE_ON) return false;
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    return !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
+  }
+  // a cursive round measures the cursive letter once the letter is known in print; a heard-only cursive find does not make it known at once
+  const curRec = () => !!(state.cur && state.letter && LRN && LRN.cursiveReady && LRN.cursiveReady(state.letter));
   const signs = [];
   for (let i = 0; i < 5; i++) {
     const root = new BABYLON.TransformNode("lc" + i, scene);
@@ -952,8 +967,18 @@
     if (!g.removed && text) {
       ctx.fillStyle = "#1d2a3a"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
       // One baseline for every letter, so all letters have the same top (Golan, 15.10): ל rises above it, ק's tail goes below.
-      ctx.font = `800 170px ${FONT}`;
-      const ref = ctx.measureText("ב").actualBoundingBoxAscent, base = H / 2 + ref / 2;
+      let base;
+      if (state.cur) {
+        // cursive: one size and one baseline for every letter, fitted so the tallest (ל ף ץ) and the longest tails (ק ך ץ ף) stay on the sign
+        ctx.font = `400 100px ${CURSIVE}`;
+        const up = Math.max(...[..."לףץךקט"].map((c) => ctx.measureText(c).actualBoundingBoxAscent));
+        const down = Math.max(...[..."קךץף"].map((c) => ctx.measureText(c).actualBoundingBoxDescent));
+        const px = Math.floor(100 * (H - 44) / (up + down)); base = Math.round(22 + up * px / 100);
+        ctx.font = `400 ${px}px ${CURSIVE}`;
+      } else {
+        ctx.font = `800 170px ${FONT}`;
+        base = H / 2 + ctx.measureText("ב").actualBoundingBoxAscent / 2;
+      }
       // the thin writing line under the letter, as on the other games' signs (Golan 19.10)
       ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 4; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(W * 0.2, base + 5); ctx.lineTo(W * 0.8, base + 5); ctx.stroke(); ctx.restore();
@@ -961,7 +986,7 @@
     }
     g.tex.update(true);
   }
-  try { document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אבגק").then(() => { if (state.q) signs.forEach((g, i) => i < state.q.order.length && drawSign(g, state.q.order[i], false)); }); } catch (e) {}
+  try { Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "אבגק"), document.fonts.load(`400 170px "FL Cursive"`, "אבגק")]).then(() => { if (state.q) signs.forEach((g, i) => i < state.q.order.length && drawSign(g, state.q.order[i], false)); }); } catch (e) {}
 
   // ---------- found letters hang under the balloon (Golan 17.10, as in the letter circle; all games) ----------
   // Every letter found in the round flies from its cloud to its own string on the basket and stays hanging there until
@@ -990,7 +1015,7 @@
     // green, with a white letter (Golan 17.10, all games): the shared "known" teal #00796b, so the white letter reads well
     ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 8, 0, 7); ctx.fillStyle = "#00796b"; ctx.fill();   // flat, as in the detective game
     ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
-    ctx.font = `800 104px ${FONT}`;
+    ctx.font = state.cur ? `400 96px ${CURSIVE}` : `800 104px ${FONT}`;
     const ref = ctx.measureText("ב").actualBoundingBoxAscent;
     ctx.fillText(letter, S / 2, S / 2 + ref / 2);
     g.tex.update(true);
@@ -1167,7 +1192,8 @@
     if (state.mode !== "find" || !state.q || state.resolved || state.hintPulse) return;
     state.hintPulse = true; state.hinted = true; drawSign(signs[state.q.correct], state.q.order[state.q.correct], true);
   }
-  function setPrompt(label, letter) { $("label").textContent = label; $("target").textContent = letter || ""; }
+  function setPrompt(label, letter) { $("label").textContent = label; $("target").textContent = letter || "";
+    $("target").style.fontFamily = letter && state.cur ? CURSIVE : ""; $("target").style.fontWeight = letter && state.cur ? "400" : ""; }
   // a final letter's word: the final at its end is marked (language thread 17.10, finals-words-review.md)
   function setWord(l) {
     const w = window.PICTURES[l].word, i = w.lastIndexOf(l);
@@ -1227,6 +1253,7 @@
       state.letter = v.letter; state.listen = v.listen;   // a listening item: one find by ear, no picture and no letter shown
     } else state.letter = nextRoundLetter();
     state.letterFinds = 0; state.streak = 0; state.letterWrongs = 0; state.q = null;
+    state.cur = !state.listen && cursiveFor(state.letter);   // the whole round of this letter in print or in cursive (Golan 24.10)
     clearTags();   // a new letter: the balloon without the letters found before (Golan 19.10)
     if (state.listen) askFind(); else askPic();
   }
@@ -1238,7 +1265,7 @@
     $("prompt").classList.add("listen"); setPrompt("", "");   // the child can not read: the speaker alone in the pill
     loadPic(state.letter); showMagic(true); markLearned();
     $("magic").classList.add("solo");
-    const LA = window.LETTERS_ANIMATED, el = LA && LA.make(state.letter);
+    const LA = window.LETTERS_ANIMATED, el = LA && LA.make(state.letter, state.cur ? { script: "cursive" } : undefined);
     if (el) {   // the sleeping letter, breathing (Golan 20.10); the plain card waits for after it woke up
       LA.sound = settings.voice === "on"; LA.audioBase = AUDIO;
       $("mAnim").innerHTML = ""; $("mAnim").append(el); $("mAnim").hidden = false; $("mCard").hidden = true; magic.anim = el; el.breathe();
@@ -1393,7 +1420,7 @@
       state.letterFinds++; state.streak = state.wrongs ? 0 : state.streak + 1;   // 3 in a row with no mistake: the next letter (Golan 18.10)
       // every letter found earns a star at once: gold on the first try, silver after a mistake (Golan, 15.10; learner-model.md sec 8)
       if (LRN) LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: !state.wrongs, opts: q.order,
-        rtMs: state.firstRt, changed: state.changed, hint: Math.min(state.wrongs, 3), mode: "recognize", pace: LRN.pace(), audioOnly: !!state.hear, perfect });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
+        rtMs: state.firstRt, changed: state.changed, hint: Math.min(state.wrongs, 3), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace(), audioOnly: !curRec() && !!state.hear, perfect: perfect && !curRec() });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
       if (VISIT && kid()) VISIT.result(state.letter, { perfect, listen: !!state.listen });
       const kind = LRN ? LRN.star(!state.wrongs) : state.wrongs ? "silver" : "gold";
       state.starRow.push(kind); state.stars = state.starRow.length; starCount.add(kind);
@@ -1572,6 +1599,7 @@
       picker: { autoList: () => autoRoundLetters(), available: LETTERS.filter(hasPic), finals: true,
         onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; progress.round = 0; saveProgress(); saveSettings(); } },
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),
+      script: CURSIVE_ON ? seg("script") : undefined,   // from the next letter on
       tech: { perf: seg("perf"), stress: seg("stress", () => applyStress()), diag: () => diagnostics() } });
   }
   function renderParent() { if (form) form.refresh(); }
@@ -1786,7 +1814,7 @@
 
   // ---------- start screen (as in the car game) ----------
   const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
-    document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בגד"), new Promise((r) => setTimeout(r, 4000)),
+    Promise.all([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בגד"), document.fonts.load(`400 170px "FL Cursive"`, "בגד")]), new Promise((r) => setTimeout(r, 4000)),
   ]).catch(() => {}) : Promise.resolve();
   fontReady.then(() => Promise.race([scene.whenReadyAsync(), new Promise((r) => setTimeout(r, 6000))])).then(() => {
     loadMs = performance.now() - T0;
@@ -1823,14 +1851,14 @@
   // ---------- balloon picker (instead of the car picker; same voice, timing and reminder) ----------
   function balloonSvg(i) {
     const d = BALLOONS[i], [sx, sy] = SHAPES[d.shape];
-    const cv = document.createElement("canvas"); cv.width = 200; cv.height = 240; paintBalloon(cv.getContext("2d"), 200, 240, d, false);
-    const env = "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const t = `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
+    const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
+    const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
     const top = 90 - 84 * sy / 1.25;
     return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
       (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
-      `<image href="${cv.toDataURL()}" x="0" y="0" width="100" height="120" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
-      `<path d="${env}" transform="${t}" fill="none" stroke="#0000001f" stroke-width="1.5"/>` +
+      `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
       `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
       `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
       `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one
@@ -1893,7 +1921,7 @@
   // before it was found (door, restart, closing the page) is recorded too, as not found
   function flushPartial() {
     if (LRN && kid() && state.mode === "find" && state.letter && state.wrongs > 0 && !state.resolved && !state.partialRec) { state.partialRec = true;
-      LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: state.q ? state.q.order : [], rtMs: state.firstRt || 0, hint: Math.min(state.wrongs, 3), mode: "recognize", pace: LRN.pace() }); }
+      LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: state.q ? state.q.order : [], rtMs: state.firstRt || 0, hint: Math.min(state.wrongs, 3), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace() }); }
   }
   addEventListener("pagehide", flushPartial);
   function backToStart() {
@@ -1918,7 +1946,7 @@
   outsideTap($("settings"), ".panel", () => closeSettings());
   outsideTap($("end"), "#swapAsk", () => { if (!$("swapAsk").hidden) { $("swapAsk").hidden = true; END.fit(); } });
   // test hook for automated checks
-  window.__wake = { END, endRound: () => endRound(), visit: VISIT, roundCands: () => roundCands(), boardPointCss, screenToBalloonPlane, balTop, balloon, state, signs, magic, chooseSign, touchMagic, makeQuestion, progress, nextRoundLetter, cloudCount, voiceId, get lastRound() { return lastRound; }, get clip() { return clipNow ? clipNow.src.split("/").pop() : null; }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
+  window.__wake = { END, settings, nextLetter, drawSign, endRound: () => endRound(), visit: VISIT, roundCands: () => roundCands(), boardPointCss, screenToBalloonPlane, balTop, balloon, state, signs, magic, chooseSign, touchMagic, makeQuestion, progress, nextRoundLetter, cloudCount, voiceId, get lastRound() { return lastRound; }, get clip() { return clipNow ? clipNow.src.split("/").pop() : null; }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
 })();
 </script>
 </body>

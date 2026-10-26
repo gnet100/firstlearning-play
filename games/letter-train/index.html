@@ -398,6 +398,7 @@
 <script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.27.1/babylonjs.loaders.min.js"></script>
 <script src="trees/trees.js"></script>
 <script src="../shared/letter-pairs.js"></script>
+<script src="../shared/love-balloon.js"></script>
 <script src="../shared/learner.js"></script>
 <script src="../../hub-cards-animated/train-locos.js"></script>
 <script>
@@ -989,17 +990,18 @@
     { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
     { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
     { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
-    { c: ["#16B6A8", "#7C5CFF"], pat: "checks", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
     { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
     { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
     { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
     { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [1.02, 1.32] };
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
   // flat: a W x H picture of the balloon front (the caller clips it to the balloon outline). uv: W x H skin, x = around, y = top to bottom.
   function paintSkin(ctx, W, H, d, uv) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, uv);   // shared/love-balloon.js
     const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
     const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
     const S = uv ? H / 256 : W / 100;   // size unit
@@ -1033,8 +1035,8 @@
     paintSkin(envTex.getContext(), 512, 256, st, true);
     envTex.update(true);
     const [sx, sy0] = SHAPES[st.shape] || SHAPES.round, sy = sy0 / 1.15;   // the shared shapes are tall by 1.15 already; this envelope is too
-    envelope.scaling.set(sx, sy, sx); envelope.position.y = 6.75 + 1.85 * sy;   // the bottom stays on the skirt
-    skirtMat.diffuseColor = BABYLON.Color3.FromHexString(st.c[0]);
+    envelope.scaling.set(sx, sy, sx); loveShape(envelope, envBase, st.shape === "heart", 1.7, 1.85, 1.7); envelope.position.y = 6.75 + 1.85 * sy;   // the bottom stays on the skirt
+    skirtMat.diffuseColor = BABYLON.Color3.FromHexString(st.pat === "love" ? st.c[1] : st.c[0]);
     paintBasket(st);
     pole.isVisible = flag.isVisible = !!st.flag; pole.position.y = envelope.position.y + 1.85 * sy + 0.4;
     if (st.flag) flagMat.diffuseColor = BABYLON.Color3.FromHexString(st.flag);
@@ -1047,7 +1049,8 @@
   const BODY_K = 0.72, HOOK_Y = 5.05, RISE = 0.8;
   const body = new BABYLON.TransformNode("balloonBody", scene); body.parent = balloon;
   body.scaling.set(BODY_K, BODY_K, BODY_K); body.position.y = HOOK_Y * (1 - BODY_K);
-  const envelope = BABYLON.MeshBuilder.CreateSphere("envelope", { diameterX: 3.4, diameterY: 3.7, diameterZ: 3.4, segments: 20 }, scene);
+  const envelope = BABYLON.MeshBuilder.CreateSphere("envelope", { diameterX: 3.4, diameterY: 3.7, diameterZ: 3.4, segments: 20, updatable: true }, scene);
+  const envBase = envelope.getVerticesData(BABYLON.VertexBuffer.PositionKind).slice();   // kept to bend into the heart balloon and back
   envelope.material = envMat; envelope.parent = body; envelope.position.y = 8.6;
   const skirt = BABYLON.MeshBuilder.CreateCylinder("skirt", { diameterTop: 2.3, diameterBottom: 0.8, height: 1.15, tessellation: 20 }, scene);
   const skirtMat = new BABYLON.StandardMaterial("skirtMat", scene); skirtMat.specularColor = new BABYLON.Color3(0.08, 0.08, 0.08);
@@ -2291,14 +2294,14 @@
   // picker picture: the same pattern, shape, basket and flag as the 3D balloon (shared with the detective game)
   function balloonSvg(i) {
     const d = BALLOONS[i], [sx, sy] = SHAPES[d.shape];
-    const cv = document.createElement("canvas"); cv.width = 200; cv.height = 240; paintSkin(cv.getContext("2d"), 200, 240, d, false);
-    const env = "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const t = `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
+    const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintSkin(cv.getContext("2d"), cv.width, cv.height, d, false);
+    const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
     const top = 90 - 84 * sy / 1.25;
     return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
       (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
-      `<image href="${cv.toDataURL()}" x="0" y="0" width="100" height="120" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
-      `<path d="${env}" transform="${t}" fill="none" stroke="#0000001f" stroke-width="1.5"/>` +
+      `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
       `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
       `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
       `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one

@@ -150,6 +150,7 @@
 <div class="toast" id="toast"></div>
 <script src="games/shared/screen.js"></script>
 <script src="games/shared/letter-pairs.js"></script>
+<script src="games/shared/love-balloon.js"></script>
 <script src="games/shared/learner.js"></script>
 <script src="games/shared/learning-map.js"></script>
 <script src="hub-cards-animated/hub-cards-animated.js"></script>
@@ -517,13 +518,13 @@
     { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
     { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
     { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
-    { c: ["#16B6A8", "#7C5CFF"], pat: "checks", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
     { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
     { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
     { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
     { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [1.02, 1.32] };
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
   function paintBalloon(ctx, W, H, d) {   // flat front of the balloon (same patterns as paintBalloon in the detective game)
@@ -559,11 +560,16 @@
     if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 13); ctx.stroke();
       ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 13); ctx.lineTo(64, top - 13); ctx.lineTo(60, top - 8.5); ctx.lineTo(64, top - 4); ctx.lineTo(50, top - 4); ctx.fill(); }
     ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(41, 90); ctx.lineTo(38, 102); ctx.moveTo(59, 90); ctx.lineTo(62, 102); ctx.stroke();
+    if (d.shape === "heart") {   // the heart balloon (shared/love-balloon.js): its own outline, painted at full size
+      const he = new Path2D(LOVE_ENV), pc = document.createElement("canvas"); pc.width = 250; pc.height = 335; paintLove(pc.getContext("2d"), 250, 335, d, false);
+      ctx.save(); ctx.clip(he); ctx.drawImage(pc, 0, -14, 100, 134); ctx.restore(); ctx.strokeStyle = d.c[1]; ctx.lineWidth = 1.8; ctx.stroke(he);
+    } else {
     ctx.save(); ctx.translate(50, 90); ctx.scale(sx / 1.1, sy / 1.25); ctx.translate(-50, -90);   // stretched around the balloon's mouth
     ctx.save(); ctx.clip(env); paintBalloon(ctx, 100, 92, d);
     const g = ctx.createRadialGradient(36, 26, 3, 50, 46, 50); g.addColorStop(0, "#ffffff66"); g.addColorStop(0.5, "#ffffff00"); g.addColorStop(1, "#0000002a");
     ctx.fillStyle = g; ctx.fillRect(0, 0, 100, 92); ctx.restore();
     ctx.strokeStyle = "#0000001f"; ctx.lineWidth = 1.5; ctx.stroke(env); ctx.restore();
+    }
     ctx.fillStyle = d.basket; ctx.beginPath(); ctx.roundRect(36, 100, 28, 16, 3); ctx.fill();
     ctx.fillStyle = "#4a3222"; ctx.fillRect(36, 100, 28, 3); ctx.fillStyle = d.c[0]; ctx.fillRect(36, 105.5, 28, 2.6); ctx.fillRect(36, 112.6, 28, 2.6);
     ctx.fillStyle = d.c[1] || "#fff"; ctx.fillRect(36, 109.6, 28, 1.6);
