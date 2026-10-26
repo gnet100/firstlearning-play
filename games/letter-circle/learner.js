@@ -118,7 +118,7 @@ ${items[item]}</svg>`;
 
   // ---------- recording ----------
   // ev: { game, letter, picked, firstTry, solved, opts:[letters shown], rtMs (from end of audio), changed, hint,
-  //       mode: "recognize" (tap/pick) | "name" (said aloud, adult judged), by: "child"|"adult", pace,
+  //       mode: "recognize" (tap/pick) | "name" (said aloud, adult judged) | "cursive" (the letter in cursive, כתב יד), by: "child"|"adult", pace,
 //       audioOnly (the question was heard only, no letter shown), perfect (that audio-only question solved with no mistake, no hint) }
   // Call once per question, when it is solved (or abandoned), with the FIRST answer's details.
   // Golan 19.10: a letter that becomes "מזהה בביטחון" during a game makes room: the system's practice set is worked out
@@ -180,7 +180,7 @@ ${items[item]}</svg>`;
       p.lastAt = now;
       const e = { t: now, s: p.session, g: ev.game || "", l: ev.letter, p: ev.picked || null,
         ok: !!ev.firstTry, hz: !!(ev.firstTry && ev.hesitant), sol: ev.solved !== false, o: (ev.opts || []).slice(0, 8), rt: ev.rtMs == null ? null : Math.round(ev.rtMs),
-        ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : "recognize", by: ev.by || "child", pc: ev.pace || null };
+        ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : ev.mode === "cursive" ? "cursive" : "recognize", by: ev.by || "child", pc: ev.pace || null };
       e.fast = e.m === "recognize" && !e.ok && e.rt != null && e.rt < FAST_WRONG_MS;   // slip: not counted as a letter error
       if (ev.timeout) e.to = 1;   // the "not yet" came from no tap (time ran out), not from the adult's button
       p.events.push(e); if (p.events.length > MAX_EVENTS) p.events.splice(0, p.events.length - MAX_EVENTS);
@@ -202,7 +202,7 @@ ${items[item]}</svg>`;
     if (!p) return {};
     if (cache && cache.id === p.id && cache.n === p.events.length) return cache.cards;
     const cards = {}, all = [...FL.LETTERS, ...FL.FINALS];
-    for (const l of all) cards[l] = { letter: l, recognize: blank(), name: blank(), pairs: {} };
+    for (const l of all) cards[l] = { letter: l, recognize: blank(), name: blank(), cursive: blank(), pairs: {} };
     const runRts = {};   // per game: the child's kept right-answer times so far, to judge "quick" at the moment of each answer
     for (const e of p.events) {
       const c = cards[e.l]; if (!c) continue;
@@ -226,7 +226,7 @@ ${items[item]}</svg>`;
     for (const [g, a] of Object.entries(runRts)) gameMedian[g] = median(a.slice(-TYPICAL_LAST));
     for (const l of all) {
       const c = cards[l];
-      for (const k of ["recognize", "name"]) finish(c[k]);
+      for (const k of ["recognize", "name", "cursive"]) finish(c[k]);
       // One colour per letter: "name" wins when there is data on it (literacy review)
       c.state = c.name.n ? c.name.state : c.recognize.state;
       c.fluent = c.recognize.fluent;
@@ -807,6 +807,10 @@ ${items[item]}</svg>`;
     }
     // the game's own rows for the adult (tell-me: how to play, the check round, the parent summary), right under the level
     for (const e of cfg.extra || []) { const r = row(null); r.append(e); }
+    // Golan 24.10: "סוג כתב" for the games that show cursive (כתב יד): automatic mix (a letter known in print sometimes shows
+    // in cursive), print only, or cursive. Per child and per game is the game's own business (cfg.script.get / set).
+    if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"]], cfg.script.get, cfg.script.set);
+      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב."; r.append(n); api.refreshers.push(d); }
     // 4. speed of everything that moves (the shared slider)
     if (cfg.game) { const r4 = row(null), sp = document.createElement("div"); r4.append(sp); const sr = speedRow(sp, cfg.game, cfg.speed || {}); api.refreshers.push(() => sr.refresh()); }
     // 5. the narrator's voice, 6. graphics quality
@@ -899,6 +903,7 @@ ${items[item]}</svg>`;
 .fl-ok{font-size:26px;border:0;border-radius:20px;background:#2bb673;color:#fff;padding:12px 34px;margin-top:10px;cursor:pointer;font-family:inherit}
 .fl-ok:disabled{opacity:.4}
 .fl-grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:clamp(3px,1.2%,5px);padding:0;direction:rtl;width:100%;max-width:420px;min-width:0;margin:0 auto;box-sizing:border-box}
+.fl-cursive .fl-cell{font-family:"FL Cursive",cursive;font-size:clamp(20px,4vw,30px);font-weight:400}
 .fl-cell{border-radius:8px;font-size:clamp(16px,3.2vw,24px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;min-width:0;position:relative;color:#1d3557}
 .fl-cell i{position:absolute;top:1px;left:4px;font-size:12px;font-style:normal}
 .fl-pick .fl-cell{border:0;padding:0;font-family:inherit;cursor:pointer;font-weight:inherit}
@@ -1096,6 +1101,20 @@ ${items[item]}</svg>`;
     const pairs = reportablePairs(p); const pl = document.createElement("div"); pl.style.cssText = "font-size:16px;margin-top:6px";
     if (pairs.length) pl.textContent = pairs.map((x) => `${p.name} לומד/ת עכשיו להבחין בין ${x.asked} ל-${x.picked}. הן נראות דומות, וזה שלב רגיל.`)[0];
     letters.append(grid, leg, pl);   // Golan 16.10: no "מומלץ לתרגל כעת" line
+    // Golan 24.10: the same table for the cursive letters (כתב יד). A letter opens there only once it is "מזהה בביטחון" in print;
+    // until then its tile is faded.
+    const all = [...FL.LETTERS, ...FL.FINALS], open = all.filter((l) => c[l].recognize.state === "known");
+    const curKnown = all.filter((l) => c[l].cursive.state === "known").length;
+    const cbox = topic("זיהוי אותיות בכתב יד", open.length ? `מזהה בביטחון ${curKnown} אותיות כתב מתוך 27. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס (פתוחות ${open.length}).` : "עוד לא נפתחו אותיות. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס.");
+    const cgrid = document.createElement("div"); cgrid.className = "fl-grid fl-cursive";
+    for (const l of all) {
+      const s = document.createElement("div"); s.className = "fl-cell"; s.textContent = l;
+      if (!open.includes(l)) { s.style.background = "transparent"; s.style.outline = "1.5px dashed #c3ccd8"; s.style.outlineOffset = "-2px"; s.style.color = "#b4bcc8"; s.title = "עוד לא נפתחה"; }
+      else { const shown = shownState(c[l].cursive.state); s.style.background = COLORS[shown]; s.style.color = TEXT(shown); s.title = LABELS[shown]; }
+      cgrid.append(s);
+    }
+    const cleg = leg.cloneNode(true); cleg.insertAdjacentHTML("beforeend", `<span><u style="background:transparent;outline:1.5px dashed #c3ccd8;outline-offset:-1px"></u>עוד לא נפתחה</span>`);
+    cbox.append(cgrid, cleg);
     for (const t of TOPICS) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.");
     el.append(cap, body);
   }
@@ -1451,7 +1470,17 @@ ${items[item]}</svg>`;
   // Letters to practise (for the parent's "recommended" button in the letter picker).
   function recommended(mode) { const c = cardsFor(cur()); return FL.LETTERS.filter((l) => c[l] && ["hard", "learning", "almost"].includes(stateIn(c[l], mode).state)); }
 
+  // Cursive (כתב יד), Golan 24.10: a letter's cursive form opens only once the letter is "מזהה בביטחון" in print; from then its
+  // cursive recognition is measured on its own (mode "cursive", same states and rules as print). In the automatic mix the
+  // cursive form shows about 1 time in 4 at first and more as the child learns it, up to about half.
+  function cursiveReady(l) { try { return cardsFor(cur())[l].recognize.state === "known"; } catch (e) { return false; } }
+  function cursiveShare(l) {
+    if (!cursiveReady(l)) return 0;
+    const st = cardsFor(cur())[l].cursive.state;
+    return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
+  }
   FL.learner = {
+    cursiveReady, cursiveShare,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,

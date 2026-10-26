@@ -18,3 +18,13 @@
   src: url("NotoSansHebrew-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+/* Hebrew cursive (כתב יד) for the cursive stage of the letter island (Golan 24.10: a free font first, his own drawings later).
+   Gveret Levin by AlefAlefAlef, SIL OFL 1.1 (GveretLevin-OFL.txt). Use the family name "FL Cursive". */
+@font-face {
+  font-family: "FL Cursive";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("GveretLevin-hebrew.woff2") format("woff2");
+  unicode-range: U+0590-05FF, U+FB1D-FB4F;
+}
