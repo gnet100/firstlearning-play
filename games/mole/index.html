@@ -875,7 +875,7 @@
     { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
     { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [1.02, 1.32] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
   // the letter-circle's balloon painter (flat picture), the same 9 balloons as in every game
@@ -910,6 +910,7 @@
   const balloonPics = {};
   function balloonSvg(i, idp = "bc") {
     const d = BALLOONS[i], [sx, sy] = SHAPES[d.shape];
+    if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
     if (!balloonPics[i]) { const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d); balloonPics[i] = cv.toDataURL(); }
     const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
     const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;

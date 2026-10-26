@@ -524,7 +524,7 @@
     { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
     { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [1.02, 1.32] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
   function paintBalloon(ctx, W, H, d) {   // flat front of the balloon (same patterns as paintBalloon in the detective game)
@@ -556,6 +556,10 @@
   function balloonSprite(d) {   // Golan 20.10: the same balloon as the "בחר כדור פורח" picker in the games (envelope, two ropes, small striped basket)
     const [sx, sy] = SHAPES[d.shape], K = 1.2, cv = document.createElement("canvas");
     cv.width = Math.ceil(100 * K * 2); cv.height = Math.ceil(134 * K * 2); const ctx = cv.getContext("2d"); ctx.scale(2 * K, 2 * K); ctx.translate(0, 14);
+    if (d.shape === "heart" && LOVE_IMG.complete && LOVE_IMG.naturalWidth) {   // the picture of the 3D heart balloon itself (Golan 26.10), basket included
+      const k = 134 / LOVE_IMG.naturalHeight, w = LOVE_IMG.naturalWidth * k; ctx.drawImage(LOVE_IMG, 50 - w / 2, -14, w, 134);
+      return { cv, w: 100 * K, h: 134 * K };
+    }
     const env = new Path2D("M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z"), top = 90 - 84 * sy / 1.25;
     if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 13); ctx.stroke();
       ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 13); ctx.lineTo(64, top - 13); ctx.lineTo(60, top - 8.5); ctx.lineTo(64, top - 4); ctx.lineTo(50, top - 4); ctx.fill(); }
@@ -576,6 +580,7 @@
     return { cv, w: 100 * K, h: 134 * K };
   }
   const sky = $("sky"), sctx = sky.getContext("2d"), sprites = BALLOONS.map(balloonSprite);
+  LOVE_IMG.addEventListener("load", () => BALLOONS.forEach((d, i) => { if (d.shape === "heart") sprites[i] = balloonSprite(d); }));
   const clouds = Array.from({ length: 6 }, (_, i) => ({ x: Math.random(), y: 0.08 + (i / 6) * 0.8, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.006 }));
   // Golan 16.10: fewer balloons, a bit bigger, a bit faster, each with its own speed and its own angle (up, but slanted).
   // They fly anywhere except over the two central cards: beside them on a wide screen; on an upright phone, where the

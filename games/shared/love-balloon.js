@@ -66,7 +66,7 @@ function loveBend(base, rx, ry, rz) {
   const p = base.slice();
   for (let i = 0; i < p.length; i += 3) {
     const nx = p[i] / rx, ny = p[i + 1] / ry;
-    if (ny > 0) { p[i] *= 1 + 0.14 * ny; p[i + 1] -= ry * 0.3 * Math.exp(-((nx / 0.3) ** 2)) * ny ** 2; }
+    if (ny > 0) { p[i] *= 1 + 0.22 * ny; p[i + 1] -= ry * 0.42 * Math.exp(-((nx / 0.32) ** 2)) * ny ** 2; }
     else { const k = 1 - 0.62 * (-ny) ** 1.2; p[i] *= k; p[i + 2] *= 0.55 + 0.45 * k; }
   }
   return p;
@@ -77,3 +77,8 @@ function loveShape(mesh, base, heart, rx, ry, rz) {
   mesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, p);
   const n = []; BABYLON.VertexData.ComputeNormals(p, mesh.getIndices(), n); mesh.updateVerticesData(BABYLON.VertexBuffer.NormalKind, n);
 }
+// The picker picture of the heart balloon is a picture of the 3D balloon itself (Golan 26.10), love-balloon.png next to this file.
+const LOVE_PIC = ((document.currentScript && document.currentScript.src) || "love-balloon.js").replace(/love-balloon\.js(\?.*)?$/, "love-balloon.png");
+const LOVE_IMG = new Image(); LOVE_IMG.src = LOVE_PIC;
+// the picker's <svg> (same 0 -14 100 134 box as the other balloons)
+function loveSvg() { return `<svg viewBox="0 -14 100 134" aria-hidden="true"><image href="${LOVE_PIC}" x="0" y="-14" width="100" height="134" preserveAspectRatio="xMidYMax meet"/></svg>`; }
