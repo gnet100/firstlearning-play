@@ -295,7 +295,7 @@
 
   // ---------- settings (kept per device; same rows and behaviour as the race game) ----------
   // the child's age lives in the shared profile (FL.learner.age()); "ages" here is only for a page without the shared code
-  const settings = { quality: "high", pace: "normal", perf: "off", ages: {} };
+  const settings = { quality: "high", pace: "normal", perf: "off", ages: {}, script: "auto" };
   // Golan 19.10: "שליטה במהירות תנועת האלמנטים השונים" moves EVERYTHING that moves (also what is only watched):
   // the main loop scales its frame time by motionK(), and waves/bobbing/swaying run on motionMs (a clock that runs at that speed).
   // Waiting times, reaction times and the hourglass stay in real time.
@@ -705,6 +705,15 @@
 
   // ---------- clouds with letters ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // is this question in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
+  // more as the child learns it, up to about half (FL.learner.cursiveShare). The first pass (the print diagnostic) stays in print.
+  function cursiveFor(q) {
+    if (q.kind === "warm") return false;
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    return q.kind !== "first" && !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(q.letter));
+  }
   const cloudMat = mat("#ffffff", 0.35);
   function makeCloudMesh(i) {
     // every cloud has its own shape (Golan, 15.10): the big middle puff stays (the letter sits on it), the others move and change size
@@ -739,9 +748,11 @@
     ctx.fillStyle = white ? "#ffffff" : "#1d2a3a"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
     // every letter stands on the same thin writing line, at the same height (Golan, 15.10). Letter body about 44% of the
     // picture, line a little below the middle; final letters' tails go below the line, shortened only if they would not fit.
-    let px = 200; ctx.font = `800 ${px}px ${FONT}`;
+    // the whole question in cursive or in print (Golan 24.10), so the letter we look for never stands out by its writing
+    const cur = !!(state.q && state.q.cur), f = cur ? "400 {px}px " + CURSIVE : "800 {px}px " + FONT;
+    let px = 200; ctx.font = f.replace("{px}", px);
     let m = ctx.measureText("ב"), up = m.actualBoundingBoxAscent, down;
-    px = Math.floor(px * (H * 0.44) / Math.max(1, up)); ctx.font = `800 ${px}px ${FONT}`;
+    px = Math.floor(px * (H * (cur ? 0.5 : 0.44)) / Math.max(1, up)); ctx.font = f.replace("{px}", px);
     up = ctx.measureText("ב").actualBoundingBoxAscent;
     const base = Math.round(H * 0.5 + up * 0.5);
     if (!noLine) { ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
@@ -991,6 +1002,7 @@
     const letters = q.kind === "warm" ? Array(n).fill("") : shuffle(ringLetters(q.letter, q.kind, q.avoid));
     if (q.kind !== "warm") letters.splice(ti, 0, q.letter);
     q.letters = letters; q.rot = rot; q.ti = ti; q.pos = spots[ti]; q.armed = false; q.firstEnd = null; q.lastEnd = null; q.repeats = 0; q.done = false;
+    q.cur = cursiveFor(q);
     state.q = q; state.mode = "play";
     const p = pace();
     clouds.forEach((c, i) => {
@@ -1062,9 +1074,11 @@
       // hesitant = slow for this child: over 6 s, or over twice the child's usual time on right answers (learner-model sec 9): half evidence
       const med = LRN && LRN.childMedianRt ? LRN.childMedianRt("circle") : null, hesitant = ok && (rt > 6000 || (med != null && rt > 2 * med));
       q.hesitant = hesitant;
-      if (LRN) LRN.record({ game: "circle", letter: q.letter, picked: c.letter, firstTry: ok, opts: q.letters.slice(), rtMs: rt, changed: false, hint: q.repeats, mode: "recognize", hesitant });
+      // a cursive question measures the cursive letter once the letter is known in print (Golan 24.10)
+      const cur = !!(q.cur && LRN && LRN.cursiveReady && LRN.cursiveReady(q.letter));
+      if (LRN) LRN.record({ game: "circle", letter: q.letter, picked: c.letter, firstTry: ok, opts: q.letters.slice(), rtMs: rt, changed: false, hint: q.repeats, mode: cur ? "cursive" : "recognize", hesitant });
       if (ok) s.found[q.letter] = (s.found[q.letter] || 0) + 1;
-      if (q.kind === "first") { s.pass.done[q.letter] = ok ? 1 : 0; savePass(s.pass); }   // the pass goes on from here next time
+      if (q.kind === "first" && !q.cur) { s.pass.done[q.letter] = ok ? 1 : 0; savePass(s.pass); }   // the pass goes on from here next time
       s.missStreak = ok ? 0 : s.missStreak + 1;
     }
     s.log.push({ k: q.kind, l: q.letter, p: c.letter, ok, rt, rep: q.repeats, n: q.letters.length, hz: !!q.hesitant });
@@ -1199,6 +1213,7 @@
     form = LRN.settingsForm($("flForm"), { game: "circle", lettersId: "letters",
       levels: ["4 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, ויכולות להופיע גם אותיות דומות לאות שמחפשים."],
       picker: { key: "circle", autoList, onChange: (list, m) => { chosen = m === "auto" ? [] : list.slice(); chosenChanged = true; } },
+      script: seg("script"),
       quality: seg("quality", () => applyQuality()),
       tech: { perf: seg("perf"), diag: () => diagnostics() } });
     picker = form.picker;
@@ -1378,7 +1393,7 @@
 
   // ---------- start screen ----------
   const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
-    Promise.all([document.fonts.load(`800 150px "Noto Sans Hebrew"`, "אבךןץ"), document.fonts.load('700 64px "Noto Sans Hebrew"', "אָבּ")]), new Promise((r) => setTimeout(r, 4000))]) : Promise.resolve();
+    Promise.all([document.fonts.load(`800 150px "Noto Sans Hebrew"`, "אבךןץ"), document.fonts.load('700 64px "Noto Sans Hebrew"', "אָבּ"), document.fonts.load('400 150px "FL Cursive"', "אבךןץ")]), new Promise((r) => setTimeout(r, 4000))]) : Promise.resolve();
   fontReady.then(() => {
     clouds.forEach((c) => drawLetter(c, "א", false)); tags.forEach((g) => drawLetter(g, "א", false)); drawLetter(tok, "א", false, true);   // a texture must be drawn once before the scene counts as ready
     balloon.getChildMeshes(false).forEach((m) => { m.renderingGroupId = 1; });   // the balloon (with its basket and hanging letters) is always in front of the clouds (Golan 17.10)
@@ -1528,6 +1543,6 @@
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; clearTags(); openPick(); });
 
   // test hook for automated checks
-  window.__circle = { endRound, state, clouds, layout, cloudAt, answer, nextQuestion, newSession, clock, engine, scene, cam, canvas, balloonSize: () => [balloonBase, balloonGrow], hg: HG };
+  window.__circle = { endRound, askNext, state, clouds, layout, cloudAt, answer, nextQuestion, newSession, clock, engine, scene, cam, canvas, balloonSize: () => [balloonBase, balloonGrow], hg: HG };
 })();
 </script>

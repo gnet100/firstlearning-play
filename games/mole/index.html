@@ -335,7 +335,7 @@
   const visit = LRN && LRN.visit ? LRN.visit("mole") : null;
 
   // ---------- settings (kept per device) ----------
-  const settings = { quality: "high", perf: "off" };
+  const settings = { quality: "high", perf: "off", script: "auto" };
   let motionMs = 0;
   const motionK = () => { try { return LRN && LRN.speed ? LRN.speed("mole") : 1; } catch (e) { return 1; } };   // the shared speed slider moves everything (Golan 19.10)
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-mole-settings") || "{}")); } catch (e) {}
@@ -588,6 +588,14 @@
 
   // ---------- the moles: a round brown body, a pink nose, two paws holding a sign with a letter ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
+  const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // is this question in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
+  // more as the child learns it, up to about half (FL.learner.cursiveShare)
+  function cursiveFor(l) {
+    const m = settings.script || "auto";
+    if (m === "print") return false; if (m === "cursive") return true;
+    return !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
+  }
   // nine kinds of moles (Golan 23.10): slim / full bodies, small / big eyes, noses of different shapes, three kinds of glasses,
   // two kinds of helmets, and each kind holds its sign its own way (in front, over the head, on two wooden legs)
   const KINDS = [
@@ -761,9 +769,11 @@
     ctx.fillStyle = glow ? "#fff6c9" : "#fffaf0"; ctx.fill();
     ctx.lineWidth = glow ? 16 : 10; ctx.strokeStyle = glow ? "#ffc233" : "#a0703f"; ctx.stroke();
     ctx.fillStyle = "#1d2a3a"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.direction = "rtl";
-    let px = 200; ctx.font = `800 ${px}px ${FONT}`;
+    // the whole question in cursive or in print, so the letter we look for never stands out by its writing
+    const cur = text !== "?" && state.q && state.q.cur, f = cur ? "400 {px}px " + CURSIVE : "800 {px}px " + FONT;
+    let px = 200; ctx.font = f.replace("{px}", px);
     let up = ctx.measureText("ב").actualBoundingBoxAscent || px * 0.7;
-    px = Math.floor(px * (H * 0.5) / Math.max(1, up)); ctx.font = `800 ${px}px ${FONT}`;
+    px = Math.floor(px * (H * (cur ? 0.56 : 0.5)) / Math.max(1, up)); ctx.font = f.replace("{px}", px);
     up = ctx.measureText("ב").actualBoundingBoxAscent || px * 0.7;
     const base = Math.round(H * 0.5 + up * 0.5 - (isFinal(text) ? 14 : 0));
     ctx.fillText(text, W / 2, base);
@@ -923,6 +933,7 @@
   function drawGuide() {
     const pr = $("prompt"), show = guide.letter && guide.letter !== "?";
     $("target").textContent = show ? guide.letter : "";
+    $("target").style.fontFamily = show && state.q && state.q.cur ? CURSIVE : ""; $("target").style.fontWeight = show && state.q && state.q.cur ? "400" : "";
     pr.classList.toggle("listen", !show); pr.classList.toggle("hint", !!guide.hint);
   }
   function guideReact(kind) {
@@ -977,7 +988,7 @@
     const v = pickLetter(), t = v.letter, n = MOLES[lvl()];
     const shown = !v.listen && isNewLetter(t);
     const pool = otherLetters(t, n + 3);   // the other letters; a mole that comes up again takes one that is not out
-    const q = { letter: t, listen: !!v.listen, shown, pool, letters: shuffle([t, ...pool.slice(0, n - 1)]), out: new Set(), rotLeft: null, rotPhase: "duck", rotMole: null, wrongs: 0, firstWrong: null, hint: false,
+    const q = { letter: t, cur: cursiveFor(t), listen: !!v.listen, shown, pool, letters: shuffle([t, ...pool.slice(0, n - 1)]), out: new Set(), rotLeft: null, rotPhase: "duck", rotMole: null, wrongs: 0, firstWrong: null, hint: false,
       armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0, phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false };
     state.q = q; state.mode = "play"; state.n++;
     setSign(shown ? t : "?", false);
@@ -1128,10 +1139,12 @@
   // perfect heard-only find counts toward "מזהה בביטחון" (as in the detective).
   function recordQ(q, solved) {
     if (!LRN || q.rec) return; q.rec = true;
-    const ok = !q.wrongs, heard = !q.shown;
+    const ok = !q.wrongs, heard = !q.shown, cur = !!(q.cur && LRN.cursiveReady && LRN.cursiveReady(q.letter));
     try {
       LRN.record({ game: "mole", letter: q.letter, picked: ok ? q.letter : q.firstWrong, firstTry: ok, solved, opts: q.letters.slice(), rtMs: q.firstTap || 0,
-        changed: false, hint: q.hint ? 1 : 0, mode: "recognize", audioOnly: heard, perfect: heard && solved && ok && !q.hint });
+        // a cursive question measures the cursive letter once the letter is known in print (Golan 24.10); a heard-only cursive find
+        // does not make it known at once
+        changed: false, hint: q.hint ? 1 : 0, mode: cur ? "cursive" : "recognize", audioOnly: heard && !cur, perfect: heard && !cur && solved && ok && !q.hint });
       if (visit) visit.result(q.letter, { perfect: solved && ok && !q.hint, listen: q.listen });
     } catch (e) {}
   }
@@ -1177,6 +1190,7 @@
         "10 חורים ו-5 חפרפרות, 2.5 שניות בחוץ, ואחת האותיות דומה לאות שמחפשים. את האות רק שומעים."],
       onLevel: () => { levelChanged = true; },
       picker: { finals: true, onChange: () => { lettersChanged = true; } },
+      script: seg("script"),
       quality: seg("quality", () => applyQuality()),
       tech: { perf: seg("perf"), diag: () => diagnostics() } });
     pk = form.picker;
@@ -1330,7 +1344,7 @@
 
   // ---------- start screen ----------
   const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
-    Promise.all([document.fonts.load(`800 150px "Noto Sans Hebrew"`, "אבךןץ")]), new Promise((r) => setTimeout(r, 4000))]) : Promise.resolve();
+    Promise.all([document.fonts.load(`800 150px "Noto Sans Hebrew"`, "אבךןץ"), document.fonts.load(`400 150px "FL Cursive"`, "אבךןץ")]), new Promise((r) => setTimeout(r, 4000))]) : Promise.resolve();
   fontReady.then(() => {
     moles.forEach((m) => drawSign(m, "א", false));   // a texture must be drawn once before the scene counts as ready
     layoutHoles();
