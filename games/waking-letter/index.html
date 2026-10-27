@@ -1746,7 +1746,7 @@
     { const mx = state.bal.x - (state.spinX ?? state.bal.x), my = state.bal.y - (state.spinY ?? state.bal.y);
       state.spinX = state.bal.x; state.spinY = state.bal.y;
       state.spin = (state.spin || 0) + mx * 0.9 + Math.abs(my) * 0.35 * (mx < 0 ? -1 : 1);
-      envelope.rotation.y = skirt.rotation.y = state.spin; }
+      envelope.rotation.y = skirt.rotation.y = BALLOONS[balloonIndex()].shape === "heart" ? 0 : state.spin; }   // the heart balloon does not turn (Golan 27.10)
     for (const g of tags) if (g.on) {
       g.t += dt;
       if (g.t < TAG_FLY) { placeTag(g, g.t / TAG_FLY); continue; }

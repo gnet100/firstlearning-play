@@ -39,8 +39,11 @@ function paintLove(ctx, W, H, d, uv) {
   ctx.strokeStyle = b; ctx.fillStyle = b; ctx.lineCap = "round"; ctx.lineJoin = "round";
   const word = (x, y, h) => { ctx.lineWidth = h * 0.16; const e = loveWord(ctx, x, y, h, rnd); boxes.push([x - h * 0.1, y - h * 0.1, e + h * 0.1, y + h * 1.1]); return e; };
   if (uv) {
-    const h = H * 0.1;
-    [0.2, 0.36, 0.52, 0.68].forEach((t, i) => { let x = (i % 2 ? 0.5 : 0) * loveWordW(h) - (i % 2 ? loveWordW(h) : 0); while (x < W) x = word(x, H * t, h) + h * 0.9; });
+    // four rows, the biggest on top and smaller down to the mouth (Golan 27.10)
+    let t = 0.3;
+    // every row has one "I LOVE U" centred on the front (three quarters of the way across the skin) and the rest evenly around it
+    [0.135, 0.115, 0.095, 0.075].forEach((k) => { const h = H * k, w = loveWordW(h), n = Math.max(1, Math.floor(W / (w + h * 0.9))), step = W / n;
+      for (let j = -n; j <= n; j++) { const x = W * 0.75 - w / 2 + j * step; if (x < W && x + w > 0) word(x, H * t, h); } t += k + 0.025; });
   } else {
     // four rows, narrower and smaller down the heart, as in the drawing: [top, letter height, room] in the 100 x 120 box
     for (const [y, h, room] of [[6, 10, 78], [21, 10, 76], [36, 9.5, 66], [51, 8.5, 50], [65, 7, 32]]) {

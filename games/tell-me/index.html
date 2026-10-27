@@ -926,7 +926,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     const decoParts = md.parts;
     const [sw, sh] = SHAPE[scheme.shape] || SHAPE.round, top = 4.62 * sh;
     const shape = envelopeBase.map(([x, y], i) => new BABYLON.Vector3(i ? x * sw : x, y * sh, 0));
-    const heart = scheme.shape === "heart", cy = 2.31 * sh;
+    const heart = scheme.shape === "heart", cy = 2.31 * sh; md.heart = heart;
     const envelope = heart   // the heart balloon: a sphere bent into a heart, as in the other games (shared/love-balloon.js)
       ? BABYLON.MeshBuilder.CreateSphere("envelope", { diameterX: 3.9 * sw, diameterY: 2 * cy, diameterZ: 3.9 * sw, segments: 20, updatable: true }, scene)
       : BABYLON.MeshBuilder.CreateLathe("envelope", { shape, tessellation: 24, cap: BABYLON.Mesh.NO_CAP }, scene);
@@ -1616,7 +1616,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
         f.position.set(rig.x + wx + side, rig.y + bob + wy - (1 - aside) * 14, rig.z + wz); }
       f.position.addInPlace(sep[i]);
       f.scaling.setAll(L.balS);
-      f.rotation.y = Math.sin(t * 0.35 + ph) * 0.25;
+      f.rotation.y = f.metadata && f.metadata.heart ? 0 : Math.sin(t * 0.35 + ph) * 0.25;   // the heart balloon does not turn (Golan 27.10)
     });
     keepApart(dt);
     // Golan 20.10: no burner flame under the balloon (the flame mesh stays off)
