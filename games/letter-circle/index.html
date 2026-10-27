@@ -709,6 +709,14 @@
   // ---------- clouds with letters ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
+  // ל and the tails go past them. Uses the current font.
+  function cursiveRule(ctx, W, base, x0) {
+    const xh = ctx.measureText("ס").actualBoundingBoxAscent;
+    ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .6)"; ctx.lineWidth = Math.max(3, W / 110); ctx.lineCap = "round";
+    for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
+    ctx.restore();
+  }
   // is this question in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
   // more as the child learns it, up to about half (FL.learner.cursiveShare). The first pass (the print diagnostic) stays in print.
   function cursiveFor(q) {
@@ -758,9 +766,10 @@
     px = Math.floor(px * (H * (cur ? 0.5 : 0.44)) / Math.max(1, up)); ctx.font = f.replace("{px}", px);
     up = ctx.measureText("ב").actualBoundingBoxAscent;
     const base = Math.round(H * 0.5 + up * 0.5);
-    if (!noLine) { ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    if (!noLine && cur) cursiveRule(ctx, W, base, 44);   // cursive: the two notebook lines (Golan 27.10)
+    else if (!noLine) { ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(44, base + 3); ctx.lineTo(W - 44, base + 3); ctx.stroke(); ctx.restore(); }
-    if (isFinal(text)) {
+    if (isFinal(text) && !cur) {   // cursive finals keep their own tail
       m = ctx.measureText(text); up = m.actualBoundingBoxAscent; down = m.actualBoundingBoxDescent;
       const TAIL = Math.min(2.2, (H - 4 - base) / Math.max(1, down)), y0 = Math.ceil(up) + 6;
       const off = document.createElement("canvas"); off.width = W; off.height = y0 + Math.ceil(down) + 8;

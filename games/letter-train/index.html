@@ -827,6 +827,14 @@
   const CAR_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];   // the gate colours of the car game
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
+  // ל and the tails go past them. Uses the current font.
+  function cursiveRule(ctx, W, base, x0) {
+    const xh = ctx.measureText("ס").actualBoundingBoxAscent;
+    ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .6)"; ctx.lineWidth = Math.max(3, W / 110); ctx.lineCap = "round";
+    for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
+    ctx.restore();
+  }
   // Golan 24.10: a train in cursive = the cars' signs in cursive and the cube in print, so the child matches the printed
   // letter to its cursive form. "סוג כתב" in settings; automatic = more often as the train's letters are known in print
   // and then in cursive (FL.learner.cursiveShare; a letter not yet known in print counts 0)
@@ -861,6 +869,7 @@
     let px = 170, up, down; ctx.font = F.replace("{px}", px); fit();
     px = Math.floor(px * Math.min(1.4, room / (up + down))); ctx.font = F.replace("{px}", px); fit();
     const base = Math.round((H - (up + down)) / 2 + up);
+    if (cur) cursiveRule(ctx, W, base, W * 0.12);
     if (cur || !isFinal(text)) { ctx.fillText(text, W / 2, base); return base; }   // cursive finals keep their own tail
     const m = ctx.measureText(text), y0 = Math.ceil(m.actualBoundingBoxAscent) + 6;
     const off = document.createElement("canvas"); off.width = W; off.height = y0 + Math.ceil(m.actualBoundingBoxDescent) + 8;

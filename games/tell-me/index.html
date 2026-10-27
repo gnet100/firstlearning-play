@@ -1053,6 +1053,14 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   // ---------- the letter card (drawn by the browser into a texture, like the gate signs) ----------
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
+  // ל and the tails go past them. Uses the current font.
+  function cursiveRule(ctx, W, base, x0) {
+    const xh = ctx.measureText("ס").actualBoundingBoxAscent;
+    ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .6)"; ctx.lineWidth = Math.max(3, W / 110); ctx.lineCap = "round";
+    for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
+    ctx.restore();
+  }
   // is this card in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
   // more as the child learns it, up to about half (FL.learner.cursiveShare)
   function cursiveFor(l) {
@@ -1097,7 +1105,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
       const cu = Math.max(...[..."לףץךקט"].map((c) => ctx.measureText(c).actualBoundingBoxAscent));
       const cd = Math.max(...[..."קךץף"].map((c) => ctx.measureText(c).actualBoundingBoxDescent));
       const cpx = Math.floor(100 * (H - 60) / (cu + cd));
-      ctx.font = `400 ${cpx}px ${CURSIVE}`; ctx.fillText(text, W / 2, Math.round(30 + cu * cpx / 100));
+      ctx.font = `400 ${cpx}px ${CURSIVE}`; const cb = Math.round(30 + cu * cpx / 100); cursiveRule(ctx, W, cb, 64); ctx.fillText(text, W / 2, cb);
       cardTex.update(true); return;
     }
     let px = 320; ctx.font = `800 ${px}px ${FONT}`;

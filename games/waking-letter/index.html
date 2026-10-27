@@ -928,6 +928,14 @@
   const SIGN_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
+  // ל and the tails go past them. Uses the current font.
+  function cursiveRule(ctx, W, base, x0) {
+    const xh = ctx.measureText("ס").actualBoundingBoxAscent;
+    ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .6)"; ctx.lineWidth = Math.max(3, W / 110); ctx.lineCap = "round";
+    for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
+    ctx.restore();
+  }
   // is this round's letter in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
   // more as the child learns it, up to about half (FL.learner.cursiveShare). The sleeping letter, the clouds and the tags all follow it.
   const CURSIVE_ON = false;   // turned on once Golan approves the cursive sleeping letters (animations thread, 26.10)
@@ -980,8 +988,9 @@
         base = H / 2 + ctx.measureText("ב").actualBoundingBoxAscent / 2;
       }
       // the thin writing line under the letter, as on the other games' signs (Golan 19.10)
-      ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 4; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(W * 0.2, base + 5); ctx.lineTo(W * 0.8, base + 5); ctx.stroke(); ctx.restore();
+      if (state.cur) cursiveRule(ctx, W, base, W * 0.15);   // cursive: the two notebook lines (Golan 27.10)
+      else { ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(W * 0.2, base + 5); ctx.lineTo(W * 0.8, base + 5); ctx.stroke(); ctx.restore(); }
       ctx.fillText(text, W / 2, base);
     }
     g.tex.update(true);

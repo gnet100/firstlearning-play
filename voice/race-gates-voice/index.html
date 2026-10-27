@@ -923,6 +923,14 @@
   const GATE_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
+  // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
+  // ל and the tails go past them. Uses the current font.
+  function cursiveRule(ctx, W, base, x0) {
+    const xh = ctx.measureText("ס").actualBoundingBoxAscent;
+    ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .6)"; ctx.lineWidth = Math.max(3, W / 110); ctx.lineCap = "round";
+    for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
+    ctx.restore();
+  }
   // is this question in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
   // more as the child learns it, up to about half (FL.learner.cursiveShare). All the gates of one question share it.
   function cursiveFor(l) {
@@ -999,6 +1007,7 @@
         ctx.font = `800 ${px}px ${FONT}`;
         base = Math.round(H / 2 + ctx.measureText("ב").actualBoundingBoxAscent * 0.42);
       }
+      if (cur) cursiveRule(ctx, W, base, 44);
       { const mm = ctx.measureText(text); g.glyph = { x: W / 2 - mm.actualBoundingBoxLeft, y: base - mm.actualBoundingBoxAscent }; }   // where the check mark sits (Golan 18.10)
       if (isFinal(text) && !cur) {
         // A final letter alone looks like ו or ר (Golan, 14.10). So: a writing line, and the tail below it
