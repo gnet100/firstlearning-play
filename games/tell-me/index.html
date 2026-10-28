@@ -1830,10 +1830,9 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   // Golan 16.10: opened from the hub, every door goes back to its "בַּמֶּה נְשַׂחֵק?" list (voice and timers stop first)
   const inHub = () => !!(window.FL && FL.learner && FL.learner.fromHub && FL.learner.hubUrl);
   function toHub() { flushPartial(); screenTok++; hush(); state.flow++; countToken++; hgStop(); timers.length = 0; stopPickFlash(); location.href = FL.learner.hubUrl + "#games"; }
-  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
-  ["doorReport", "doorStart"].forEach((id) => $(id).addEventListener("click", (e) => { if (inHub()) { e.stopImmediatePropagation(); toHub(); } }, true));
-  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToPick));
-  $("doorCar").addEventListener("click", backToStart);
+  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // the restart button: the picker again
+  ["doorGame", "doorCar", "doorEnd", "doorReport", "doorStart"].forEach((id) => $(id).addEventListener("click", (e) => { if (inHub()) { e.stopImmediatePropagation(); toHub(); } }, true));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
+  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
   // door on the start screen = back one screen, to "מי משחק?" (Golan 16.10, all games)

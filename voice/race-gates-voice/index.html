@@ -1702,7 +1702,6 @@
     if (toHub()) return goHub();
     resetToStart();
   }
-  function backToPick() { resetToStart(); $("start").hidden = true; openCarPick(); }
   function resetToStart() {
     hushAll(); if (hg) hg.stop();
     state.q = null; state.celebrate = null; state.resolved = true; state.mode = "intro"; state.flashAt = 0;
@@ -1711,8 +1710,7 @@
     ["hud", "end", "carPick", "settings"].forEach((id) => ($(id).hidden = true));
     $("start").hidden = false;
   }
-  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToPick));   // door + gear on every screen, the pause screen too (Golan 16.10)   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
-  $("doorCar").addEventListener("click", resetToStart);
+  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));   // door + gear on every screen, the pause screen too (Golan 16.10)   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
   // a tap outside the "change letters?" question closes it (Golan 16.10: outside a popup = back one step)
   $("end").addEventListener("pointerdown", (e) => { if (!$("swapAsk").hidden && !e.target.closest("#swapAsk") && !e.target.closest("button")) { $("swapAsk").hidden = true; if (endUi) endUi.fit(); } });
 

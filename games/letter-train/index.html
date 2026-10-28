@@ -2436,9 +2436,8 @@
     flushPartial(); stopVoice(); stopCarFlash(); picking = false; clearTimeout(goT); countToken++; clearTimers(); freeze();
     location.href = LRN.hubUrl + "#games"; return true;
   }
-  const backToPick = () => { backToStart(); $("start").hidden = true; openCarPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
-  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToPick));
-  $("doorCar").addEventListener("click", (e) => backToStart(e));
+  const backToPick = () => { backToStart(); $("start").hidden = true; openCarPick(); };   // the restart button: the picker again
+  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { if (!toHub()) backToStart(e); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
   // The opening screen's door goes back one screen (Golan 16.10, all games): to the page we came from, else to "מי משחק?"

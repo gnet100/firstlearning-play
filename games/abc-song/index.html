@@ -166,6 +166,8 @@
     <h1>הגדרות (להורה או למורה)</h1>
     <div class="row"><b>עוצמת השיר</b><input type="range" id="vol" min="0" max="1" step="0.05" value="1"></div>
     <div class="row"><b>מילים על המסך</b><div class="seg" id="wordsSeg"><button data-v="on">כן</button><button data-v="off">לא</button></div></div>
+    <div class="row"><b>סוג כתב</b><div class="seg" id="scriptSeg"><button data-v="print">דפוס</button><button data-v="cursive">כתב יד</button><button data-v="mixed">משולב</button></div>
+      <div class="note">משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי.</div></div>
   </div>
 </div>
 <div id="syncBar" hidden></div>
@@ -199,6 +201,7 @@
   settings.pace = 1;   // no pace setting any more (Golan 22.10)
   if (!(settings.vol >= 0 && settings.vol <= 1)) settings.vol = 1;
   if (settings.words !== "off") settings.words = "on";
+  if (!["print", "cursive", "mixed"].includes(settings.script)) settings.script = "print";   // Golan 28.10: the song in כתב יד too
   const saveSettings = () => { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} };
 
   // ---------- the song: song.mp3 next to this page; without it a silent clock runs the same timeline ----------
@@ -217,12 +220,20 @@
   }
 
   // ---------- the scene ----------
+  // "סוג כתב" (Golan 28.10): every letter in print, in cursive (the cursive sleeping letters of letters-animated), or mixed:
+  // half of the letters in cursive at random, the same letter in the same script everywhere until the setting changes
+  let curSet = new Set();
+  function pickScripts() { curSet = new Set(settings.script === "cursive" ? ORDER : settings.script === "mixed" ? ORDER.filter(() => Math.random() < 0.5) : []); }
+  pickScripts();
+  const make = (l) => LA && LA.make(l, curSet.has(l) ? { script: "cursive" } : undefined);
   const strip = $("strip"), cells = {};
-  for (const l of ORDER) { const c = document.createElement("div"); c.className = "cell"; c.dataset.l = l;
-    const el = LA && LA.make(l); if (el) c.append(el); else c.textContent = l; cells[l] = c; strip.append(c); }
+  function buildStrip() { strip.innerHTML = "";
+    for (const l of ORDER) { const c = document.createElement("div"); c.className = "cell"; c.dataset.l = l;
+      const el = make(l); if (el) c.append(el); else c.textContent = l; cells[l] = c; strip.append(c); } }
+  buildStrip();
   const stars = $("sky"); for (let i = 0; i < 40; i++) { const s = document.createElement("div"); s.className = "star";
     s.style.left = (Math.random() * 100) + "%"; s.style.top = (Math.random() * 55) + "%"; s.style.animationDelay = (Math.random() * 2.4) + "s"; stars.append(s); }
-  for (const l of ["א", "ב"]) { const el = LA && LA.make(l); if (el) $("startLetters").append(el); }   // Golan 21.10: only א and ב (אלף-בית)
+  for (const l of ["א", "ב"]) { const el = make(l); if (el) $("startLetters").append(el); }   // Golan 21.10: only א and ב (אלף-בית)
   const wordFor = (l) => (PICS[l] && PICS[l].word) || "";
   function picSvg(l) { const p = PICS[l]; return p ? `<svg viewBox="0 0 1000 1000" aria-label="${p.word}">${p.svg}</svg>` : ""; }
 
@@ -248,7 +259,7 @@
     const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = "";
     const ring = document.createElement("div"); ring.className = "ring"; stage.append(ring);
     const add = (cls, l, a) => { const box = document.createElement("div"); box.className = cls; if (a != null) box.style.setProperty("--a", a + "deg");
-      const inner = document.createElement("div"); box.append(inner); const el = LA && LA.make(l); if (el) { inner.append(el); ringEls.push({ el, box, on: false }); } else inner.textContent = l; ring.append(box); };
+      const inner = document.createElement("div"); box.append(inner); const el = make(l); if (el) { inner.append(el); ringEls.push({ el, box, on: false }); } else inner.textContent = l; ring.append(box); };
     add("mid a", "א"); add("mid b", "ב");   // א and ב wake first
     ORDER.forEach((l, i) => add("rl", l, i * 360 / ORDER.length));
     // wake times over the chorus (0..1): א, ב, then the ring in order, all awake by 85%
@@ -261,7 +272,7 @@
   function showLetter(letter, wake) {
     const stage = $("stage"); stage.innerHTML = ""; stage.dataset.l = letter; const e = { letter };
     const pair = document.createElement("div"); pair.className = "pair"; stage.append(pair);
-    const big = document.createElement("div"); big.className = "big"; const el = LA && LA.make(e.letter); if (el) { big.append(el); requestAnimationFrame(() => el.wake()); } pair.append(big);
+    const big = document.createElement("div"); big.className = "big"; const el = make(e.letter); if (el) { big.append(el); requestAnimationFrame(() => el.wake()); } pair.append(big);
     const pic = document.createElement("div"); pic.className = "pic"; pic.innerHTML = picSvg(e.letter); if (pic.innerHTML) pair.append(pic);
     const words = document.createElement("div"); words.id = "words"; words.textContent = NAMES[e.letter] + " – " + wordFor(e.letter); stage.append(words);
   }
@@ -347,6 +358,9 @@
   segUi("wordsSeg", "words", applyWords);   // Golan 22.10: no pace row and no song note (the song exists)
   function applyWords() { document.body.classList.toggle("words-off", settings.words === "off"); }
   applyWords();
+  segUi("scriptSeg", "script", () => {   // redraw every letter in the new script, at the same point of the song
+    pickScripts(); buildStrip(); $("startLetters").innerHTML = ""; for (const l of ["א", "ב"]) { const el = make(l); if (el) $("startLetters").append(el); }
+    state.idx = -2; render(state.t || 0); });
   $("vol").value = settings.vol; $("vol").addEventListener("input", () => { settings.vol = +$("vol").value; audio.volume = settings.vol; saveSettings(); });
   function syncNote() { if (!$("songNote")) return; $("songNote").textContent = hasSong ? "השיר נטען (song.mp3)." : "עוד אין קובץ שיר (song.mp3): ההנפשה רצה בלי צליל, בקצב קבוע."; }
   syncNote();

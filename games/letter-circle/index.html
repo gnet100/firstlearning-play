@@ -766,7 +766,14 @@
     let m = ctx.measureText("ב"), up = m.actualBoundingBoxAscent, down;
     px = Math.floor(px * (H * (cur ? 0.5 : 0.44)) / Math.max(1, up)); ctx.font = f.replace("{px}", px);
     up = ctx.measureText("ב").actualBoundingBoxAscent;
-    const base = Math.round(H * 0.5 + up * 0.5);
+    let base = Math.round(H * 0.5 + up * 0.5);
+    if (cur) {   // cursive: ל goes high and ק ך ן ץ ף go low; one size for all letters, fitted so none is cut at the cloud (Golan 28.10, as in the detective)
+      let hi = 0, lo = 0, wd = 0; for (const l of "אבגדהוזחטיכלמנסעפצקרשתךםןףץ") { const mm = ctx.measureText(l);
+        hi = Math.max(hi, mm.actualBoundingBoxAscent); lo = Math.max(lo, mm.actualBoundingBoxDescent); wd = Math.max(wd, mm.actualBoundingBoxLeft + mm.actualBoundingBoxRight); }
+      const k = Math.min(1, (H * 0.9) / Math.max(1, hi + lo), (W * 0.9) / Math.max(1, wd));
+      if (k < 1) { px = Math.floor(px * k); ctx.font = f.replace("{px}", px); hi *= k; lo *= k; }
+      base = Math.round(H * 0.05 + hi + (H * 0.9 - hi - lo) / 2);
+    }
     if (!noLine && cur) cursiveRule(ctx, W, base, 44);   // cursive: the two notebook lines (Golan 27.10)
     else if (!noLine) { ctx.save(); ctx.strokeStyle = "rgba(120, 160, 205, .55)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(44, base + 3); ctx.lineTo(W - 44, base + 3); ctx.stroke(); ctx.restore(); }
@@ -1552,9 +1559,8 @@
   }
   // opened from the hub: every door goes straight back to the hub's game list (Golan 16.10); voice and timers stop first
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
-  const backToPick = () => { backToStart(); $("start").hidden = true; clearTags(); openPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
-  ["doorGame", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", backToPick));
-  $("doorPick").addEventListener("click", () => backToStart());
+  const backToPick = () => { backToStart(); $("start").hidden = true; clearTags(); openPick(); };   // the restart button: the picker again
+  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
 

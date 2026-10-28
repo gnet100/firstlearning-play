@@ -249,15 +249,15 @@
   /* the hammer (Golan 28.10): it takes the place of the mouse pointer over the game, follows the finger, and a tap is a light knock */
   #game.hammering { cursor: none; }
   #hammer { position: fixed; left: 0; top: 0; width: max(calc(150 * var(--u)), 96px); height: auto; pointer-events: none; z-index: 5;
-    transform-origin: 82% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.2) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.22); display: none; }
+    transform-origin: 18% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.2) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.78); display: none; }   /* held from the bottom left (Golan 28.10) */
   #hammer.show { display: block; }
-  #hammer svg { display: block; width: 100%; height: auto; transform: rotate(-18deg); transform-origin: 82% 88%; }
+  #hammer svg { display: block; width: 100%; height: auto; transform: rotate(18deg); transform-origin: 18% 88%; }
   #hammer.hit svg { animation: knock .28s ease-in-out; }
-  @keyframes knock { 0% { transform: rotate(-18deg); } 25% { transform: rotate(-42deg); } 55% { transform: rotate(14deg); } 100% { transform: rotate(-18deg); } }
+  @keyframes knock { 0% { transform: rotate(18deg); } 25% { transform: rotate(42deg); } 55% { transform: rotate(-14deg); } 100% { transform: rotate(18deg); } }
 </style>
 
 <canvas id="game" aria-label="הכה את החפרפרת"></canvas>
-<div id="hammer" aria-hidden="true"><svg viewBox="0 0 100 100"><g stroke="#5a3a1c" stroke-width="2.5" stroke-linejoin="round">
+<div id="hammer" aria-hidden="true"><svg viewBox="0 0 100 100"><g transform="matrix(-1 0 0 1 100 0)" stroke="#5a3a1c" stroke-width="2.5" stroke-linejoin="round">
   <path d="M44 38L86 86" stroke="#7a4a22" stroke-width="11" stroke-linecap="round"/><path d="M44 38L86 86" stroke="#c98b4a" stroke-width="6" stroke-linecap="round"/>
   <rect x="8" y="14" width="56" height="30" rx="8" transform="rotate(42 36 29)" fill="#e5483d"/>
   <rect x="8" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/><rect x="54" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/>
@@ -1093,13 +1093,17 @@
   let lastTap = 0;
   // the hammer (Golan 28.10): over the game it replaces the mouse pointer and follows the finger; a tap is a light knock that sends the mole down
   const hammer = $("hammer"), hammerOn = () => ["play", "between"].includes(state.mode) && !$("hud").hidden;
-  const moveHammer = (e) => { const on = hammerOn(); hammer.classList.toggle("show", on); canvas.classList.toggle("hammering", on);
+  // only over the island and its moles; away from it the normal pointer comes back (Golan 28.10)
+  const islandPick = (m) => m.isEnabled() && m.isVisible && m.isDescendantOf(island);
+  const overIsland = (e) => { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    return !!moleAt(x, y) || !!(scene.pick(x, y, islandPick) || {}).hit; };
+  const moveHammer = (e) => { const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); canvas.classList.toggle("hammering", on);
     if (on) hammer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; };
   canvas.addEventListener("pointermove", moveHammer);
   canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show"); });
   canvas.addEventListener("pointerdown", (e) => {
     moveHammer(e);
-    if (hammerOn()) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
+    if (hammer.classList.contains("show")) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
     const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top);
     if (!m) return;
@@ -1217,6 +1221,7 @@
     if (!LRN || !LRN.settingsForm) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "mole", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר חורים ויותר חפרפרות.",   // Golan 28.10: one sentence instead of the three
       levels: ["5 חורים ו-3 חפרפרות. החפרפרות מחכות עד שנוגעים, והאות כתובה על השלט עד שמוצאים אותה פעם אחת בלי טעות.",
         "7 חורים ו-4 חפרפרות. כל חפרפרת בחוץ 4 שניות, ואז קופצת מחור אחר. את האות רק שומעים.",
         "10 חורים ו-5 חפרפרות, 2.5 שניות בחוץ, ואחת האותיות דומה לאות שמחפשים. את האות רק שומעים."],
@@ -1500,8 +1505,7 @@
     $("start").hidden = false;
   }
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
-  // a door goes back ONE screen (Golan 28.10, all games): no picker in this game, so game, pause, end -> the start screen
-  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => backToStart()));
+  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
 

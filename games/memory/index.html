@@ -1047,9 +1047,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     ["hud", "end", "pick", "settings", "levelAsk"].forEach((id) => ($(id).hidden = true));
     $("start").hidden = false;
   }
-  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
-  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); backToPick(); }));
-  $("doorPick").addEventListener("click", (e) => { e.stopPropagation(); backToStart(); });
+  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // the restart button: the picker again
+  ["doorGame", "doorPick", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
   $("doorStart").addEventListener("click", (e) => {

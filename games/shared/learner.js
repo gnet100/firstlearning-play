@@ -744,13 +744,14 @@ ${items[item]}</svg>`;
   // FL.learner.settingsForm(host, {
   //   game,                         // the game id used by setGame / the speed slider ("detective", "wake", ...); none = hub
   //   levels: [l1, l2, l3],         // what each level does in THIS game (one short sentence each)
+  //   levelsText,                   // optional: one sentence for all levels instead of the list (Golan 28.10, mole)
   //   onLevel(n),                   // the effective level changed (1..3)
   //   picker: { ...letterPicker options },   // shown when given; the picker api is returned as form.picker
   //   voice: { get, set }, quality: { get, set },
   //   tech: { perf (ignored since 28.10: no FPS box), stress: { get, set }, diag: () => text, extra: [elements] } })
   // Same rows, same order, same words everywhere: התקדמות למידה, בחירת אותיות לתרגול, רמת קושי, מהירות, קול הקריינית,
   // איכות גרפיקה, מידע טכני. Returns { refresh(), picker, el }.
-  const LEVEL_AUTO_NOTE = "החלטת מערכת: הרמה עולה כשהילד מצליח, ויורדת כשקשה לו. רמה 1, 2 או 3: הרמה נשארת קבועה במשחק הזה.";
+  const LEVEL_AUTO_NOTE = "החלטת מערכת: הרמה מותאמת ליכולת הילד. תעלה כשהוא יצליח, ותרד כאשר הוא יתקשה.";   // Golan 28.10 wording
   function formCss() {
     if (document.getElementById("fl-form-css")) return;
     const st = document.createElement("style"); st.id = "fl-form-css";
@@ -811,7 +812,7 @@ ${items[item]}</svg>`;
       const draw = () => {
         const p = cur(), man = gameLevelOf(p, cfg.game), auto = p ? p.level : 1, eff = man || auto;
         const b = r3.querySelector('.fl-fseg button[data-v="auto"]'); if (b) b.textContent = "החלטת מערכת (" + auto + ")";
-        ul.innerHTML = ""; cfg.levels.forEach((t, i) => { const li = document.createElement("li"); li.textContent = "רמה " + (i + 1) + ": " + t; if (i + 1 === eff) li.className = "on"; ul.append(li); });
+        ul.innerHTML = ""; if (cfg.levelsText) { const li = document.createElement("li"); li.textContent = cfg.levelsText; ul.append(li); } else cfg.levels.forEach((t, i) => { const li = document.createElement("li"); li.textContent = "רמה " + (i + 1) + ": " + t; if (i + 1 === eff) li.className = "on"; ul.append(li); });
         if (drawSeg) drawSeg();
       };
       drawSeg = seg(r3, [["auto", "החלטת מערכת"], [1, "1"], [2, "2"], [3, "3"]], () => gameLevelOf(cur(), cfg.game) || "auto",
@@ -1208,7 +1209,7 @@ ${items[item]}</svg>`;
         mk("ניקוי", preset === "clear", pre("clear", () => {}));   // Golan 16.10: only removes the marks; the parent then taps letters
         const note = document.createElement("div"); note.className = "fl-pnote";
         const N = autoCount(cur()), un = N ? unknownMaxFor(cur(), N) : null;
-        const autoTxt = N ? `החלטת מערכת בוחרת ${N} אותיות, המספר המתאים למשחק הזה ולגיל הילד: רובן מוכרות, ולכל היותר ${(un || 1) > 1 ? "שתי אותיות חדשות" : "אות חדשה אחת"}. לחיצה על אות מוסיפה אותה או מורידה אותה.`   // literacy ruling 6
+        const autoTxt = N ? `המערכת בוחרת ${N} אותיות. חשיפה הדרגתית לאותיות שלא תורגלו עדיין. לחיצה על אות תסמן ותוסיף אותה לתרגול, או תסיר אותה ממנו.`   // Golan 28.10 wording (literacy ruling 6: mostly known, at most 1-2 new)
           : "החלטת מערכת: המשחק בוחר בעצמו אילו אותיות לתרגל, לפי מה שהילד כבר מזהה ומה שהוא עוד לומד. המסומנות הן מה שהמשחק מתרגל עכשיו, והן מתעדכנות עם ההתקדמות. לחיצה על אות מוסיפה אותה או מורידה אותה.";
         note.textContent = mode === "auto"
           ? autoTxt
