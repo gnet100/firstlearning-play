@@ -1040,7 +1040,7 @@
     }
   }
   const envTex = new BABYLON.DynamicTexture("envTex", { width: 512, height: 256 }, scene, true);
-  let heartBalloon = false;   // the heart balloon does not turn around (Golan 27.10); the others do
+  let heartBalloon = false;   // the heart balloon turns like the others again (Golan 28.10)
   function paintBalloon(st) {
     heartBalloon = st.shape === "heart";
     paintSkin(envTex.getContext(), 512, 256, st, true);
@@ -2065,7 +2065,7 @@
     balloon.rotation.z = -(tx - state.bx) * 0.05 + (state.arriving && bOff < -0.05 ? -Math.min(0.12, -bOff * 0.02) : 0);
     // Golan 17.10: the balloon turns around itself as it crosses the screen, twice what the view alone shows
     const spinOf = (x) => -Math.atan2(x - cam.position.x, Math.abs(cam.position.z));
-    body.rotation.y = heartBalloon ? 0 : spinOf(state.bx);
+    body.rotation.y = spinOf(state.bx);
     const mx = state.bx > screenMidX ? state.bx - wrapP : state.bx + wrapP;
     syncMirror(false, mx);   // Golan 18.10: no half balloon on the other side of the screen (one pass at a time)
     // the new train has stopped and the balloon is out of sight: it comes in with the next letter
@@ -2074,7 +2074,7 @@
       state.holdBalloon = false;
       if (state.askOnArrive) { state.askOnArrive = false; nextLetter(); if (state.crate) { state.crateIn = 1; state.crate.root.scaling.set(1, 1, 1); } }
     }
-    if (mirrorBody) mirrorBody.rotation.y = heartBalloon ? 0 : spinOf(mx);
+    if (mirrorBody) mirrorBody.rotation.y = spinOf(mx);
     // a new box grows out of the basket
     if (state.crate && state.crate.root.parent === balloon && state.crateIn < 1) {
       state.crateIn = Math.min(1, state.crateIn + dt / 0.45);

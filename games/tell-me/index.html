@@ -1616,7 +1616,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
         f.position.set(rig.x + wx + side, rig.y + bob + wy - (1 - aside) * 14, rig.z + wz); }
       f.position.addInPlace(sep[i]);
       f.scaling.setAll(L.balS);
-      f.rotation.y = f.metadata && f.metadata.heart ? 0 : Math.sin(t * 0.35 + ph) * 0.25;   // the heart balloon does not turn (Golan 27.10)
+      f.rotation.y = Math.sin(t * 0.35 + ph) * 0.25;
     });
     keepApart(dt);
     // Golan 20.10: no burner flame under the balloon (the flame mesh stays off)
