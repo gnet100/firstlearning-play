@@ -338,7 +338,7 @@
     const c = Math.round(s); if (!far) i = Math.max(c - 1, Math.min(c + 1, i)); sTo = Math.max(0, Math.min(STOPS.length - 1, i)); }
   function enter(i) {
     if (!isles[i].open) { opt.say("map_t" + (i + 1), null, ["map_d" + (i + 1), "map_locked"]); focusedAt = T; return; }
-    if (i === 0) { opt.onOpen(0); return; }
+    if (i === 0 || (opt.has && opt.has(i))) { opt.onOpen(i); return; }   // Golan 28.10: island 2 has its first game
     opt.say("map_soon");   // an open topic whose games are still being built
   }
 

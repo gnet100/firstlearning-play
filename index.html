@@ -156,6 +156,7 @@
 <script src="hub-cards-animated/hub-cards-animated.js"></script>
 <script src="hub-cards-animated/map-balloon.js"></script>
 <script src="games/waking-letter/letters-animated/letters-animated.js"></script>
+<script src="games/waking-letter/pictures.js"></script>
 <script>
 (() => {
   "use strict";
@@ -174,7 +175,18 @@
     { id: "circle", ac: "#f06595", name: "מַעְגַּל הָאוֹתִיּוֹת", path: "games/letter-circle/index.html", bg: "#ffe8ef", pic: "circle" },
     { id: "memory", ac: "#7048e8", name: "מִשְׂחַק זִכָּרוֹן", path: "games/memory/index.html", bg: "#1f2350", pic: "memory" },
     { id: "mole", ac: "#a47148", name: "הַכֵּה אֶת הַחֲפַרְפֶּרֶת", path: "games/mole/index.html", bg: "#dff3ff", pic: "mole" },
+    // Golan 28.10: the first game of island 2 "זיהוי צלילים" (isle = the map island, counted from 0)
+    { id: "sound", ac: "#15aabf", name: "בַּלַּשׁ הַצְּלִילִים", path: "games/sound-detective/index.html", bg: "#e4f6ff", pic: "sound", isle: 1, noSystem: true },
   ];
+  const isleOf = (g) => g.isle || 0;
+  let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
+  // the sound detective's card: the detective's clouds and magnifier with pictures of the game (waking-letter/pictures.js) in place of letters
+  function soundPic() {
+    const P = window.PICTURES || {}, pic = (l, x, y, s) => P[l] ? `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 1000})">${P[l].svg}</g>` : "";
+    return `<svg viewBox="0 0 160 100"><g fill="#fff"><ellipse cx="40" cy="40" rx="30" ry="16"/><ellipse cx="60" cy="32" rx="20" ry="16"/><ellipse cx="118" cy="62" rx="30" ry="15"/><ellipse cx="102" cy="56" rx="16" ry="13"/></g>
+      ${pic("ב", 44, 34, 40)}${pic("ח", 116, 58, 36)}
+      <g transform="translate(86 34) rotate(-20)"><circle r="19" fill="#ffffffcc" stroke="#3b2a20" stroke-width="6"/><g transform="rotate(20)">${pic("כ", 0, 0, 30)}</g><rect x="-4" y="19" width="8" height="26" rx="4" fill="#3b2a20"/></g></svg>`;
+  }
   const L = (x, y, ch, size, fill = "#1d2a3a") => `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${fill}" font-family="Noto Sans Hebrew, sans-serif">${ch}</text>`;
   const PICS = {
     memory: `<svg viewBox="0 0 160 100"><defs><linearGradient id="hcN" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#3b2f86"/></linearGradient></defs>
@@ -225,13 +237,15 @@
     document.querySelector(".who .comp").innerHTML = p ? LRN.companionSvg(p, 64) : "";
     document.querySelector(".who").setAttribute("aria-label", (p ? p.name + ", " : "") + "במה נשחק?");
     const grid = document.querySelector(".grid"); grid.innerHTML = "";
-    for (const g of GAMES) {
+    // the topic label over the cards: the island's topic (map_t1, map_t2 ...)
+    { const t = ["זִהוּי אוֹתִיּוֹת", "זִהוּי צְלִילִים"][isleNow] || "זִהוּי אוֹתִיּוֹת", tb = document.querySelector("#topic b"); tb.dataset.nq = tb.textContent = t; document.querySelector("#topic .spk").dataset.clip = "map_t" + (isleNow + 1); }
+    for (const g of GAMES.filter((x) => isleOf(x) === isleNow)) {
       const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.dataset.id = g.id; b.style.setProperty("--ac", g.ac);
       // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
-      const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.name;   // a girl: הבלשית (Golan 19.10)
-      const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
+      const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
@@ -247,18 +261,19 @@
   // The learning path (Golan 20.10): after "מי משחק?" comes the 3D map of the topics; island 1 opens the game list above.
   function knownCount() { try { const c = LRN.cards(); return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; } catch (e) { return 0; } }
   function showMap() {
-    if (!(window.FL && FL.map) || !LRN || !LRN.profile()) { showGames(); return; }
+    if (!(window.FL && FL.map) || !LRN || !LRN.profile()) { isleNow = 0; showGames(); return; }
     hush(); $("games").classList.remove("on"); screen = "map"; $("door").hidden = $("gear").hidden = false;
     const p = LRN.profile();
     FL.map.show({ host: document.body, profile: p, colour: LRN.COMP_COLORS[p.color || 0], known: knownCount(), say, at: FL.map.at(),
-      onOpen: () => showGames(), onFail: () => showGames(), onSystem: systemPick });
+      has: (i) => GAMES.some((g) => isleOf(g) === i),
+      onOpen: (i) => { isleNow = i || 0; try { localStorage.setItem("fl-hub-isle", isleNow); } catch (e) {} showGames(); }, onFail: () => showGames(), onSystem: systemPick });
     if (location.hash !== "#map") history.replaceState(null, "", "#map");
   }
   // "בחירת משחק על ידי המערכת על פי התקדמות" (Golan 20.10): for now one of the letter games, never the same one twice
   // in a row; each game's own system choice already puts the letters not yet recognised first.
   function systemPick() {
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem), g = pool[Math.floor(Math.random() * pool.length)];
+    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem && !isleOf(g)), g = pool[Math.floor(Math.random() * pool.length)];
     try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
     openGame(g, document.createElement("div"));
   }

@@ -193,7 +193,7 @@ ${items[item]}</svg>`;
       p.lastAt = now;
       const e = { t: now, s: p.session, g: ev.game || "", l: ev.letter, p: ev.picked || null,
         ok: !!ev.firstTry, hz: !!(ev.firstTry && ev.hesitant), sol: ev.solved !== false, o: (ev.opts || []).slice(0, 8), rt: ev.rtMs == null ? null : Math.round(ev.rtMs),
-        ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : ev.mode === "cursive" ? "cursive" : "recognize", by: ev.by || "child", pc: ev.pace || null };
+        ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : ev.mode === "cursive" ? "cursive" : ev.mode === "sound" ? "sound" : "recognize", by: ev.by || "child", pc: ev.pace || null };
       e.fast = e.m === "recognize" && !e.ok && e.rt != null && e.rt < FAST_WRONG_MS;   // slip: not counted as a letter error
       if (ev.timeout) e.to = 1;   // the "not yet" came from no tap (time ran out), not from the adult's button
       p.events.push(e); if (p.events.length > MAX_EVENTS) p.events.splice(0, p.events.length - MAX_EVENTS);
@@ -215,7 +215,7 @@ ${items[item]}</svg>`;
     if (!p) return {};
     if (cache && cache.id === p.id && cache.n === p.events.length) return cache.cards;
     const cards = {}, all = [...FL.LETTERS, ...FL.FINALS];
-    for (const l of all) cards[l] = { letter: l, recognize: blank(), name: blank(), cursive: blank(), pairs: {} };
+    for (const l of all) cards[l] = { letter: l, recognize: blank(), name: blank(), cursive: blank(), sound: blank(), pairs: {} };
     const runRts = {};   // per game: the child's kept right-answer times so far, to judge "quick" at the moment of each answer
     for (const e of p.events) {
       const c = cards[e.l]; if (!c) continue;
@@ -231,7 +231,7 @@ ${items[item]}</svg>`;
       // and a "not yet" from no tap (time ran out) does not count at all
       if (e.m === "name" && e.x && (e.ok || !e.to)) step(c.recognize, e, false, null);
       if (e.ok && e.m === "recognize" && kept) g.push(e.rt);
-      if (!e.ok && e.p && e.p !== e.l && !e.fast && cards[e.p]) {   // pair on both letters; the error only on the asked one
+      if (!e.ok && e.p && e.p !== e.l && !e.fast && e.m !== "sound" && cards[e.p]) {   // a sound mix-up (a picture) is not a letter-shape pair   // pair on both letters; the error only on the asked one
         c.pairs[e.p] = (c.pairs[e.p] || 0) + 1; cards[e.p].pairs[e.l] = (cards[e.p].pairs[e.l] || 0) + 1;
       }
     }
@@ -239,7 +239,7 @@ ${items[item]}</svg>`;
     for (const [g, a] of Object.entries(runRts)) gameMedian[g] = median(a.slice(-TYPICAL_LAST));
     for (const l of all) {
       const c = cards[l];
-      for (const k of ["recognize", "name", "cursive"]) finish(c[k]);
+      for (const k of ["recognize", "name", "cursive", "sound"]) finish(c[k]);
       // One colour per letter: "name" wins when there is data on it (literacy review)
       c.state = c.name.n ? c.name.state : c.recognize.state;
       c.fluent = c.recognize.fluent;
@@ -1083,6 +1083,10 @@ ${items[item]}</svg>`;
   // Parent view (settings): every letter in its colour; 27 tiles (22 + 5 finals) in exactly 3 rows of 9 on every screen (Golan 16.10), with counts and the letters recommended for practice.
   // Golan 19.10: the parent's view is one heading "<name> · התקדמות למידה"; a tap opens the learning topics, another tap
   // closes them. Only letter recognition is measured today; the other topics say so until a game measures them.
+  // the 8 opening sounds of בלש הצלילים (summaries/sound-detective-spec.md sec 6), shown with their nikud
+  const SOUND_SYL = { "ב": "בַּ", "ג": "גָּ", "נ": "נָ", "ט": "טַ", "י": "יַ", "כ": "כַּ", "א": "אַ", "ח": "חָ" };
+  const SOUND_LETTERS = Object.keys(SOUND_SYL), SOUND_SKILL = 6;
+  function soundsKnown() { const c = cardsFor(cur()); return SOUND_LETTERS.filter((l) => c[l] && c[l].sound.state === "known").length; }
   const TOPICS = ["זיהוי צלילים (הצליל של כל אות)", "זיהוי הברות", "קריאת הברות עם ניקוד", "קריאת מילים", "כתיבת אותיות ומילים", "שפה ואוצר מילים", "הבנת הנשמע", "שטף קריאה"];
   function renderParentTable(el) {
     el.style.minWidth = "0"; el.style.maxWidth = "100%"; el.style.alignSelf = "stretch";   /* the heading spans the whole row, ▾ at its end */   // the host may be a flex item: never wider than its row (phones)
@@ -1133,7 +1137,18 @@ ${items[item]}</svg>`;
     }
     const cleg = leg.cloneNode(true); cleg.insertAdjacentHTML("beforeend", `<span><u style="background:transparent;outline:1.5px dashed #c3ccd8;outline-offset:-1px"></u>עוד לא נפתחה</span>`);
     cbox.append(cgrid, cleg);
-    for (const t of TOPICS) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.");
+    // Golan 28.10 (בלש הצלילים): the opening sound (צליל פותח) of each letter, same states and colours. A skill, not a list:
+    // 6 different sounds "מזהה בביטחון" = the skill is there (anchor: the start-of-grade-1 check, 5-6 of 6)
+    const soundEv = p.events.some((e) => e.m === "sound");
+    const sKnown = SOUND_LETTERS.filter((l) => c[l].sound.state === "known").length;
+    if (soundEv) {
+      const sbox = topic(TOPICS[0], `מזהה את הצליל הפותח ב-${sKnown} צלילים שונים.` + (sKnown >= SOUND_SKILL ? " המיומנות נרכשה." : ` המיומנות נרכשת ב-${SOUND_SKILL} צלילים.`));
+      const sgrid = document.createElement("div"); sgrid.className = "fl-grid fl-sounds";
+      for (const l of SOUND_LETTERS) { const shown = shownState(c[l].sound.state), s = document.createElement("div"); s.className = "fl-cell";
+        s.style.background = COLORS[shown]; s.style.color = TEXT(shown); s.textContent = SOUND_SYL[l]; s.title = LABELS[shown]; sgrid.append(s); }
+      sbox.append(sgrid, leg.cloneNode(true));
+    }
+    for (const t of TOPICS) if (!(soundEv && t === TOPICS[0])) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.");
     el.append(cap, body);
   }
   // Letter picker for each game's "אותיות ללימוד" (Golan 16.10: identical to the parent table, plus choosing).
@@ -1498,7 +1513,7 @@ ${items[item]}</svg>`;
     return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
   }
   FL.learner = {
-    cursiveReady, cursiveShare,
+    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,
