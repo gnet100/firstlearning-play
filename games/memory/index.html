@@ -363,18 +363,6 @@
   .card.upset .face.front { animation: memUpset .9s ease-in-out both; filter: saturate(.35) brightness(.92); transition: filter .4s; }
   @keyframes memUpset { 0%, 100% { transform: rotateY(180deg) translateX(0); } 15%, 55% { transform: rotateY(180deg) translateX(-5%) rotate(-3deg); } 35%, 75% { transform: rotateY(180deg) translateX(5%) rotate(3deg); } }
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-  /* Golan 24.10: before a board with cursive (כתב יד) pairs, each pair is shown (print + cursive) while Hila says the letter,
-     then all the board's pairs together for 3 seconds */
-  #pairIntro { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; }
-  #pairIntro[hidden] { display: none; }
-  #pairIntro .pi-one { display: flex; gap: 6vmin; animation: piIn .45s cubic-bezier(.3, 1.5, .5, 1) both; }
-  #pairIntro .pi-one .pi-c { width: min(34vmin, 300px); }
-  #pairIntro .pi-all { display: flex; flex-wrap: wrap; justify-content: center; gap: 3vmin 5vmin; max-width: 92vw; animation: piIn .45s ease-out both; }
-  #pairIntro .pi-pair { display: flex; gap: 1.2vmin; }
-  #pairIntro .pi-all .pi-c { width: min(var(--pic, 16vmin), 150px); }
-  #pairIntro .pi-c { aspect-ratio: 1; border-radius: 14%; overflow: hidden; box-shadow: 0 1vmin 3vmin #0003; }
-  #pairIntro .pi-c svg { width: 100%; height: 100%; display: block; }
-  @keyframes piIn { from { transform: scale(.6); opacity: 0; } }
   .heart { position: absolute; width: var(--hs, 28px); height: var(--hs, 28px); translate: -50% -50%; animation: memHeart 1.6s ease-out both; }
   @keyframes memHeart { 0% { transform: translate(0, 0) scale(.3); opacity: 0; } 20% { opacity: 1; transform: translate(var(--dx), -20%) scale(1); }
     100% { transform: translate(calc(var(--dx) * 2), -260%) scale(.8); opacity: 0; } }
@@ -409,7 +397,6 @@
 <body>
 <div id="board" aria-label="לוח הקלפים" hidden></div>
 <div id="fx"></div>
-<div id="pairIntro" hidden aria-live="polite"></div>
 
 <div class="hud" id="hud" hidden>
   <div class="stars" id="stars" data-fl-stars data-fl-title="מִשְׂחַק זִכָּרוֹן"></div>
@@ -611,6 +598,7 @@
     "ך": "fin_kaf", "ם": "fin_mem", "ן": "fin_nun", "ף": "fin_pe", "ץ": "fin_tsadi" };
   const AUDIO = "../../voice/audio/";
   const clipCache = {}; let clipNow = null;
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
       const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
@@ -644,7 +632,7 @@
     if (clipNow && clipNow._fb && !clipNow.paused && !clipNow.ended) {
       const w = clipNow; w.addEventListener("ended", () => later(300, () => { if (clipNow === w) say(id); }), { once: true }); return;
     }
-    id = voiceId(id);
+    id = voiceId(vary(id));
     const a = getClip(id);
     if (!a || a._bad) return;
     a._fb = id.startsWith("fb_");
@@ -727,20 +715,24 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
     const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
     const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;
-    const top = 90 - 84 * sy / 1.25;
-    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
-      (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+    const G = 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" overflow="visible" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
       `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#${id})"/>` +
       `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
-      `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
-      `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
-      `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;
   }
   const balloonIndex = () => (Number.isInteger(settings.balloon) && BALLOONS[settings.balloon] ? settings.balloon : 0);
   // a plain letter, when letters-animated did not load
   // the cursive form (כתב יד, Golan 24.10): the same cream card, the letter in the shared cursive font
-  const cursiveLetter = (l) => `<svg viewBox="0 0 1000 1000"><rect x="20" y="20" width="960" height="960" rx="110" fill="#FFF3C9"/><path d="M120 356H880M120 698H880" stroke="rgba(120, 160, 205, .6)" stroke-width="12" stroke-linecap="round"/><text x="500" y="698" font-size="600" text-anchor="middle" fill="#1d2a3a" font-family="FL Cursive, cursive">${l}</text></svg>`;   // the two notebook lines (Golan 27.10)
+  // the two notebook lines (Golan 27.10); 28.10: a much bigger cursive letter, close to the print one; the line sits lower for a tall letter
+  // (ל, ץ) and higher for a long tail (ק, ך) so every letter stays on the card
+  const CUR_BASE = { "ל": 790, "ץ": 800, "ף": 800, "ק": 690, "ת": 700, "ך": 650, "ן": 650 };
+  const cursiveLetter = (l) => { const y = CUR_BASE[l] || 740, top = y - 410;
+    return `<svg viewBox="0 0 1000 1000"><rect x="20" y="20" width="960" height="960" rx="110" fill="#FFF3C9"/><path d="M80 ${top}H920M80 ${y}H920" stroke="rgba(120, 160, 205, .6)" stroke-width="12" stroke-linecap="round"/><text x="500" y="${y}" font-size="720" text-anchor="middle" fill="#1d2a3a" font-family="FL Cursive, cursive">${l}</text></svg>`; };
   try { document.fonts.load('400 100px "FL Cursive"', "אב"); } catch (e) {}
   // which letters of a board come as a print + cursive pair: "סוג כתב" in settings; automatic = a letter known in print
   // (מזהה בביטחון) shows in cursive about 1 time in 4, more as the child learns it, up to about half (FL.learner.cursiveShare)
@@ -748,6 +740,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const mode = settings.script || "auto";
     if (mode === "print") return new Set();
     if (mode === "cursive") return new Set(letters);
+    if (mode === "mixed") return new Set(letters.filter(() => Math.random() < 0.5));   // "משולב": half and half (Golan 28.10)
     return new Set(LRN && LRN.cursiveShare ? letters.filter((l) => Math.random() < LRN.cursiveShare(l)) : []);
   }
   const plainLetter = (l) => `<svg viewBox="0 0 1000 1000"><rect x="20" y="20" width="960" height="960" rx="110" fill="#FFF3C9"/><text x="500" y="560" font-size="620" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">${l}</text></svg>`;
@@ -755,7 +748,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // ---------- the board ----------
   const state = { mode: "intro", n: 4, cards: [], open: [], busy: false, mistakes: 0, missed: new Set(), pairsLeft: 0, starRow: [], boards: 0, roundWins: 0, letters: [], flips: 0 };
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
-  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "levelask" || state.mode === "pairs" }) : null;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "levelask" }) : null;
   const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
 
   function newBoard() {
@@ -764,28 +757,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
     const letters = boardLetters(pairs); state.letters = letters;
     const curs = cursiveSet(letters); state.curs = curs;
-    // Golan 24.10: the cursive pairs are shown first, one by one, then all together
-    if (curs.size) return pairIntro(letters.filter((l) => curs.has(l)), () => dealBoard(B, letters, curs));
-    dealBoard(B, letters, curs);
-  }
-  function pairIntro(list, done) {
-    state.mode = "pairs"; $("board").hidden = true;
-    const box = $("pairIntro"), pair = (l) => `<div class="pi-pair"><div class="pi-c">${plainLetter(l)}</div><div class="pi-c">${cursiveLetter(l)}</div></div>`;
-    box.hidden = false;
-    const show = (k) => {
-      if (state.mode !== "pairs") return;
-      if (k < list.length) {
-        box.innerHTML = `<div class="pi-one">${pair(list[k]).replace(/^<div class="pi-pair">|<\/div>$/g, "")}</div>`;
-        later(ms(350), () => { say(NAME_CLIP[list[k]]); later(ms(500), () => whenQuiet(() => later(ms(700), () => show(k + 1)))); });
-        return;
-      }
-      // all the pairs of this board together, for 3 seconds
-      const cols = Math.min(list.length, list.length > 6 ? 4 : 3), rows = Math.ceil(list.length / cols);
-      box.style.setProperty("--pic", `min(${(78 / (cols * 2)).toFixed(1)}vw, ${(70 / rows / 1.2).toFixed(1)}vh)`);
-      box.innerHTML = `<div class="pi-all">${list.map(pair).join("")}</div>`;
-      later(3000, () => { if (state.mode !== "pairs") return; box.hidden = true; box.innerHTML = ""; done(); });
-    };
-    show(0);
+    dealBoard(B, letters, curs);   // Golan 28.10: no showing of the print + cursive pairs before the board (it was 24.10)
   }
   function dealBoard(B, letters, curs) {
     state.shape = wideBoard() ? "wide" : "tall";
@@ -872,7 +844,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
 
   function flip(i) {
     if (paused || state.mode !== "play" || state.busy) return;
-    const c = state.cards[i]; if (!c || c.state !== "closed") return;
+    const c = state.cards[i];
+    if (c && c.state === "open" && state.open.length === 1 && state.open[0] === c && !c.surprise) return say(NAME_CLIP[c.l]);   // the open card touched again: its name again (Golan 28.10)
+    if (!c || c.state !== "closed") return;
     unlockAudio();
     if (state.open.length === 0) state.firstAt = performance.now();
     c.state = "open"; c.el.classList.add("open"); sfx.flip(); state.flips++;
@@ -1069,13 +1043,15 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function backToStart() {
     epoch++; cancelIntro(); stopVoice(); if (HG) HG.stop();
     if (paused) resumeCore();
-    state.mode = "intro"; countToken++; $("count").innerHTML = ""; $("board").hidden = true; $("fx").innerHTML = ""; $("pairIntro").hidden = true;
+    state.mode = "intro"; countToken++; $("count").innerHTML = ""; $("board").hidden = true; $("fx").innerHTML = "";
     ["hud", "end", "pick", "settings", "levelAsk"].forEach((id) => ($(id).hidden = true));
     $("start").hidden = false;
   }
-  ["doorGame", "doorPick", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));
+  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
+  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); backToPick(); }));
+  $("doorPick").addEventListener("click", (e) => { e.stopPropagation(); backToStart(); });
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
-  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; openPick(); });
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
   $("doorStart").addEventListener("click", (e) => {
     e.stopPropagation(); cancelIntro(); stopVoice(); if (!LRN || toHub()) return;
     choosingKid = true;

@@ -370,6 +370,7 @@
     intro: "lc_start",   // new: "מַקְשִׁיבִים לַשֵּׁם שֶׁל הָאוֹת, וְנוֹגְעִים בָּהּ" (requested from the voice thread)
     warm: "lc_warm" };   // new, by boy/girl: lc_warm_m "גַּע בַּכּוֹכָב", lc_warm_f "גְּעִי בַּכּוֹכָב" (no neutral clip)
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
       const a = new Audio("../../voice/audio/" + id + ".mp3"); a.preload = "auto";
@@ -393,7 +394,7 @@
     const next = () => {
       if (my !== seqTok) return;
       if (i >= list.length) return finish();
-      const id = list[i++], a = getClip(id), last = i >= list.length;
+      const id = vary(list[i++]), a = getClip(id), last = i >= list.length;
       const fail = () => { if (my !== seqTok || a._failed) return; a._failed = true; a._bad = true; if (FALLBACK[id]) list.splice(i, 0, ...FALLBACK[id]); next(); };
       if (a._bad) { if (FALLBACK[id]) list.splice(i, 0, ...FALLBACK[id]); return next(); }
       a._failed = false;
@@ -722,7 +723,7 @@
   function cursiveFor(q) {
     if (q.kind === "warm") return false;
     const m = settings.script || "auto";
-    if (m === "print") return false; if (m === "cursive") return true;
+    if (m === "print") return false; if (m === "cursive") return true; if (m === "mixed") return Math.random() < 0.5;   // "משולב": half and half (Golan 28.10)
     return q.kind !== "first" && !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(q.letter));
   }
   const cloudMat = mat("#ffffff", 0.35);
@@ -1190,7 +1191,7 @@
   let modeBeforeSettings = null;
   function syncSeg() {
     document.querySelectorAll(".seg[data-key]").forEach((seg) => seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(settings[seg.dataset.key] === b.dataset.v))));
-    $("perf").hidden = settings.perf !== "on";
+    $("perf").hidden = true /* no FPS box (Golan 28.10) */;
   }
   document.querySelectorAll(".seg[data-key]").forEach((seg) => seg.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
@@ -1294,7 +1295,7 @@
   function updatePerf(now) {
     const fps = engine.getFps();
     if (isFinite(fps) && fps > 0 && state.mode === "play") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); if (now - state.roundStart > 3000) worstFps = Math.min(worstFps, fps); }
-    if (now - lastPerfUpdate < 500 || settings.perf !== "on") return;
+    if (now - lastPerfUpdate < 500 || true /* no FPS box (Golan 28.10) */) return;
     lastPerfUpdate = now;
     $("perf").innerHTML = `<b class="${fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad"}">${fps.toFixed(0)}</b> FPS<br>▲ ${countTris().toLocaleString()} · ${settings.quality === "eco" ? "eco" : "high"}`;
   }
@@ -1474,15 +1475,15 @@
     if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
     const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
     const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // stretch around the balloon's mouth
-    const top = 90 - 84 * sy / 1.25;
-    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
-      (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+    const G = 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)   // stretch around the balloon's mouth
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" overflow="visible" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
       `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
       `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
-      `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
-      `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
-      `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one
   }
   const PICK_STEP = 420;   // ms between balloons in the highlight wave (230 before; slower, Golan 16.10)
   let pickNagT = 0, pickFlashTs = [], picking = false, pickSaid = 0;   // "יש לבחור כדור פורח" is said only twice, then the balloons just flash (Golan, 15.10, as in the car game)
@@ -1551,9 +1552,11 @@
   }
   // opened from the hub: every door goes straight back to the hub's game list (Golan 16.10); voice and timers stop first
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
-  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
+  const backToPick = () => { backToStart(); $("start").hidden = true; clearTags(); openPick(); };   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
+  ["doorGame", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", backToPick));
+  $("doorPick").addEventListener("click", () => backToStart());
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
-  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; clearTags(); openPick(); });
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
 
   // test hook for automated checks
   window.__circle = { endRound, askNext, state, clouds, layout, cloudAt, answer, nextQuestion, newSession, clock, engine, scene, cam, canvas, balloonSize: () => [balloonBase, balloonGrow], hg: HG };

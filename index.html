@@ -555,29 +555,29 @@
   // each balloon drawn once to its own small picture, then only moved
   function balloonSprite(d) {   // Golan 20.10: the same balloon as the "בחר כדור פורח" picker in the games (envelope, two ropes, small striped basket)
     const [sx, sy] = SHAPES[d.shape], K = 1.2, cv = document.createElement("canvas");
-    cv.width = Math.ceil(100 * K * 2); cv.height = Math.ceil(134 * K * 2); const ctx = cv.getContext("2d"); ctx.scale(2 * K, 2 * K); ctx.translate(0, 14);
+    cv.width = Math.ceil(100 * K * 2); cv.height = Math.ceil(140 * K * 2); const ctx = cv.getContext("2d"); ctx.scale(2 * K, 2 * K); ctx.translate(0, 20);   // room on top for the tall balloons' flags
     if (d.shape === "heart" && LOVE_IMG.complete && LOVE_IMG.naturalWidth) {   // the picture of the 3D heart balloon itself (Golan 26.10), basket included
       const k = 134 / LOVE_IMG.naturalHeight, w = LOVE_IMG.naturalWidth * k; ctx.drawImage(LOVE_IMG, 50 - w / 2, -14, w, 134);
-      return { cv, w: 100 * K, h: 134 * K };
+      return { cv, w: 100 * K, h: 140 * K };
     }
-    const env = new Path2D("M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z"), top = 90 - 84 * sy / 1.25;
-    if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 13); ctx.stroke();
-      ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 13); ctx.lineTo(64, top - 13); ctx.lineTo(60, top - 8.5); ctx.lineTo(64, top - 4); ctx.lineTo(50, top - 4); ctx.fill(); }
-    ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(41, 90); ctx.lineTo(38, 102); ctx.moveTo(59, 90); ctx.lineTo(62, 102); ctx.stroke();
+    const G = 1.12, env = new Path2D("M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z"), top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;   // 12% bigger, with the heart balloon's basket (Golan 28.10)
+    if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 10); ctx.stroke();
+      ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 10); ctx.lineTo(64, top - 10); ctx.lineTo(60, top - 5.5); ctx.lineTo(64, top - 1); ctx.lineTo(50, top - 1); ctx.fill(); }
+    ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(50 - mx, 89); ctx.lineTo(32, 97); ctx.moveTo(50 + mx, 89); ctx.lineTo(68, 97); ctx.stroke();
     if (d.shape === "heart") {   // the heart balloon (shared/love-balloon.js): its own outline, painted at full size
       const he = new Path2D(LOVE_ENV), pc = document.createElement("canvas"); pc.width = 250; pc.height = 335; paintLove(pc.getContext("2d"), 250, 335, d, false);
       ctx.save(); ctx.clip(he); ctx.drawImage(pc, 0, -14, 100, 134); ctx.restore(); ctx.strokeStyle = d.c[1]; ctx.lineWidth = 1.8; ctx.stroke(he);
     } else {
-    ctx.save(); ctx.translate(50, 90); ctx.scale(sx / 1.1, sy / 1.25); ctx.translate(-50, -90);   // stretched around the balloon's mouth
+    ctx.save(); ctx.translate(50, 90); ctx.scale(G * sx / 1.1, G * sy / 1.25); ctx.translate(-50, -90);   // stretched around the balloon's mouth
     ctx.save(); ctx.clip(env); paintBalloon(ctx, 100, 92, d);
     const g = ctx.createRadialGradient(36, 26, 3, 50, 46, 50); g.addColorStop(0, "#ffffff66"); g.addColorStop(0.5, "#ffffff00"); g.addColorStop(1, "#0000002a");
     ctx.fillStyle = g; ctx.fillRect(0, 0, 100, 92); ctx.restore();
     ctx.strokeStyle = "#0000001f"; ctx.lineWidth = 1.5; ctx.stroke(env); ctx.restore();
     }
-    ctx.fillStyle = d.basket; ctx.beginPath(); ctx.roundRect(36, 100, 28, 16, 3); ctx.fill();
-    ctx.fillStyle = "#4a3222"; ctx.fillRect(36, 100, 28, 3); ctx.fillStyle = d.c[0]; ctx.fillRect(36, 105.5, 28, 2.6); ctx.fillRect(36, 112.6, 28, 2.6);
-    ctx.fillStyle = d.c[1] || "#fff"; ctx.fillRect(36, 109.6, 28, 1.6);
-    return { cv, w: 100 * K, h: 134 * K };
+    ctx.fillStyle = d.basket; ctx.beginPath(); ctx.roundRect(30, 96, 40, 24, 4); ctx.fill();   // the heart balloon's basket size (Golan 28.10)
+    ctx.fillStyle = "#4a3222"; ctx.fillRect(30, 96, 40, 4); ctx.fillStyle = d.c[0]; ctx.fillRect(30, 104.5, 40, 3.6); ctx.fillRect(30, 114.6, 40, 3.6);
+    ctx.fillStyle = d.c[1] || "#fff"; ctx.fillRect(30, 110.4, 40, 2.4);
+    return { cv, w: 100 * K, h: 140 * K };
   }
   const sky = $("sky"), sctx = sky.getContext("2d"), sprites = BALLOONS.map(balloonSprite);
   LOVE_IMG.addEventListener("load", () => BALLOONS.forEach((d, i) => { if (d.shape === "heart") sprites[i] = balloonSprite(d); }));

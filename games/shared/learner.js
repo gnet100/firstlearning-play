@@ -5,6 +5,19 @@
 (function (root) {
   "use strict";
   const FL = (root.FL = root.FL || {});
+  // Feedback lines that have several recordings: whichever one of a group a game asks for, a random one of the group plays,
+  // never the same twice in a row (Golan 28.10, every game, every stage). List only clips that are recorded; a new one goes here.
+  FL.VARIANTS = [
+    ["fb_choice1", "fb_choice2"],    // after picking a balloon / a board ("fb_choice3", "fb_choice4" once recorded)
+    ["fb_correct"],                  // a right answer ("fb_correct2".."fb_correct4" once recorded)
+  ];
+  const lastOf = new Map();
+  FL.vary = (id) => {
+    const g = FL.VARIANTS.find((v) => v.includes(id));
+    if (!g || g.length < 2) return id;
+    const opts = g.filter((x) => x !== lastOf.get(g)), pick = opts[Math.floor(Math.random() * opts.length)];
+    lastOf.set(g, pick); return pick;
+  };
   const KEY = "fl-learner-v1";
   const SESSION_GAP = 4 * 3600e3;          // a new session after 4 hours without play (Golan 15.10: 2nd success in another session)
   const FAST_WRONG_MS = 800;               // a wrong tap faster than this is a game-skill slip, not a letter error
@@ -734,7 +747,7 @@ ${items[item]}</svg>`;
   //   onLevel(n),                   // the effective level changed (1..3)
   //   picker: { ...letterPicker options },   // shown when given; the picker api is returned as form.picker
   //   voice: { get, set }, quality: { get, set },
-  //   tech: { perf: { get, set }, stress: { get, set }, diag: () => text, extra: [elements] } })
+  //   tech: { perf (ignored since 28.10: no FPS box), stress: { get, set }, diag: () => text, extra: [elements] } })
   // Same rows, same order, same words everywhere: התקדמות למידה, בחירת אותיות לתרגול, רמת קושי, מהירות, קול הקריינית,
   // איכות גרפיקה, מידע טכני. Returns { refresh(), picker, el }.
   const LEVEL_AUTO_NOTE = "החלטת מערכת: הרמה עולה כשהילד מצליח, ויורדת כשקשה לו. רמה 1, 2 או 3: הרמה נשארת קבועה במשחק הזה.";
@@ -808,25 +821,24 @@ ${items[item]}</svg>`;
     // the game's own rows for the adult (tell-me: how to play, the check round, the parent summary), right under the level
     for (const e of cfg.extra || []) { const r = row(null); r.append(e); }
     // Golan 24.10: "סוג כתב" for the games that show cursive (כתב יד): automatic mix (a letter known in print sometimes shows
-    // in cursive), print only, or cursive. Per child and per game is the game's own business (cfg.script.get / set).
-    if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"]], cfg.script.get, cfg.script.set);
-      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב."; r.append(n); api.refreshers.push(d); }
+    // in cursive), print only, cursive, or "mixed" (half and half at random, Golan 28.10). Per child and per game is the game's own business (cfg.script.get / set).
+    if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"], ["mixed", "משולב"]], cfg.script.get, cfg.script.set);
+      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב. משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי."; r.append(n); api.refreshers.push(d); }
     // 4. speed of everything that moves (the shared slider)
     if (cfg.game) { const r4 = row(null), sp = document.createElement("div"); r4.append(sp); const sr = speedRow(sp, cfg.game, cfg.speed || {}); api.refreshers.push(() => sr.refresh()); }
     // 5. the narrator's voice, 6. graphics quality
     if (cfg.voice) { const r5 = row("קול הקריינית"); const d = seg(r5, [["on", "פועל"], ["off", "כבוי"]], cfg.voice.get, cfg.voice.set); api.refreshers.push(d); }
     if (cfg.quality) { const r6 = row("איכות גרפיקה"); const d = seg(r6, [["high", "גבוהה"], ["eco", "חסכונית"]], cfg.quality.get, cfg.quality.set);
       const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = "חסכונית: למכשיר איטי, או כדי לחסוך בסוללה."; r6.append(n); api.refreshers.push(d); }
-    // 7. technical information (closed fold): performance box, load test, the game's own extras, diagnostics
+    // 7. technical information (closed fold): load test (the FPS box row is gone, Golan 28.10), the game's own extras, diagnostics
     const t = cfg.tech || {};
-    if (t.perf || t.stress || t.diag || (t.extra && t.extra.length)) {
+    if (t.stress || t.diag || (t.extra && t.extra.length)) {
       const r7 = row(null), box = document.createElement("div"); box.className = "fl-topb"; box.hidden = true;
       const cap = document.createElement("button"); cap.type = "button"; cap.className = "fl-cap"; cap.setAttribute("aria-expanded", "false");
       cap.innerHTML = `<span class="fl-capt">מידע טכני</span><span class="fl-chev" aria-hidden="true">▾</span>`;
       cap.onclick = () => { const open = box.hidden; if (open) document.querySelectorAll(".fl-cap[aria-expanded=true]").forEach((o) => o !== cap && o.click()); box.hidden = !open; cap.setAttribute("aria-expanded", String(open)); if (open && diag) diag.textContent = t.diag(); };
       r7.append(cap, box);
       const sub = (title) => { const r = document.createElement("div"); r.className = "fl-frow"; const tt = document.createElement("div"); tt.className = "fl-ft"; tt.style.fontSize = "18px"; tt.textContent = title; r.append(tt); box.append(r); return r; };
-      if (t.perf) api.refreshers.push(seg(sub("מדדי ביצועים"), [["on", "הצג"], ["off", "הסתר"]], t.perf.get, t.perf.set));
       if (t.stress) api.refreshers.push(seg(sub("עומס בדיקה (כ-100 אלף משולשים)"), [["off", "כבוי"], ["on", "פועל"]], t.stress.get, t.stress.set));
       for (const e of t.extra || []) box.append(e);
       var diag = null; if (t.diag) { diag = document.createElement("pre"); diag.className = "fl-fdiag"; box.append(diag); }

@@ -636,6 +636,7 @@
     return id;
   }
   function clipFor(text) { return genderedId(CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text.replace(/[\u05B7\u05B8]/g, "")] || null); }
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
       const a = new Audio("../audio/" + id + ".mp3"); a.preload = "auto";
@@ -693,7 +694,7 @@
       waitFor.addEventListener("ended", () => setTimeout(() => { if (clipNow === waitFor && tok === navTok) say(text, rate, fromSpk); }, 450), { once: true });
       return;
     }
-    const id = clipFor(text), a = id && getClip(id);
+    const id = vary(clipFor(text)), a = id && getClip(id);
     if (!a || a._bad) return sayBrowser(text, rate);
     a._fb = id.startsWith("fb_");
     // reaction time is measured from the END of the question's letter (learner README step 3)
@@ -935,7 +936,7 @@
   // more as the child learns it, up to about half (FL.learner.cursiveShare). All the gates of one question share it.
   function cursiveFor(l) {
     const m = settings.script || "auto";
-    if (m === "print") return false; if (m === "cursive") return true;
+    if (m === "print") return false; if (m === "cursive") return true; if (m === "mixed") return Math.random() < 0.5;   // "משולב": half and half (Golan 28.10)
     return !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
   }
   const allGates = [-6.4, -3.2, 0, 3.2, 6.4].map((x, i) => {
@@ -1339,7 +1340,7 @@
     document.querySelectorAll(".seg").forEach((seg) => {
       seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(settings[seg.dataset.key] === b.dataset.v)));
     });
-    $("perf").hidden = settings.perf !== "on";
+    $("perf").hidden = true /* no FPS box (Golan 28.10) */;
   }
   document.querySelectorAll(".seg").forEach((seg) => seg.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
@@ -1456,7 +1457,7 @@
       fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift();
       if (now - state.roundStart > 3000) worstFps = Math.min(worstFps, fps);
     }
-    if (now - lastPerfUpdate < 500 || settings.perf !== "on") return;
+    if (now - lastPerfUpdate < 500 || true /* no FPS box (Golan 28.10) */) return;
     lastPerfUpdate = now;
     const cls = fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad";
     $("perf").innerHTML =
@@ -1699,6 +1700,10 @@
   function goHub() { hushAll(); countToken++; if (hg) hg.stop(); location.href = LRN.hubUrl.split("#")[0] + "#games"; }
   function backToStart() {
     if (toHub()) return goHub();
+    resetToStart();
+  }
+  function backToPick() { resetToStart(); $("start").hidden = true; openCarPick(); }
+  function resetToStart() {
     hushAll(); if (hg) hg.stop();
     state.q = null; state.celebrate = null; state.resolved = true; state.mode = "intro"; state.flashAt = 0;
     countToken++; $("count").innerHTML = ""; startLine.setEnabled(false);
@@ -1706,7 +1711,8 @@
     ["hud", "end", "carPick", "settings"].forEach((id) => ($(id).hidden = true));
     $("start").hidden = false;
   }
-  ["doorGame", "doorCar", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToStart));   // door + gear on every screen, the pause screen too (Golan 16.10)
+  ["doorGame", "doorEnd"].forEach((id) => $(id).addEventListener("click", backToPick));   // door + gear on every screen, the pause screen too (Golan 16.10)   // a door goes back ONE screen (Golan 28.10, all games): game, pause, end -> the picker; the picker -> start; start -> the hub
+  $("doorCar").addEventListener("click", resetToStart);
   // a tap outside the "change letters?" question closes it (Golan 16.10: outside a popup = back one step)
   $("end").addEventListener("pointerdown", (e) => { if (!$("swapAsk").hidden && !e.target.closest("#swapAsk") && !e.target.closest("button")) { $("swapAsk").hidden = true; if (endUi) endUi.fit(); } });
 

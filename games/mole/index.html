@@ -246,9 +246,22 @@
   @keyframes gRing { 50% { transform: rotate(12deg); } }
   .g-sign.hint rect.board { stroke: #ffc233; }
   @media (prefers-reduced-motion: reduce) { .g-all, .guide * { animation: none !important; } }
+  /* the hammer (Golan 28.10): it takes the place of the mouse pointer over the game, follows the finger, and a tap is a light knock */
+  #game.hammering { cursor: none; }
+  #hammer { position: fixed; left: 0; top: 0; width: max(calc(150 * var(--u)), 96px); height: auto; pointer-events: none; z-index: 5;
+    transform-origin: 82% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.2) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.22); display: none; }
+  #hammer.show { display: block; }
+  #hammer svg { display: block; width: 100%; height: auto; transform: rotate(-18deg); transform-origin: 82% 88%; }
+  #hammer.hit svg { animation: knock .28s ease-in-out; }
+  @keyframes knock { 0% { transform: rotate(-18deg); } 25% { transform: rotate(-42deg); } 55% { transform: rotate(14deg); } 100% { transform: rotate(-18deg); } }
 </style>
 
 <canvas id="game" aria-label="הכה את החפרפרת"></canvas>
+<div id="hammer" aria-hidden="true"><svg viewBox="0 0 100 100"><g stroke="#5a3a1c" stroke-width="2.5" stroke-linejoin="round">
+  <path d="M44 38L86 86" stroke="#7a4a22" stroke-width="11" stroke-linecap="round"/><path d="M44 38L86 86" stroke="#c98b4a" stroke-width="6" stroke-linecap="round"/>
+  <rect x="8" y="14" width="56" height="30" rx="8" transform="rotate(42 36 29)" fill="#e5483d"/>
+  <rect x="8" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/><rect x="54" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/>
+  <path d="M20 24h28" transform="rotate(42 36 29)" stroke="#ffffff99" stroke-width="3" stroke-linecap="round"/></g></svg></div>
 
 <div class="hud" id="hud" hidden>
   <!-- the letter pill (Golan 23.10, as in every game): a new letter is written next to the speaker; 🔊 says the question again -->
@@ -388,13 +401,14 @@
   // joined from parts (literacy review 15.10); the others fall back to lc_where + the name while a whole clip is missing.
   const whereId = (l) => "lc_" + CLIP_OF_LETTER[l];   // lc_name_bet, lc_fin_kaf
   const FALLBACK = {}; for (const l of [...LETTERS, ...FINALS]) FALLBACK[whereId(l)] = CLIP_OF_LETTER[l] === "name_zayin" ? ["name_zayin"] : ["lc_where", CLIP_OF_LETTER[l]];
-  // a wrong mole: "זֹאת הָאוֹת" (this_is, tell-me's clip) + the touched letter's name, then the question again
+  // (a wrong mole said "זֹאת הָאוֹת" + the touched letter's name until 28.10; now only the mistake sound)
   const CLIP_END = { this_is: 0.97 };   // "זֹאת הָאוֹת" is spoken by 0.95 s; the file runs on silent to 1.87 s (tell-me, Golan 15.10)
   const GENDERED = ["ins_molepick", "ins_mole"];   // ins_molepick (requested 23.10): "בְּחַר / בַּחֲרִי / בַּחֲרוּ 4 חֲפַרְפָּרוֹת"
   GENDERED.forEach((id) => { FALLBACK[id + "_m"] = [id]; FALLBACK[id + "_f"] = [id]; });
   const LINES = { go: "fb_go", done: "fb_round_done", choice1: "fb_choice1", choice2: "fb_choice2", pick: "ins_molepick", correct: "fb_correct", thisIs: "this_is",
     intro: "ins_mole" };   // new (requested): "מַקְשִׁיבִים לְשֵׁם הָאוֹת, וְנוֹגְעִים בַּחֲפַרְפֶּרֶת שֶׁמַּחְזִיקָה אוֹתָהּ" _m / _f
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
       const a = new Audio("../../voice/audio/" + id + ".mp3"); a.preload = "auto";
@@ -417,7 +431,7 @@
     const next = () => {
       if (my !== seqTok) return;
       if (i >= list.length) return finish();
-      const id = list[i++], a = getClip(id), last = i >= list.length;
+      const id = vary(list[i++]), a = getClip(id), last = i >= list.length;
       const fail = () => { if (my !== seqTok || a._failed) return; a._failed = true; a._bad = true; if (FALLBACK[id]) list.splice(i, 0, ...FALLBACK[id]); next(); };
       if (a._bad) { if (FALLBACK[id]) list.splice(i, 0, ...FALLBACK[id]); return next(); }
       a._failed = false;
@@ -602,7 +616,7 @@
   // more as the child learns it, up to about half (FL.learner.cursiveShare)
   function cursiveFor(l) {
     const m = settings.script || "auto";
-    if (m === "print") return false; if (m === "cursive") return true;
+    if (m === "print") return false; if (m === "cursive") return true; if (m === "mixed") return Math.random() < 0.5;   // "משולב": half and half (Golan 28.10)
     return !!(LRN && LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
   }
   // nine kinds of moles (Golan 23.10): slim / full bodies, small / big eyes, noses of different shapes, three kinds of glasses,
@@ -922,15 +936,15 @@
     if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
     if (!balloonPics[i]) { const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d); balloonPics[i] = cv.toDataURL(); }
     const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const t = d.shape === "heart" ? "" : `translate(50 90) scale(${(sx / 1.1).toFixed(3)} ${(sy / 1.25).toFixed(3)}) translate(-50 -90)`;
-    const top = 90 - 84 * sy / 1.25;
-    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${idp}${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
-      (d.flag ? `<path d="M50 ${top + 1}V${top - 13}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 13}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+    const G = 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" overflow="visible" aria-hidden="true"><defs><clipPath id="${idp}${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
       `<image href="${balloonPics[i]}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#${idp}${i})"/>` +
       `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
-      `<path d="M41 90l-3 12M59 90l3 12" stroke="#5b4632" stroke-width="2.5"/><rect x="36" y="100" width="28" height="16" rx="3" fill="${d.basket}"/>` +
-      `<rect x="36" y="100" width="28" height="3" fill="#4a3222"/><rect x="36" y="105.5" width="28" height="2.6" fill="${d.c[0]}"/>` +
-      `<rect x="36" y="109.6" width="28" height="1.6" fill="${d.c[1] || "#fff"}"/><rect x="36" y="112.6" width="28" height="2.6" fill="${d.c[0]}"/></svg>`;
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;
   }
   // the companion's face for each moment: its own smile, a big smile, a sad mouth, an "oh!"
   const SMILE = "M42 66 Q50 73 58 66";
@@ -1077,12 +1091,20 @@
     return best;
   }
   let lastTap = 0;
+  // the hammer (Golan 28.10): over the game it replaces the mouse pointer and follows the finger; a tap is a light knock that sends the mole down
+  const hammer = $("hammer"), hammerOn = () => ["play", "between"].includes(state.mode) && !$("hud").hidden;
+  const moveHammer = (e) => { const on = hammerOn(); hammer.classList.toggle("show", on); canvas.classList.toggle("hammering", on);
+    if (on) hammer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; };
+  canvas.addEventListener("pointermove", moveHammer);
+  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show"); });
   canvas.addEventListener("pointerdown", (e) => {
+    moveHammer(e);
+    if (hammerOn()) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
     const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top);
     if (!m) return;
     const now = performance.now(); if (now - lastTap < 300) return; lastTap = now;   // double-touch filter
-    answer(m);
+    setTimeout(() => { if (state.q === q) answer(m); }, 110);   // the hammer comes down first
   });
   function answer(m) {
     const q = state.q; if (!q || q.done || state.mode !== "play") return;
@@ -1090,13 +1112,11 @@
     if (q.firstTap == null) q.firstTap = q.firstEnd ? Math.max(0, Math.round(t - q.firstEnd)) : 0;   // a touch during the question counts as 0
     hush();
     if (m.letter === q.letter) return found(m, q);
-    // a wrong mole: it is upset and goes down; "זֹאת הָאוֹת ..." and the question again (Golan 21.10)
+    // a wrong mole: it is upset and goes down, with only the mistake sound (Golan 28.10: no "זֹאת הָאוֹת ..." and no letter name)
     q.wrongs++; if (!q.firstWrong) q.firstWrong = m.letter; q.out.add(m.letter);
     sfx.oops(); vibrate([40, 60, 40]); guideReact("oops");
     m.state = "sad"; m.t = 0; m.brows.forEach((b) => b.setEnabled(true));
     if (q.wrongs >= 2 && !q.hint) { q.hint = true; const r = moles.find((k) => k.letter === q.letter && k.state !== "off"); if (r) { r.hint = true; drawSign(r, r.letter, true); } }   // after 2 mistakes the right mole sparkles
-    q.armed = false;
-    playSeq([LINES.thisIs, CLIP_OF_LETTER[m.letter]], 1, () => { if (state.q === q && !q.done) whenQuiet(() => { if (state.q === q && !q.done) speakQuestion(q, 0.92); }); });
   }
   function found(m, q) {
     q.done = true; state.mode = "between";
@@ -1191,7 +1211,7 @@
 
   // ---------- settings (the one shared form) ----------
   let modeBeforeSettings = null;
-  function syncSeg() { $("perf").hidden = settings.perf !== "on"; }
+  function syncSeg() { $("perf").hidden = true /* no FPS box (Golan 28.10) */; }
   function renderLetters() {
     if (form) return form.refresh();
     if (!LRN || !LRN.settingsForm) return;
@@ -1279,7 +1299,7 @@
   function updatePerf(now) {
     const fps = engine.getFps();
     if (isFinite(fps) && fps > 0 && state.mode === "play") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); }
-    if (now - lastPerfUpdate < 500 || settings.perf !== "on") return;
+    if (now - lastPerfUpdate < 500 || true /* no FPS box (Golan 28.10) */) return;
     lastPerfUpdate = now;
     $("perf").innerHTML = `<b class="${fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad"}">${fps.toFixed(0)}</b> FPS<br>▲ ${countTris().toLocaleString()}`;
   }
@@ -1480,7 +1500,8 @@
     $("start").hidden = false;
   }
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
-  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
+  // a door goes back ONE screen (Golan 28.10, all games): no picker in this game, so game, pause, end -> the start screen
+  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => backToStart()));
   // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
   if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
 
