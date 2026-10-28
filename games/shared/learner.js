@@ -8,8 +8,8 @@
   // Feedback lines that have several recordings: whichever one of a group a game asks for, a random one of the group plays,
   // never the same twice in a row (Golan 28.10, every game, every stage). List only clips that are recorded; a new one goes here.
   FL.VARIANTS = [
-    ["fb_choice1", "fb_choice2"],    // after picking a balloon / a board ("fb_choice3", "fb_choice4" once recorded)
-    ["fb_correct"],                  // a right answer ("fb_correct2".."fb_correct4" once recorded)
+    ["fb_choice1", "fb_choice2", "fb_choice3", "fb_choice4"],    // after picking a balloon / a board (3-4 recorded 28.10)
+    ["fb_correct", "fb_correct2", "fb_correct3", "fb_correct4"],   // a right answer (2-4 recorded 28.10)
   ];
   const lastOf = new Map();
   FL.vary = (id) => {
