@@ -1139,7 +1139,7 @@
     for (const n of [12, 10]) if (cloudArea(room, n).g.sizePx >= floor) return n;
     return 8;
   }
-  const MOTION_SPEED = { "1": 0, "2": 0.9, "3": 1.6, "4": 2.5 };   // radians per second of the sway (same levels as the waking-letter game)
+  const MOTION_SPEED = { "1": 0, "2": 0.5, "3": 0.9, "4": 1.4 };   // slower (Golan 28.10 16:31: "the clouds move too fast"); the speed slider still acts on top   // radians per second of the sway (same levels as the waking-letter game)
   // Layout: clouds sit in a loose grid in the free part of the screen, never at the very edge, where children miss most often.
   function layout() {
     measureView();
@@ -1196,7 +1196,7 @@
     nagAt: 0, nags: 0, flashAt: 0, hintPulse: false, hintCloud: null, idleAt: 0, lift: 0, liftGoal: 0, gameT: 0, lastTap: { c: null, t: 0 }, log: [] };
   // Pace = how fast the clouds move (slow / normal / fast), the counterpart of the car's speed.
   // The child's own pace (shared card, 0.6-1.5) multiplies the parent's setting.
-  const PACES = { slow: { bob: 0.5, inDur: 1.6 }, normal: { bob: 0.8, inDur: 1.5 }   /* letters enter a little slower (Golan 19.10 12:48; was 1.15) */, fast: { bob: 1.2, inDur: 0.8 } };
+  const PACES = { slow: { bob: 0.5, inDur: 1.6 }, normal: { bob: 0.5, inDur: 1.5 }   /* a calmer float (Golan 28.10 16:30-16:31, was 0.8) */   /* letters enter a little slower (Golan 19.10 12:48; was 1.15) */, fast: { bob: 1.2, inDur: 0.8 } };
   const pace = () => { const b = PACES.normal; return { bob: b.bob * lmPace, inDur: b.inDur / lmPace }; };   // the speed slider acts on the frame time (motionK, Golan 19.10) //   // Golan 19.10: the shared speed slider (−30%..+30% around the challenge level) instead of slow/normal/fast
 
   function renderDots() { if (hg) return;   /* with the hourglass the dots mean nothing: hidden (Golan 18.10) */ $("dots").innerHTML = Array.from({ length: roundLen() }, (_, i) => `<span class="${i < state.qIndex ? "done" : ""}"></span>`).join(""); }

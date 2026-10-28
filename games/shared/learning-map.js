@@ -332,7 +332,7 @@
   }
   function fit() {   // nikud only at 28px or more (literacy ruling 16.10)
     const b = ui.querySelector(".pill b"); b.textContent = b.dataset.nq || "";
-    if (parseFloat(getComputedStyle(b).fontSize) < 28) b.textContent = b.textContent.replace(/[֑-ׇ]/g, "");
+    if (parseFloat(getComputedStyle(b).fontSize) < 28) b.textContent = FL.plainHe(b.textContent);
   }
   function goTo(i, far) {   // Golan 20.10: one island at a time (only the balloon's way home may skip several)
     const c = Math.round(s); if (!far) i = Math.max(c - 1, Math.min(c + 1, i)); sTo = Math.max(0, Math.min(STOPS.length - 1, i)); }
@@ -420,5 +420,8 @@
         return { i, on: it.root.isEnabled() && it.vis > 0.5, x: q.x * k, y: q.y * k, r: Math.abs(e.x - q.x) * k }; }),
       clouds: far.map((g, i) => { const q = BABYLON.Vector3.Project(g.position.add(new BABYLON.Vector3(1.3, 0, 0)), I, M, vp); return { i, x: q.x * k, y: q.y * k, z: q.z }; }) };
   }
+  // text without nikud keeps the full spelling (כתיב מלא): "זִהוּי" -> "זיהוי", not "זהוי" (Golan 28.10 16:32). Used by the hub too.
+  const FULL = { "זהוי": "זיהוי", "זכרון": "זיכרון" };
+  FL.plainHe = (t) => t.replace(/[\u0591-\u05BD\u05BF-\u05C7]/g, "").replace(/[\u05D0-\u05EA]+/g, (w) => FULL[w] || w);
   FL.map = { show, hide, STOPS, UNLOCK_AT, at: () => Math.round(sTo), probe };
 })();

@@ -352,7 +352,10 @@
   .x-close svg { width: 55%; height: 55%; }
   .settings h2 { padding-inline: calc(var(--tap-s, 44px) + 4px); }   /* the title never runs under the X */
   /* בלש הצלילים: the top bar has only the speaker (no letter); the sound's letter shows beside the picture on the balloon after the answer */
-  .prompt .target, .prompt .pips { display: none !important; }
+  .prompt .pips { display: none !important; }
+  /* Golan 28.10 16:27: the sound's letter with its nikud (בַּ) shows next to the speaker from the start of the question */
+  .prompt .target { font-size: max(calc(48 * var(--uu)), 36px); display: grid !important; place-items: center; white-space: nowrap; }
+  .prompt .target.cur { font-family: "FL Cursive", cursive; font-weight: 400; }
   .syl-mark { position: absolute; z-index: 6; pointer-events: none; transform: translate(-50%, -50%) scale(.4); opacity: 0; transition: transform .35s cubic-bezier(.3,1.6,.6,1), opacity .25s;
     background: #fff; color: var(--ink, #1d2a3a); border-radius: 22px; padding: 0 .3em; font-weight: 800; line-height: 1.35; box-shadow: 0 6px 20px #0003; border: 4px solid #ffc400; }
   .syl-mark.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -538,7 +541,7 @@
   }
   if (LM && LM.setGame) LM.setGame("sound", { autoCount: () => SOUND_L.length });
   // a new kind of question gets its own question lines, said at random, never the same twice in a row (as FL.VARIANTS)
-  if (window.FL && FL.VARIANTS && !FL.VARIANTS.some((g) => g.includes("sd_q1"))) FL.VARIANTS.push(["sd_q1", "sd_q2", "sd_q3"]);
+  if (window.FL && FL.VARIANTS && !FL.VARIANTS.some((g) => g.includes("sd_q1"))) FL.VARIANTS.push(["sd_q1", "sd_q2"]);   // wording 3 dropped (Golan 28.10 16:27)
 
   // ---------- audio: Hila's clips (same files as the race game), browser voice only when a clip is missing ----------
   let actx = null;
@@ -616,7 +619,7 @@
     }
     return clipCache[id];
   }
-  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).flatMap((o) => [o.s, o.w]), "sd_q1", "sd_q3", "sd_explain", "sd_demo"].forEach(getClip);
+  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).flatMap((o) => [o.s, o.w]), "sd_q1", "sd_explain", "sd_demo"].forEach(getClip);
   let browserSpeaking = false;
   function sayBrowser(text, rate) {
     if (!("speechSynthesis" in window)) return;
@@ -1103,7 +1106,7 @@
     for (const n of [12, 10]) if (cloudArea(room, n).g.sizePx >= floor) return n;
     return 8;
   }
-  const MOTION_SPEED = { "1": 0, "2": 0.9, "3": 1.6, "4": 2.5 };   // radians per second of the sway (same levels as the waking-letter game)
+  const MOTION_SPEED = { "1": 0, "2": 0, "3": 0, "4": 0 };   // spec: the clouds stand still with a light float, at every level (Golan 28.10 16:30)   // radians per second of the sway (same levels as the waking-letter game)
   // Layout: clouds sit in a loose grid in the free part of the screen, never at the very edge, where children miss most often.
   function layout() {
     measureView();
@@ -1123,7 +1126,7 @@
       const rowY = top + ch / 2, envTop = ENV_Y + 1.5 * envelope.scaling.y, below = 2.6;
       const fit = Math.min((H - lift - rowY) / (envTop + below), roomW * 0.9 / 3.6) * view.perPx;
       const bs2 = Math.min(1.5 * BIG, Math.max(0.4, fit)); balloon.scaling.setAll(bs2);
-      balloonHome.y = skyAt(0, rowY).y - envTop * bs2;
+      balloonHome.y = skyAt(0, rowY - ch * 0.3).y - envTop * bs2;   // Golan 28.10 16:29: the balloon a little higher
     }
     const cells = []; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push([r, c]);
     shuffle(cells);
@@ -1160,7 +1163,7 @@
     nagAt: 0, nags: 0, flashAt: 0, hintPulse: false, hintCloud: null, idleAt: 0, lift: 0, liftGoal: 0, gameT: 0, lastTap: { c: null, t: 0 }, log: [], usedRound: new Set() };
   // Pace = how fast the clouds move (slow / normal / fast), the counterpart of the car's speed.
   // The child's own pace (shared card, 0.6-1.5) multiplies the parent's setting.
-  const PACES = { slow: { bob: 0.5, inDur: 1.6 }, normal: { bob: 0.8, inDur: 1.5 }   /* letters enter a little slower (Golan 19.10 12:48; was 1.15) */, fast: { bob: 1.2, inDur: 0.8 } };
+  const PACES = { slow: { bob: 0.5, inDur: 1.6 }, normal: { bob: 0.5, inDur: 1.5 }   /* a calmer float (Golan 28.10 16:30-16:31, was 0.8) */   /* letters enter a little slower (Golan 19.10 12:48; was 1.15) */, fast: { bob: 1.2, inDur: 0.8 } };
   const pace = () => { const b = PACES.normal; return { bob: b.bob * lmPace, inDur: b.inDur / lmPace }; };   // the speed slider acts on the frame time (motionK, Golan 19.10) //   // Golan 19.10: the shared speed slider (−30%..+30% around the challenge level) instead of slow/normal/fast
 
   function renderDots() { if (hg) return;   /* with the hourglass the dots mean nothing: hidden (Golan 18.10) */ $("dots").innerHTML = Array.from({ length: roundLen() }, (_, i) => `<span class="${i < state.qIndex ? "done" : ""}"></span>`).join(""); }
@@ -1172,7 +1175,7 @@
   // (spec sec 4): the first time the child sees a letter here. It follows the picture as it sways.
   let okLetter = null, okT = 0;
   function showOk(letter) {
-    okLetter = letter; const m = $("sylMark"), cur = cursiveFor(letter) && !!(LM && LM.cursiveReady && LM.cursiveReady(letter));
+    okLetter = letter; const m = $("sylMark"), cur = state.q && state.q.letter === letter ? !!state.q.cur : false;   // the same script as in the bar
     m.textContent = SOUNDS[letter].syl; m.classList.toggle("cur", cur);   // כתב יד only by "סוג כתב", only for a letter whose cursive is open (spec sec 6)
     m.classList.remove("show"); void m.offsetWidth; m.classList.add("show");
     clearTimeout(okT); okT = setTimeout(hideOk, 4200);
@@ -1202,7 +1205,8 @@
   function askQuestion(keepTarget, demo) {
     state.q = makeQuestion(state.lastLetter, state.qIndex === 0, keepTarget); state.q.demo = !!demo;
     state.lastLetter = state.q.letter;
-    $("promptBox").classList.add("listen");
+    $("promptBox").classList.remove("listen");
+    state.q.cur = cursiveFor(state.q.letter) && !!(LM && LM.cursiveReady && LM.cursiveReady(state.q.letter));   // כתב יד by "סוג כתב"
     state.qWrongs = 0; state.firstWrong = null; state.firstTapAt = 0; state.audioEnd = Infinity; state.qHint = 0; state.auto = false;
     state.found = 0; state.wrongs = 0; state.hintWait = false; state.resolved = false; state.hintPulse = false; state.hintCloud = null; state.nags = 0; state.flashAt = 0; state.reads = 1;   // the opening reading counts as the first of 2
     state.opening = true;   // the names and the question are being said: no reminder yet
@@ -1218,7 +1222,7 @@
       c.body.visibility = 1; c.sign.visibility = 1; c.sign.position.set(0, 0.05, -0.6); c.sign.scaling.setAll(spots[i].k || 1);
       c.state = "in"; c.t = -Math.random() * 0.25; c.dur = p.inDur;
     });
-    $("target").textContent = "";
+    { const t = $("target"); t.textContent = SOUNDS[state.q.letter].syl; t.classList.toggle("cur", state.q.cur); }
     renderDots();
     const myQ = state.q;
     if (demo) return;   // the demo says its own lines (runDemo)
@@ -1373,8 +1377,7 @@
       sfx.find(); vibrate(30);
       finishSky();
     } else {
-      // a wrong picture: the mistake sound, the picture goes back to its cloud, Hila says that picture's sound and word,
-      // then the sound asked for again ("גָּ... גָּמָל", "בַּ"); a 2nd mistake in the sky: the game solves it (spec sec 2, 5)
+      // a wrong picture: the mistake sound and the picture goes back to its cloud; a 2nd mistake in the sky: the game solves it
       c.wrongTaps = (c.wrongTaps || 0) + 1; state.wrongs++; state.roundWrongs++; state.qWrongs++; if (!state.firstWrong) state.firstWrong = c.letter;
       if (now - (state.audioEnd || now) < 800) state.roundSlips = (state.roundSlips || 0) + 1;
       state.log.push({ target: q.letter, picked: c.letter, ok: false, ms });
@@ -1382,9 +1385,8 @@
       c.state = "wrong"; c.t = 0;
       state.mode = "blocked"; state.nagAt = state.gameT;
       if (state.wrongs >= 2) { state.qHint = 1; setTimeout(() => { if (state.q === q && !state.resolved) autoSolve(); }, 700); return; }
-      state.reads = 1;
-      setTimeout(() => { if (state.q !== q || state.resolved) return;
-        playIds([SOUNDS[c.letter].s, SOUNDS[c.letter].w, SOUNDS[q.letter].s], () => { if (state.q === q) { state.nagAt = state.gameT; state.idleAt = state.gameT; } }); }, 450);
+      state.reads = 1;   // Golan 28.10 16:28: only the mistake sound; no word of the wrong picture, no sound again
+      state.nagAt = state.gameT; state.idleAt = state.gameT;
     }
   }
   // The game solves the sky itself (Golan 28.10): no drag after 2 readings of the question, or a 2nd mistake. The right picture
@@ -1749,6 +1751,7 @@
     unlockAudio();
     try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
     if ($("go").classList.contains("pressed")) return;
+    if (state.demoNext) { sfx.tap(); $("start").hidden = true; openPick(); return; }   // "איך משחקים?": straight to the demo, no "יוצאים לדרך" (Golan 28.10 16:33)
     $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
     say("יוצאים לדרך!", 1);
     setTimeout(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
