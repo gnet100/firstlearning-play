@@ -1056,8 +1056,7 @@
   function drawLetter(c, text, glow, noLine, light) {
     const ctx = c.tex.getContext(), W = ctx.canvas.width, H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H); c.light = !!light;
-    if (glow && text) { ctx.save(); ctx.fillStyle = "#FFF1A8"; ctx.beginPath(); ctx.arc(W / 2, H / 2, W * 0.46, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#FFC400"; ctx.lineWidth = W * 0.05; ctx.stroke(); ctx.restore(); }
+    // no yellow ring around the picture (Golan 28.10 16:41: "העיגול הצהוב מיותר"); `glow` is kept for the callers
     const im = text && PIC_IMG[text];
     if (im && im.complete && im.naturalWidth !== 0) { const k = light ? 0.8 : 0.84, w = W * k; ctx.drawImage(im, (W - w) / 2, (H - w) / 2, w, w); }
     c.tex.update(true);
@@ -1384,6 +1383,10 @@
       sfx.oops(); vibrate([30, 40, 30]);
       c.state = "wrong"; c.t = 0;
       state.mode = "blocked"; state.nagAt = state.gameT;
+      // Golan 28.10 16:42: 2 mistakes on the same picture: it flies off and its cloud stays empty (as in the letter detective);
+      // one more try, then any further mistake solves the sky. 2 mistakes on different pictures still solve it.
+      if (c.wrongTaps >= 2 && state.wrongs === 2) { state.reads = 1; state.nagAt = state.gameT; state.idleAt = state.gameT;
+        setTimeout(() => { if (state.q === q && !state.resolved && (c.state === "wrong" || c.state === "idle")) { if (tok.c === c) finishTok(); c.state = "drop"; c.t = 0; c.ringOn = false; dropLetter(c); } }, 600); return; }
       if (state.wrongs >= 2) { state.qHint = 1; setTimeout(() => { if (state.q === q && !state.resolved) autoSolve(); }, 700); return; }
       state.reads = 1;   // Golan 28.10 16:28: only the mistake sound; no word of the wrong picture, no sound again
       state.nagAt = state.gameT; state.idleAt = state.gameT;
