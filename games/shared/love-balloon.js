@@ -64,12 +64,16 @@ function paintLove(ctx, W, H, d, uv) {
 // the heart-shaped envelope for the flat picture (picker / hub sky), in the picker's 100 x 120 box with the mouth at (50, 90)
 const LOVE_ENV = "M50 10C44 -4 30 -9 20 -3 8 5 9 24 16 40 24 58 37 76 41 90H59C63 76 76 58 84 40 91 24 92 5 80 -3 70 -9 56 -4 50 10z";
 // A sphere (radii rx, ry, rz, centred) bent into a heart: two lobes with a dip on top, a body narrowing to the mouth.
+// how much narrower the lower half is at height ny (0 = the middle, -1 = the bottom); a round, wide middle (Golan 28.10)
+const LOVE_W = 1.1;   // the heart is a little wider all round than the other balloons (Golan 28.10: a bigger, rounder middle)
+function loveK(ny) { return 1 - 0.62 * (-ny) ** 2.2; }
 function loveBend(base, rx, ry, rz) {
   const p = base.slice();
   for (let i = 0; i < p.length; i += 3) {
     const nx = p[i] / rx, ny = p[i + 1] / ry;
     if (ny > 0) { p[i] *= 1 + 0.22 * ny; p[i + 1] -= ry * 0.22 * Math.exp(-((nx / 0.32) ** 2)) * ny ** 2; }
-    else { const k = 1 - 0.62 * (-ny) ** 1.2; p[i] *= k; p[i + 2] *= 0.55 + 0.45 * k; }
+    else { const k = loveK(ny); p[i] *= k; p[i + 2] *= 0.55 + 0.45 * k; }
+    p[i] *= LOVE_W; p[i + 2] *= LOVE_W;
   }
   return p;
 }
@@ -78,7 +82,7 @@ function loveBend(base, rx, ry, rz) {
 // of the radius (-1 = the bottom). The heart's lower half is narrower, so its ropes reach higher up (Golan 28.10).
 function loveUnder(fx, fz, heart) {
   if (!heart) return -Math.sqrt(Math.max(0, 1 - fx * fx - fz * fz));
-  const fits = (ny) => { const s = Math.sqrt(1 - ny * ny), k = 1 - 0.62 * (-ny) ** 1.2, kz = 0.55 + 0.45 * k; return (fx / (s * k)) ** 2 + (fz / (s * kz)) ** 2 <= 1; };
+  const fits = (ny) => { const s = Math.sqrt(1 - ny * ny), k = loveK(ny), kz = 0.55 + 0.45 * k; return (fx / (s * k * LOVE_W)) ** 2 + (fz / (s * kz * LOVE_W)) ** 2 <= 1; };
   let lo = -1, hi = 0;
   for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (fits(m)) hi = m; else lo = m; }
   return hi;
