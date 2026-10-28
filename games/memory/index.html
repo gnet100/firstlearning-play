@@ -715,9 +715,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
     const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
     const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
-    const G = 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
+    const G = d.flag ? Math.min(1.12, 94 * 1.25 / (84 * sy)) : 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
     const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
-    return `<svg viewBox="0 -14 100 134" overflow="visible" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
       (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
       `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#${id})"/>` +
       `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
