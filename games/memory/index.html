@@ -1001,6 +1001,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function renderForm() {
     if (form) return;
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר קלפים על הלוח.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["מתחילים ב-4 קלפים (2 זוגות).", "מתחילים ב-9 קלפים: 4 זוגות, ובאמצע קלף הפתעה (כדור פורח) שמראה לרגע את כל הקלפים.", "מתחילים ב-12 קלפים (6 זוגות). אחרי 2 לוחות מוצלחים הילד נשאל אם לעלות ללוח הבא: 4, 6, 9, 10, 12, 14, 16."],
       onLevel: () => { progress.rung = -1; saveProgress(); },
       picker: { autoList: () => (LRN.autoLetters ? LRN.autoLetters() : []), available: LETTERS, finals: true,

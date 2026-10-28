@@ -1391,6 +1391,7 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "race", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר שערים ויותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["2 שערים, בלי אותיות דומות.", "3 שערים, יכולה להופיע אות דומה אחת.", "4 שערים, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],
       onLevel: () => { applyLanes(); lettersChanged = true; },   // the open question is asked again with the new number of gates
       picker: { onChange: (list, mode) => { settings.letters = mode === "auto" ? [] : list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },

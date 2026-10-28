@@ -1081,12 +1081,14 @@
   function duckAll(q, except) { moles.forEach((m) => { if (m !== except && (m.state === "rise" || m.state === "up")) { m.state = "duck"; m.t = 0; } }); }
 
   // ---------- touching a mole ----------
-  function moleAt(px, py) {
+  // loose = a hammer knock (Golan 28.10): a mole still rising or already upset counts too, a little wider around it,
+  // so a knock on a wrong letter always gets the mistake sound
+  function moleAt(px, py, loose) {
     let best = null, bd = 1e9;
     for (const m of moles) {
-      if (m.state !== "up" && !(m.state === "rise" && m.t - m.delay > 0.12)) continue;
+      if (m.state !== "up" && !(m.state === "rise" && m.t - m.delay > (loose ? 0 : 0.12)) && !(loose && m.state === "sad")) continue;
       const s = screenOf(m), d = Math.min(Math.hypot(s.x - px, s.y - py), Math.hypot(s.hx - px, s.hy - py) * 1.15);
-      if (d < s.r && d < bd) { bd = d; best = m; }
+      if (d < s.r * (loose ? 1.25 : 1) && d < bd) { bd = d; best = m; }
     }
     return best;
   }
@@ -1095,18 +1097,23 @@
   const hammer = $("hammer"), hammerOn = () => ["play", "between"].includes(state.mode) && !$("hud").hidden;
   // only over the island and its moles; away from it the normal pointer comes back (Golan 28.10)
   const islandPick = (m) => m.isEnabled() && m.isVisible && m.isDescendantOf(island);
-  const overIsland = (e) => { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    return !!moleAt(x, y) || !!(scene.pick(x, y, islandPick) || {}).hit; };
-  const moveHammer = (e) => { const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); canvas.classList.toggle("hammering", on);
+  // with an invisible frame about one hammer wide around the island, where the hammer stays (Golan 28.10)
+  const HAMMER_RING = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+  const overIsland = (e) => { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = hammer.offsetWidth || 120;
+    if (moleAt(x, y)) return true;
+    return HAMMER_RING.some(([dx, dy]) => (scene.pick(x + dx * w, y + dy * w, islandPick) || {}).hit); };
+  const moveHammer = (e) => { const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); if (!on) hammer.classList.remove("hit"); canvas.classList.toggle("hammering", on);
     if (on) hammer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; };
   canvas.addEventListener("pointermove", moveHammer);
-  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show"); });
+  hammer.addEventListener("animationend", () => hammer.classList.remove("hit"));   // otherwise coming back over the island replays the knock (Golan 28.10)
+  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show", "hit"); });
   canvas.addEventListener("pointerdown", (e) => {
     moveHammer(e);
     if (hammer.classList.contains("show")) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
-    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top);
+    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
     if (!m) return;
+    if (m.state === "sad") { sfx.oops(); return; }   // the same wrong mole again, on its way down: the mistake sound again, not another mistake
     const now = performance.now(); if (now - lastTap < 300) return; lastTap = now;   // double-touch filter
     setTimeout(() => { if (state.q === q) answer(m); }, 110);   // the hammer comes down first
   });

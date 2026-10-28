@@ -1754,6 +1754,7 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "train", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, הכדור הפורח זז לבד ומהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["הילד מזיז את הכדור הפורח בעצמו, בלי אותיות דומות.", "הכדור הפורח זז לבד ולאט, יכול להופיע זוג אחד של אותיות דומות.", "הכדור הפורח זז לבד ומהר, ונכנסות גם אותיות סופיות."],
       onLevel: () => { lettersChanged = true; syncSeg(); },   // the train on screen is replaced when the panel closes
       picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },

@@ -161,13 +161,13 @@
 </div>
 <div class="overlay" id="end" hidden></div>
 <div class="overlay" id="settings" hidden>
-  <div class="panel">
-    <button class="x" id="xSettings" aria-label="סגירה">✕</button>
-    <h1>הגדרות (להורה או למורה)</h1>
-    <div class="row"><b>עוצמת השיר</b><input type="range" id="vol" min="0" max="1" step="0.05" value="1"></div>
-    <div class="row"><b>מילים על המסך</b><div class="seg" id="wordsSeg"><button data-v="on">כן</button><button data-v="off">לא</button></div></div>
-    <div class="row"><b>סוג כתב</b><div class="seg" id="scriptSeg"><button data-v="print">דפוס</button><button data-v="cursive">כתב יד</button><button data-v="mixed">משולב</button></div>
-      <div class="note">משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי.</div></div>
+  <!-- the same settings window as every game (learner.js settingsForm, Golan 28.10); only the song's own rows -->
+  <div class="panel settings">
+    <div class="set-head"><button class="x" id="xSettings" aria-label="סגירה">✕</button><h2>הגדרות (להורה או למורה)</h2></div>
+    <div class="set-body">
+      <div id="flForm"></div>
+      <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה לשיר</button></div>
+    </div>
   </div>
 </div>
 <div id="syncBar" hidden></div>
@@ -350,25 +350,34 @@
 
   // ---------- settings: the gear pauses the song ----------
   let wasPlaying = false;
-  function segUi(id, key, after) {
-    const box = $(id), draw = () => box.querySelectorAll("button").forEach((b) => b.classList.toggle("on", String(settings[key]) === b.dataset.v));
-    box.addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; const v = b.dataset.v; settings[key] = isNaN(+v) ? v : +v; saveSettings(); draw(); if (after) after(); });
-    draw();
-  }
-  segUi("wordsSeg", "words", applyWords);   // Golan 22.10: no pace row and no song note (the song exists)
   function applyWords() { document.body.classList.toggle("words-off", settings.words === "off"); }
   applyWords();
-  segUi("scriptSeg", "script", () => {   // redraw every letter in the new script, at the same point of the song
+  function setScript(v) { settings.script = v; saveSettings();   // redraw every letter in the new script, at the same point of the song
     pickScripts(); buildStrip(); $("startLetters").innerHTML = ""; for (const l of ["א", "ב"]) { const el = make(l); if (el) $("startLetters").append(el); }
-    state.idx = -2; render(state.t || 0); });
-  $("vol").value = settings.vol; $("vol").addEventListener("input", () => { settings.vol = +$("vol").value; audio.volume = settings.vol; saveSettings(); });
+    state.idx = -2; render(state.t || 0); }
+  // the song's own rows (volume, words on screen) in the shared form's look
+  function ownRow(title, body) { const w = document.createElement("div"); const t = document.createElement("div"); t.className = "fl-ft"; t.textContent = title; w.style.cssText = "display:flex;flex-direction:column;gap:8px"; w.append(t, body); return w; }
+  const volIn = document.createElement("input"); volIn.type = "range"; volIn.id = "vol"; volIn.min = 0; volIn.max = 1; volIn.step = 0.05; volIn.value = settings.vol;
+  volIn.addEventListener("input", () => { settings.vol = +volIn.value; audio.volume = settings.vol; saveSettings(); });
+  const wordsSeg = document.createElement("div"); wordsSeg.className = "fl-fseg";
+  for (const [v, label] of [["on", "כן"], ["off", "לא"]]) { const b = document.createElement("button"); b.type = "button"; b.dataset.v = v; b.textContent = label;
+    b.onclick = () => { settings.words = v; saveSettings(); applyWords(); drawWords(); }; wordsSeg.append(b); }
+  const drawWords = () => wordsSeg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === settings.words)));
+  drawWords();
+  let form = null;
+  function renderForm() {
+    if (form || !LRN || !LRN.settingsForm) return;
+    form = LRN.settingsForm($("flForm"), { extra: [ownRow("עוצמת השיר", volIn), ownRow("מילים על המסך", wordsSeg)],
+      script: { items: [["print", "דפוס"], ["cursive", "כתב יד"], ["mixed", "משולב"]], get: () => settings.script, set: setScript, note: "משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי." } });
+  }
   function syncNote() { if (!$("songNote")) return; $("songNote").textContent = hasSong ? "השיר נטען (song.mp3)." : "עוד אין קובץ שיר (song.mp3): ההנפשה רצה בלי צליל, בקצב קבוע."; }
   syncNote();
-  function openSettings() { wasPlaying = state.playing; pause(); $("settings").hidden = false; }
+  function openSettings() { wasPlaying = state.playing; pause(); renderForm(); if (form) form.refresh(); $("settings").hidden = false; }
   function closeSettings() { $("settings").hidden = true; if (wasPlaying) play(); wasPlaying = false; }
   $("gear").addEventListener("click", openSettings);
   window.addEventListener("fl:gear", openSettings);
   $("xSettings").addEventListener("click", closeSettings);
+  $("closeSettings").addEventListener("click", closeSettings);
   $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
 
   // ---------- sync mode for the parent (?sync=1): space / tap on each letter and each chorus ----------

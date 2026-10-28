@@ -1231,6 +1231,7 @@
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     // no "קול הקריינית" row here: in this game the question is only heard (no letter on the screen)
     form = LRN.settingsForm($("flForm"), { game: "circle", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים במעגל ויותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["4 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, ויכולות להופיע גם אותיות דומות לאות שמחפשים."],
       picker: { key: "circle", autoList, onChange: (list, m) => { chosen = m === "auto" ? [] : list.slice(); chosenChanged = true; } },
       script: seg("script"),

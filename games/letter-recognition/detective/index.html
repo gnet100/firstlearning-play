@@ -1508,6 +1508,7 @@
     if (form) return form.refresh();
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LM.settingsForm($("flForm"), { game: "detective", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים, הם זזים מהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["8 עננים שעומדים במקום, בלי אותיות דומות.", "10 עננים שזזים לאט, יכול להופיע זוג אחד של אותיות דומות.", "12 עננים שזזים מהר יותר, עד שני זוגות של אותיות דומות, ונכנסות גם אותיות סופיות."],
       onLevel: () => { lettersChanged = lettersChanged || "keep"; },   // the open sky is rebuilt with the new number of clouds
       picker: { finals: true, onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },

@@ -773,6 +773,9 @@ ${items[item]}</svg>`;
 .fl-fkid{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:16px;background:#f5f9ff;box-shadow:inset 0 0 0 2px #9cc8f5}
 .fl-fkid .c svg{display:block}.fl-fkid .n{font-size:20px;font-weight:700}
 .fl-fdiag{direction:ltr;text-align:left;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#5b6470;white-space:pre-wrap;margin:0}
+#settings>.panel.settings{box-sizing:border-box!important;width:min(560px,calc(100vw - 24px))!important;min-width:0!important;max-width:none!important;height:min(860px,calc(100dvh - 24px))!important;max-height:none!important;margin:auto!important;padding:16px 16px 12px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;border-radius:24px!important;background:#fff!important;color:#1d2733;direction:rtl;text-align:start;transform:none!important}
+#settings>.panel.settings>.set-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;margin:0!important;padding:0 2px 8px!important;max-height:none!important}
+#settings #closeSettings{background:#34b36b!important;color:#fff!important;border:0!important;box-shadow:0 5px 0 #1f8048!important}
 #settings .set-head{display:flex!important;align-items:center;justify-content:center;position:relative!important;min-height:48px;margin:0 0 8px!important;padding:0 52px!important;border-bottom:0}
 #settings .set-head::after{display:none!important}
 #settings .set-head h2{margin:0!important;padding:0!important;font-size:26px!important;line-height:1.25;text-align:center;flex:0 1 auto!important;min-height:0!important}
@@ -781,6 +784,8 @@ ${items[item]}</svg>`;
 @media (max-width:480px){#settings .set-head h2{font-size:21px!important}}`;
     document.head.append(st);
   }
+  // Golan 28.10: every settings window is the same window (size, header, X, scrolling body); only each game's own rows differ
+  if (root.document) { if (document.head) formCss(); else document.addEventListener("DOMContentLoaded", formCss); }
   function settingsForm(host, cfg = {}) {
     css(); formCss();
     host.innerHTML = ""; const form = document.createElement("div"); form.className = "fl-form"; host.append(form);
@@ -823,7 +828,7 @@ ${items[item]}</svg>`;
     for (const e of cfg.extra || []) { const r = row(null); r.append(e); }
     // Golan 24.10: "סוג כתב" for the games that show cursive (כתב יד): automatic mix (a letter known in print sometimes shows
     // in cursive), print only, cursive, or "mixed" (half and half at random, Golan 28.10). Per child and per game is the game's own business (cfg.script.get / set).
-    if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"], ["mixed", "משולב"]], cfg.script.get, cfg.script.set);
+    if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, cfg.script.items || [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"], ["mixed", "משולב"]], cfg.script.get, cfg.script.set);
       const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב. משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי."; r.append(n); api.refreshers.push(d); }
     // 4. speed of everything that moves (the shared slider)
     if (cfg.game) { const r4 = row(null), sp = document.createElement("div"); r4.append(sp); const sr = speedRow(sp, cfg.game, cfg.speed || {}); api.refreshers.push(() => sr.refresh()); }
@@ -1210,7 +1215,7 @@ ${items[item]}</svg>`;
         const note = document.createElement("div"); note.className = "fl-pnote";
         const N = autoCount(cur()), un = N ? unknownMaxFor(cur(), N) : null;
         const autoTxt = N ? `המערכת בוחרת ${N} אותיות. חשיפה הדרגתית לאותיות שלא תורגלו עדיין. לחיצה על אות תסמן ותוסיף אותה לתרגול, או תסיר אותה ממנו.`   // Golan 28.10 wording (literacy ruling 6: mostly known, at most 1-2 new)
-          : "החלטת מערכת: המשחק בוחר בעצמו אילו אותיות לתרגל, לפי מה שהילד כבר מזהה ומה שהוא עוד לומד. המסומנות הן מה שהמשחק מתרגל עכשיו, והן מתעדכנות עם ההתקדמות. לחיצה על אות מוסיפה אותה או מורידה אותה.";
+          : "המערכת בוחרת את האותיות. חשיפה הדרגתית לאותיות שלא תורגלו עדיין. לחיצה על אות תסמן ותוסיף אותה לתרגול, או תסיר אותה ממנו.";   // Golan 28.10 wording
         note.textContent = mode === "auto"
           ? autoTxt
           : !sel.size ? "אין אותיות מסומנות. סמנו את האותיות לתרגול, או בחרו החלטת מערכת. כל עוד לא סומנה אות, המשחק בוחר לבד."

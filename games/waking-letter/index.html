@@ -1604,6 +1604,7 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); $("perf").hidden = true /* no FPS box (Golan 28.10) */; if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "wake", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים, הם זזים מהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["3 עננים שעומדים במקום, בלי אותיות דומות.", "3 עננים שזזים לאט, יכולה להופיע אות דומה אחת.", "4 עננים שזזים מהר יותר, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],
       onLevel: () => { changed = true; },   // more or fewer clouds: the open question is asked again
       picker: { autoList: () => autoRoundLetters(), available: LETTERS.filter(hasPic), finals: true,

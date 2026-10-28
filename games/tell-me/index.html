@@ -1497,6 +1497,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     if (form) return;
     const L = FL.learner, seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = L.settingsForm($("flForm"), { game: "tellme", lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, הסבב ארוך יותר ונכנסות גם אותיות סופיות.",   // Golan 28.10: one sentence instead of the three, in every game
       levels: ["סבב של דקה וחצי, בלי אותיות סופיות.", "סבב של 2 דקות, בלי אותיות סופיות.", "סבב של 2.5 דקות, ונכנסות גם אותיות סופיות שהאות הרגילה שלהן כבר מוכרת."],
       onLevel: () => { lettersChanged = true; },
       picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },
