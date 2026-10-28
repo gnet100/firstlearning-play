@@ -936,6 +936,9 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     const m = md.mat || (md.mat = new BABYLON.StandardMaterial("envMat" + node.name, scene));
     m.diffuseTexture = tex; m.specularColor = new BABYLON.Color3(0.08, 0.08, 0.08); m.backFaceCulling = false;
     envelope.material = m; envelope.parent = node; envelope.position.y = heart ? 0.4 + cy : 0.4; decoParts.push(envelope);
+    // the heart's bottom is narrow: its ropes run up until they touch it (Golan 28.10)
+    const ropeTop = heart ? 0.4 + cy + cy * loveUnder(0.294 / (1.95 * sw), 0.294 / (1.95 * sw), true) + 0.05 : 0.525;
+    (md.ropes || []).forEach((r) => { r.scaling.y = (ropeTop + 0.825) / 1.35; r.position.y = (ropeTop - 0.825) / 2; });
     if (scheme.flag) {
       const pole = BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07, height: 0.9, tessellation: 5 }, scene);
       pole.material = mat("#5B4632"); pole.parent = node; pole.position.y = 0.4 + top + 0.4; decoParts.push(pole);
@@ -953,6 +956,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     for (const [x, z] of [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]]) {
       const rope = BABYLON.MeshBuilder.CreateCylinder("rope", { diameter: 0.04, height: 1.35, tessellation: 4 }, scene);
       rope.material = mat("#5B4632"); rope.parent = node; rope.position.set(x * 0.7, -0.15, z * 0.7);
+      (node.metadata.ropes || (node.metadata.ropes = [])).push(rope);
     }
   }
   buildBasket(balloon);

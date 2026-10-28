@@ -68,12 +68,21 @@ function loveBend(base, rx, ry, rz) {
   const p = base.slice();
   for (let i = 0; i < p.length; i += 3) {
     const nx = p[i] / rx, ny = p[i + 1] / ry;
-    if (ny > 0) { p[i] *= 1 + 0.22 * ny; p[i + 1] -= ry * 0.42 * Math.exp(-((nx / 0.32) ** 2)) * ny ** 2; }
+    if (ny > 0) { p[i] *= 1 + 0.22 * ny; p[i + 1] -= ry * 0.22 * Math.exp(-((nx / 0.32) ** 2)) * ny ** 2; }
     else { const k = 1 - 0.62 * (-ny) ** 1.2; p[i] *= k; p[i + 2] *= 0.55 + 0.45 * k; }
   }
   return p;
 }
 // bend (or un-bend) a Babylon sphere mesh made with updatable: true; base = its first positions
+// where a rope aimed at (fx, fz) (fractions of the envelope radius) meets the underside: returns that height as a fraction
+// of the radius (-1 = the bottom). The heart's lower half is narrower, so its ropes reach higher up (Golan 28.10).
+function loveUnder(fx, fz, heart) {
+  if (!heart) return -Math.sqrt(Math.max(0, 1 - fx * fx - fz * fz));
+  const fits = (ny) => { const s = Math.sqrt(1 - ny * ny), k = 1 - 0.62 * (-ny) ** 1.2, kz = 0.55 + 0.45 * k; return (fx / (s * k)) ** 2 + (fz / (s * kz)) ** 2 <= 1; };
+  let lo = -1, hi = 0;
+  for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (fits(m)) hi = m; else lo = m; }
+  return hi;
+}
 function loveShape(mesh, base, heart, rx, ry, rz) {
   const p = heart ? loveBend(base, rx, ry, rz) : base.slice();
   mesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, p);

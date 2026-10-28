@@ -832,11 +832,11 @@
     r.material = ropeMat; r.parent = balloon; r.isPickable = false; r.rotationQuaternion = new BABYLON.Quaternion();
     return { r, sx, sz };
   });
-  function placeRopes(ex, ey) {   // ex, ey: envelope radii
+  function placeRopes(ex, ey, heart) {   // ex, ey: envelope radii
     for (const { r, sx, sz } of ropes) {
       const a = new BABYLON.Vector3(sx * (BASKET.w / 2 - 0.05), BASKET.y + BASKET.h / 2, sz * (BASKET.d / 2 - 0.05));
       const tx = sx * 0.62 * ex / 1.5, tz = sz * 0.5 * ex / 1.5;
-      const ty = ENV_Y - ey * Math.sqrt(Math.max(0, 1 - (tx * tx + tz * tz) / (ex * ex))) + 0.06;   // a point on the envelope's underside
+      const ty = ENV_Y + ey * loveUnder(tx / ex, tz / ex, heart) + 0.06;   // a point on the envelope's underside
       const b = new BABYLON.Vector3(tx, ty, tz), dir = b.subtract(a), len = dir.length();
       r.position = a.add(b).scale(0.5); r.scaling.y = len;
       BABYLON.Quaternion.FromUnitVectorsToRef(BABYLON.Vector3.Up(), dir.normalize(), r.rotationQuaternion);
@@ -996,7 +996,7 @@
     const d = BALLOONS[i] || BALLOONS[0], [sx, sy] = SHAPES[d.shape];
     paintBalloon(envTex.getContext(), 512, 256, d, true); envTex.update(true);
     envelope.scaling.set(sx, sy, sx); loveShape(envelope, envBase, d.shape === "heart", 1.5, 1.5, 1.5); band.isVisible = false;
-    placeRopes(1.5 * sx, 1.5 * sy);
+    placeRopes(1.5 * sx, 1.5 * sy, d.shape === "heart");
     skirt.position.y = ENV_Y - 1.5 * sy * 0.97 - 0.12;   // the skirt stays at the envelope's mouth
     skirtMat.diffuseColor = BABYLON.Color3.FromHexString(d.pat === "love" ? d.c[1] : d.c[0]);
     paintBasket(d);
