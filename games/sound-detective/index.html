@@ -356,8 +356,14 @@
   /* Golan 28.10 16:27: the sound's letter with its nikud (בַּ) shows next to the speaker from the start of the question */
   .prompt .target { font-size: max(calc(48 * var(--uu)), 36px); display: grid !important; place-items: center; white-space: nowrap; }
   .prompt .target.cur { font-family: "FL Cursive", cursive; font-weight: 400; }
+  .prompt .target canvas, .syl-mark canvas { display: block; }
   .syl-mark { position: absolute; z-index: 6; pointer-events: none; transform: translate(-50%, -50%) scale(.4); opacity: 0; transition: transform .35s cubic-bezier(.3,1.6,.6,1), opacity .25s;
-    background: #fff; color: var(--ink, #1d2a3a); border-radius: 22px; padding: 0 .3em; font-weight: 800; line-height: 1.35; box-shadow: 0 6px 20px #0003; border: 4px solid #ffc400; }
+    background: #fff; color: var(--ink, #1d2a3a); border-radius: 22px; padding: 0; font-weight: 800; line-height: 0; box-shadow: 0 6px 20px #0003; border: 4px solid #ffc400; }
+  /* a small speaker at the bottom left of every cloud: the picture's name (Golan 28.10 19:02) */
+  .cloud-spk { position: absolute; z-index: 5; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; border: 0; padding: 0;
+    background: #fff; box-shadow: 0 3px 10px #0003; font-size: 24px; line-height: 48px; text-align: center; cursor: pointer; display: none; touch-action: manipulation; }
+  .cloud-spk.on { display: block; }
+  .cloud-spk:active { transform: scale(.92); }
   .syl-mark.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   .syl-mark.cur { font-family: "FL Cursive", cursive; font-weight: 400; }
   .demo-hand { position: fixed; z-index: 7; width: max(calc(90 * var(--uu, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
@@ -384,6 +390,7 @@
   <div class="perf" id="perf"></div>
   <div class="ok-mark" id="okMark" aria-hidden="true"></div>
   <div class="syl-mark" id="sylMark" aria-hidden="true"></div>
+  <div id="cloudSpks"></div>
   <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
   <div class="count" id="count"></div>
 </div>
@@ -402,7 +409,7 @@
   <button class="round-btn gear under-door" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
     <h1 id="gameTitle">בלש הצלילים</h1>
-    <p><span id="startText">שומעים צליל, ומוצאים את התמונה שמתחילה בו</span><br><span id="startText2">נגיעה בתמונה משמיעה את השם שלה. את התמונה הנכונה גוררים לכדור</span></p>
+    <p><span id="startText">שומעים צליל, ומוצאים את התמונה שמתחילה בו</span><br><span id="startText2">נוגעים בתמונה הנכונה או גוררים אותה לכדור</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
       <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
@@ -494,10 +501,21 @@
   // ---------- content: 8 opening sounds, with the pictures of "האות שמתעוררת" (summaries/sound-detective-spec.md sec 6) ----------
   // Only words that open with kamatz or patah, since every one of these sounds is recorded (syl_*). ב כ: the sound of the letter's name.
   const PICS = window.PICTURES || {};
-  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba", w: "word_bayit" }, "ג": { syl: "גָּ", s: "syl_ga", w: "word_gamal" }, "נ": { syl: "נָ", s: "syl_na", w: "word_nahash" },
-    "ט": { syl: "טַ", s: "syl_ta_tet", w: "word_tavas" }, "י": { syl: "יַ", s: "syl_ya", w: "word_yanshuf" }, "כ": { syl: "כַּ", s: "syl_ka", w: "word_kadur" },
-    "א": { syl: "אַ", s: "syl_a", w: "word_arye" }, "ח": { syl: "חָ", s: "syl_cha", w: "word_hatul" } };
-  const SOUND_L = Object.keys(SOUNDS).filter((l) => PICS[l]);
+  // the sounds (Golan 28.10) and their pictures (waking-letter/pictures.js keys: "ן" = בָּלוֹן, "ם" = יָם, second pictures for בַּ and יַ;
+  // 18:53: more pictures so level 3 does not repeat the same few words)
+  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
+    "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
+    "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
+  const PICS_OF = { "ב": ["ב", "ן"], "י": ["י", "ם"] };
+  const picsOf = (l) => PICS_OF[l] || [l];
+  // sounds that sound alike never meet in one sky (spec sec 6): ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  // the picture a sound has in this sky, and its word clip
+  const picFor = (l) => (state.q && state.q.pics && state.q.pics[l]) || l;
+  const wordOf = (l) => (PICS[picFor(l)] || {}).clip;
+  const SOUND_L = Object.keys(SOUNDS).filter((l) => picsOf(l).every((k) => PICS[k]));
   const LETTERS = SOUND_L, FINALS = [], ALL_LETTERS = SOUND_L;
   const isFinal = () => false;
   const ROUND_SKIES = 5;
@@ -507,8 +525,8 @@
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const lvl = () => (LM ? Math.min(3, Math.max(1, LM.level() || 1)) : 1);
   // Golan 28.10: level 1 = 3 pictures and their names first, level 2 = 4 pictures and their names, level 3 = 4 pictures, no names
-  // (touch to hear). The close-sound distractor of level 3 (גָּ / כַּ) waits for the literacy advisor.
-  const cloudCount = () => (lvl() === 1 ? 3 : 4);
+  // (the speaker repeats the question only). The close-sound distractor of level 3 (גָּ / כַּ) waits for the literacy advisor.
+  const cloudCount = () => [3, 4, 6][lvl() - 1] || 4;   // Golan 28.10 19:00: level 3 = 6 pictures
   const sayNames = () => lvl() < 3;
   const cardOf = (l) => { try { return (LM && LM.card && LM.card(l)) || null; } catch (e) { return null; } };
   const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
@@ -536,8 +554,10 @@
   // one sky: one right picture and the others from other sounds (no two pictures open with the same sound)
   function makeQuestion(prevTarget, onlyChosen, keepTarget) {
     const t = keepTarget || pickTarget(prevTarget), n = cloudCount();
-    const others = shuffle(SOUND_L.filter((l) => l !== t)).slice(0, n - 1);
-    return { target: t, letter: t, letters: shuffle([t, ...others]), nTargets: 1 };
+    const others = shuffle(SOUND_L.filter((l) => l !== t && !alike(l, t))).reduce((a, l) => (a.length < n - 1 && !a.some((x) => alike(x, l)) ? a.concat(l) : a), []);
+    const letters = shuffle([t, ...others]), pics = {};
+    for (const l of letters) { const o = picsOf(l); pics[l] = o[Math.floor(Math.random() * o.length)]; }
+    return { target: t, letter: t, letters, pics, nTargets: 1 };
   }
   if (LM && LM.setGame) LM.setGame("sound", { autoCount: () => SOUND_L.length });
   // a new kind of question gets its own question lines, said at random, never the same twice in a row (as FL.VARIANTS)
@@ -619,7 +639,7 @@
     }
     return clipCache[id];
   }
-  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).flatMap((o) => [o.s, o.w]), "sd_q1", "sd_explain", "sd_demo"].forEach(getClip);
+  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).map((o) => o.s), ...SOUND_L.flatMap(picsOf).map((k) => PICS[k].clip), "sd_q1", "sd_explain", "sd_demo"].forEach(getClip);
   let browserSpeaking = false;
   function sayBrowser(text, rate) {
     if (!("speechSynthesis" in window)) return;
@@ -1049,7 +1069,7 @@
   });
   // The pictures, drawn once as images (the same SVGs as "האות שמתעוררת"), then painted on the clouds' and tags' textures
   const PIC_IMG = {};
-  for (const l of SOUND_L) { const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${PICS[l].svg}</svg>`); PIC_IMG[l] = im; }
+  for (const l of SOUND_L.flatMap(picsOf)) { const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${PICS[l].svg}</svg>`); PIC_IMG[l] = im; }
   const picsReady = Promise.all(Object.values(PIC_IMG).map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())));
   // Draw the picture of a sound's word (text = the letter). glow = a yellow circle behind it (the name being said, or the
   // answer the game shows itself); light = it sits on the round white card (dragged or hanging), so a little smaller.
@@ -1057,7 +1077,7 @@
     const ctx = c.tex.getContext(), W = ctx.canvas.width, H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H); c.light = !!light;
     // no yellow ring around the picture (Golan 28.10 16:41: "העיגול הצהוב מיותר"); `glow` is kept for the callers
-    const im = text && PIC_IMG[text];
+    const im = text && PIC_IMG[picFor(text)];
     if (im && im.complete && im.naturalWidth !== 0) { const k = light ? 0.8 : 0.84, w = W * k; ctx.drawImage(im, (W - w) / 2, (H - w) / 2, w, w); }
     c.tex.update(true);
   }
@@ -1172,10 +1192,27 @@
   // under the balloon. Half of it is on the circle, half outside, and it follows the letter as it sways.
   // After the answer the sound's letter with its nikud (בַּ) shows beside the picture that now hangs under the balloon
   // (spec sec 4): the first time the child sees a letter here. It follows the picture as it sways.
+  // Golan 28.10 18:58 (all letters): a letter with its nikud sits in the middle of its card and never leaves the white. The text is
+  // drawn on a canvas sized by its real ink (cursive tails and nikud below included), so nothing hangs out of the card.
+  function inkDraw(el, text, cur, size, pad, fitW, fitH) {
+    const cs = getComputedStyle(el), font = `${cur ? 400 : 800} ${size}px ${cur ? '"FL Cursive", cursive' : cs.fontFamily}`;
+    const draw = () => {
+      const k = document.createElement("canvas"), x = k.getContext("2d"); x.font = font; x.textAlign = "left"; x.textBaseline = "alphabetic";
+      const m = x.measureText(text), l = m.actualBoundingBoxLeft || 0, rr = m.actualBoundingBoxRight || size * 0.6, a = m.actualBoundingBoxAscent || size * 0.8, d = m.actualBoundingBoxDescent || 0;
+      let w = l + rr + 2 * pad, h = a + d + 2 * pad; if (!fitW) w = Math.max(w, h * 0.78);   // a card no narrower than it is tall
+      const sc = Math.min(1, fitW ? fitW / w : 1, fitH ? fitH / h : 1), dpr = Math.min(window.devicePixelRatio || 1, 2);
+      k.width = Math.ceil(w * dpr); k.height = Math.ceil(h * dpr); k.style.width = (w * sc) + "px"; k.style.height = (h * sc) + "px";
+      x.scale(dpr, dpr); x.font = font; x.textAlign = "left"; x.textBaseline = "alphabetic"; x.fillStyle = cs.color;
+      x.fillText(text, (w - (l + rr)) / 2 + l, (h - (a + d)) / 2 + a);
+      el.replaceChildren(k);
+    };
+    draw(); if (document.fonts && document.fonts.load) document.fonts.load(font, text).then(() => { if (el._ink === text + cur + size) draw(); }).catch(() => {});
+    el._ink = text + cur + size;
+  }
   let okLetter = null, okT = 0;
   function showOk(letter) {
     okLetter = letter; const m = $("sylMark"), cur = state.q && state.q.letter === letter ? !!state.q.cur : false;   // the same script as in the bar
-    m.textContent = SOUNDS[letter].syl; m.classList.toggle("cur", cur);   // כתב יד only by "סוג כתב", only for a letter whose cursive is open (spec sec 6)
+    m._txt = SOUNDS[letter].syl; m._cur = cur; m._size = 0; m.classList.toggle("cur", cur);   // כתב יד only by "סוג כתב", only for a letter whose cursive is open (spec sec 6)
     m.classList.remove("show"); void m.offsetWidth; m.classList.add("show");
     clearTimeout(okT); okT = setTimeout(hideOk, 4200);
     placeOk();
@@ -1191,13 +1228,37 @@
     const r = canvas.getBoundingClientRect(), box = (m.offsetParent || document.body).getBoundingClientRect();
     const rad = TAG_R * g.root.scaling.x * balloon.scaling.x / view.perPx;
     const size = Math.max(44, Math.round(1.5 * rad));
-    if (m._size !== size) { m._size = size; m.style.fontSize = size + "px"; }
+    if (m._size !== size) { m._size = size; m.style.fontSize = size + "px"; inkDraw(m, m._txt, m._cur, size, size * 0.14); }
     // on the side of the picture that faces the middle of the screen
     const x = r.left - box.left + p.x * r.width / W, side = x > r.width / 2 ? -1 : 1;
-    m.style.left = Math.round(x + side * (rad + 0.75 * size)) + "px";
-    m.style.top = Math.round(r.top - box.top + p.y * r.height / H) + "px";
+    // below the picture and diagonally from it, not beside it at the same height (Golan 28.10 19:01)
+    const mh = m.offsetHeight || size * 1.3, y = r.top - box.top + p.y * r.height / H;
+    m.style.left = Math.round(x + side * (rad * 0.8 + 0.5 * (m.offsetWidth || size))) + "px";
+    m.style.top = Math.round(Math.min(y + rad * 0.8 + 0.5 * mh, r.bottom - box.top - mh / 2 - 6)) + "px";
   }
   scene.onAfterRenderObservable.add(placeOk);
+  // the cloud speakers: a tap says the picture's name; not an answer and not a mistake (spec sec 1, Golan 28.10 19:02)
+  const spks = clouds.map((c) => {
+    const b = document.createElement("button"); b.className = "cloud-spk"; b.type = "button"; b.setAttribute("aria-label", "שם התמונה"); b.textContent = "🔊";
+    b.addEventListener("pointerdown", (e) => e.stopPropagation());
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (!canPlay() || tok.c === c) return;
+      state.idleAt = state.gameT; state.nagAt = state.gameT;
+      if (state.opening) { state.opening = false; state.audioEnd = performance.now(); }
+      hush(); hushUntil = 0; playIds([wordOf(c.letter)]); });
+    $("cloudSpks").append(b); return b; });
+  scene.onAfterRenderObservable.add(() => {
+    const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(), box = ($("cloudSpks").offsetParent || document.body).getBoundingClientRect();
+    const M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(W, H);
+    clouds.forEach((c, i) => {
+      const b = spks[i], on = (c.state === "idle" || c.state === "wrong" || (c.state === "in" && c.t > c.dur * 0.8)) && tok.c !== c && !!state.q && !state.resolved && state.mode !== "paused";
+      b.classList.toggle("on", on); if (!on) return;
+      const P = (dx, dy) => BABYLON.Vector3.Project(new BABYLON.Vector3(c.root.position.x + dx * c.size, c.root.position.y + dy * c.size, c.root.position.z), BABYLON.Matrix.Identity(), M, vp);
+      const p = P(-1.3, -0.8), wPx = Math.abs(P(1, 0).x - P(0, 0).x) * r.width / W;   // one cloud unit on screen
+      const d = Math.round(Math.max(34, Math.min(48, wPx * 0.55)));   // smaller on a small screen, never smaller than a fingertip
+      if (b._d !== d) { b._d = d; Object.assign(b.style, { width: d + "px", height: d + "px", margin: -d / 2 + "px 0 0 " + -d / 2 + "px", lineHeight: d + "px", fontSize: Math.round(d / 2) + "px" }); }
+      b.style.left = Math.round(r.left - box.left + p.x * r.width / W) + "px"; b.style.top = Math.round(r.top - box.top + p.y * r.height / H) + "px";
+    });
+  });
 
   // the question: one of three wordings at random, then the sound (spec sec 3)
   const qIds = (q) => ["sd_q1", SOUNDS[q.letter].s];
@@ -1221,7 +1282,8 @@
       c.body.visibility = 1; c.sign.visibility = 1; c.sign.position.set(0, 0.05, -0.6); c.sign.scaling.setAll(spots[i].k || 1);
       c.state = "in"; c.t = -Math.random() * 0.25; c.dur = p.inDur;
     });
-    { const t = $("target"); t.textContent = SOUNDS[state.q.letter].syl; t.classList.toggle("cur", state.q.cur); }
+    { const t = $("target"); t.classList.toggle("cur", state.q.cur);
+      inkDraw(t, SOUNDS[state.q.letter].syl, state.q.cur, parseFloat(getComputedStyle(t).fontSize) || 48, 2, t.clientWidth || 0, t.clientHeight || 0); }
     renderDots();
     const myQ = state.q;
     if (demo) return;   // the demo says its own lines (runDemo)
@@ -1229,15 +1291,18 @@
     // so the sound asked for is the last thing heard (spec sec 1)
     setTimeout(() => {
       if (state.q !== myQ || state.resolved) return;
-      const shown = clouds.filter((c) => c.state !== "off").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
-      const steps = [];
-      if (sayNames()) for (const c of shown) steps.push(() => glowName(c, true), SOUNDS[c.letter].w, () => glowName(c, false));
-      steps.push(...qIds(myQ));
-      playIds(steps, () => { if (state.q !== myQ) return; state.opening = false; state.audioEnd = performance.now(); state.idleAt = state.gameT; });
+      playIds(readSteps(myQ), () => { if (state.q !== myQ) return; state.opening = false; state.audioEnd = performance.now(); state.idleAt = state.gameT; });
     }, Math.max(300, p.inDur * 1000 / motionK()));
   }
+  // levels 1-2: the names of the pictures still in the sky (right to left, top to bottom), then the question; level 3: the question
+  function readSteps(q) {
+    const shown = clouds.filter((c) => c.state === "idle" || c.state === "in" || c.state === "wrong").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
+    const steps = [];
+    if (sayNames()) for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
+    return steps.concat(qIds(q));
+  }
   // a picture lights up while its name is said
-  function glowName(c, on) { c.glowName = on; if (c.state === "idle" || c.state === "in" || c.state === "wrong") { c.ringOn = on; drawLetter(c, c.letter, on); } }
+  function glowName(c, on) { c.glowName = on; if (tok.c !== c && (c.state === "idle" || c.state === "in" || c.state === "wrong")) { c.ringOn = on; drawLetter(c, c.letter, on); } }
   // the shared star counter at the top: a gold star with its count and a silver star with its count (Golan, 16.10, all games)
   const sc = LM && LM.starCounter ? LM.starCounter($("stars")) : null;
   // the golden hourglass under the star pill (Golan 18.10): the round runs until the sand is down, then the sky going on ends it.
@@ -1274,7 +1339,7 @@
       if (state.q !== q) return;
       const shown = clouds.filter((c) => c.state !== "off").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
       const steps = ["sd_demo"];
-      for (const c of shown) steps.push(() => glowName(c, true), SOUNDS[c.letter].w, () => glowName(c, false));
+      for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
       steps.push(...qIds(q));
       playIds(steps, () => {
         if (state.q !== q) return;
@@ -1283,8 +1348,7 @@
         // the hand comes up from below, touches the picture, holds it and drags it to the balloon
         moveHand({ x: at.x + 40, y: r.bottom + 40 }, at, 1100, null, () => setTimeout(() => {
           if (state.q !== q) return hideHand();
-          playIds([() => glowName(c, true), S.w, () => glowName(c, false)]);   // first a touch: the picture says its name
-          setTimeout(() => {
+          setTimeout(() => {   // no touch-to-hear any more (Golan 28.10 18:48): the hand holds the picture and drags it
             if (state.q !== q) return hideHand();
             grabTok(c, skyAt(at.x - r.left, at.y - r.top));
             const b = screenOf(balloon.position.x, balloon.position.y + ENV_Y * 0.35 * balloon.scaling.x);
@@ -1296,7 +1360,7 @@
               setTimeout(hideHand, 600);
               finishSky(false);
             });
-          }, 1600);
+          }, 500);
         }, 300));
       });
     }, Math.max(300, pace().inDur * 1000 / motionK()));
@@ -1341,8 +1405,8 @@
   function endDrag(e, cancel) {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag; drag = null;
-    if (!cancel && canPlay() && d.c.state !== "found" && !d.moved) hearName(d.c);                  // a tap: the picture's name, never a mistake
-    else if (!cancel && canPlay() && d.c.state !== "found" && overBalloon(e)) judge(d.c);           // a drop on the balloon: the answer
+    // Golan 28.10 18:48: a tap is an answer too, like a drop on the balloon (as in the letter detective); no tap-to-hear any more
+    if (!cancel && canPlay() && d.c.state !== "found" && (!d.moved || overBalloon(e))) { if (state.opening) { state.opening = false; hush(); } judge(d.c); }
     if (tok.c === d.c) sendBack();   // not taken by the balloon: fly back into the cloud
   }
   canvas.addEventListener("pointerup", (e) => endDrag(e, false));
@@ -1357,7 +1421,7 @@
     state.idleAt = state.gameT; state.nagAt = state.gameT;
     if (state.opening) { state.opening = false; state.audioEnd = performance.now(); }   // the child stopped the opening: from now on it is the child's turn
     for (const k of clouds) if (k.glowName && k !== c) glowName(k, false);
-    playIds([() => glowName(c, true), SOUNDS[c.letter].w, () => glowName(c, false)]);
+    playIds([() => glowName(c, true), wordOf(c.letter), () => glowName(c, false)]);
   }
   function judge(c) {
     const now = performance.now();
@@ -1456,7 +1520,7 @@
     // the letter with its nikud shows beside the picture once it hangs; Hila: "בַּ... בַּיִת" (+ the explanation after a solved sky)
     const landMs = Math.max(0, ...tags.filter((g) => g.on).map((g) => TAG_FLY - g.t)) * 1000 / motionK();
     setTimeout(() => { if (state.q === myQ) showOk(q.letter); }, Math.max(0, landMs - 300));
-    const ids = auto ? [S.s, S.w, S.w, "sd_explain", S.s] : [S.s, S.w];
+    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, "sd_explain", S.s] : [S.s, W];
     setTimeout(() => playIds(ids, () => setTimeout(() => {
       if (state.q !== myQ) return;
       clouds.forEach((c) => { if (c.state === "drop" || c.state === "idle" || c.state === "wrong" || c.state === "empty") { c.state = "out"; c.t = 0; c.flyFrom = { x: c.root.position.x, y: c.root.position.y }; } });
@@ -1487,7 +1551,7 @@
   // 🔊 says the instruction and then the letter, like the car game (Golan, 15.10); until det_ask is recorded, only the letter
   $("replay").addEventListener("click", () => {
     const q = state.q; if (!q || state.resolved || q.demo) return; state.idleAt = state.gameT; state.nagAt = state.gameT;
-    playIds(qIds(q), () => { if (state.q === q) { state.idleAt = state.gameT; if (!isFinite(state.audioEnd)) state.audioEnd = performance.now(); state.opening = false; } });
+    hush(); playIds(readSteps(q), () => { if (state.q === q) { state.idleAt = state.gameT; if (!isFinite(state.audioEnd)) state.audioEnd = performance.now(); state.opening = false; } });
   });
 
   // ---------- settings panel (same behaviour as the race game) ----------
@@ -1518,7 +1582,7 @@
   function G(neutral, boy, girl) { const g = LM && LM.profile() && LM.profile().gender; return g === "m" ? boy : g === "f" ? girl : neutral; }
   function applyGenderText() {
     $("startText").textContent = G("שומעים צליל, ומוצאים את התמונה שמתחילה בו", "שמע את הצליל, ומצא את התמונה שמתחילה בו", "שמעי את הצליל, ומצאי את התמונה שמתחילה בו");
-    $("startText2").textContent = G("נגיעה בתמונה משמיעה את השם שלה. את התמונה הנכונה גוררים לכדור", "גע בתמונה כדי לשמוע את השם שלה, וגרור את התמונה הנכונה לכדור", "געי בתמונה כדי לשמוע את השם שלה, וגררי את התמונה הנכונה לכדור");
+    $("startText2").textContent = G("נוגעים בתמונה הנכונה או גוררים אותה לכדור", "גע בתמונה הנכונה או גרור אותה לכדור", "געי בתמונה הנכונה או גררי אותה לכדור");
     $("pickTitle").textContent = G("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
     const name = G("בלש הצלילים", "בלש הצלילים", "בלשית הצלילים");   // a girl plays: בלשית (as הבלשית בעננים)
     $("gameTitle").textContent = name; document.title = name; $("game").setAttribute("aria-label", name);
@@ -1553,8 +1617,8 @@
     if (form) return form.refresh();
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LM.settingsForm($("flForm"), { game: "sound", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות, וברמה 3 הקריינית לא אומרת את השמות מראש.",   // one sentence, as in every game (Golan 28.10)
-      levels: ["3 תמונות, הקריינית אומרת את השמות.", "4 תמונות, הקריינית אומרת את השמות.", "4 תמונות, בלי שמות מראש: נוגעים בתמונה כדי לשמוע."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות (3, 4, 6), וברמה 3 הקריינית לא אומרת את השמות.",   // one sentence, as in every game (Golan 28.10)
+      levels: ["3 תמונות, הקריינית אומרת את השמות.", "4 תמונות, הקריינית אומרת את השמות.", "6 תמונות, בלי שמות: שומעים רק את הצליל."],
       onLevel: () => { lettersChanged = lettersChanged || "keep"; },
       // only the 8 sounds of this game can be marked (spec sec 7)
       picker: { available: SOUND_L, finals: false, autoList: () => soundPool(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
@@ -1675,7 +1739,7 @@
         // the hint ring blinks on and off instead of staying (Golan, 16.10)
         // the hint ring blinks ONCE each time a hint is given, then the letter is plain again (Golan, 16.10)
         const ring = !!c.glowName || !!(state.hintPulse && isT && tok.c !== c && state.flashAt && T - state.flashAt < 0.9);
-        if (ring !== !!c.ringOn) { c.ringOn = ring; drawLetter(c, c.letter, ring); }
+        if (tok.c !== c && ring !== !!c.ringOn) { c.ringOn = ring; drawLetter(c, c.letter, ring); }   // a held picture stays only in the hand (Golan 28.10 18:51)
         // the hinted letter lifts a little, slowly, and comes back; only the letter moves, the cloud stays put (Golan, 16.10)
         const lift = state.flashAt && isT ? 0.18 * Math.sin(Math.PI * Math.min(1, (T - state.flashAt) / 2.4)) : 0;
         c.sign.position.y = 0.05 + lift;
