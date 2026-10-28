@@ -33,17 +33,16 @@ function loveHeart(ctx, x, y, r, fill) {
 const loveWordW = (h) => { const w = h * 0.62, gap = h * 0.22; return 6 * (w + gap) + (w * 0.35 + gap) + 2 * h * 0.35 - gap; };   // "I LOVE U"
 // flat: W x H front picture (the whole 100 x 134 picker box, y from -14); uv: W x H skin around the balloon (x = around, y = top to bottom)
 function paintLove(ctx, W, H, d, uv) {
-  const [a, b] = d.c, rnd = loveRand(7), boxes = [];
+  // Golan's pick 28.10 (option 5 of 5): a red balloon, cream words in rows that alternate big and small, dark-red and pink hearts
+  const a = "#E3262F", b = "#FFF6EF", hearts = ["#8E0F18", "#FFB3BC"], rnd = loveRand(16), boxes = [];
   ctx.fillStyle = a; ctx.fillRect(0, 0, W, H);
   ctx.save(); if (uv) { ctx.translate(W, H); ctx.scale(-1, -1); }   // the sphere skin is turned around: turn it back so the words read
   ctx.strokeStyle = b; ctx.fillStyle = b; ctx.lineCap = "round"; ctx.lineJoin = "round";
   const word = (x, y, h) => { ctx.lineWidth = h * 0.16; const e = loveWord(ctx, x, y, h, rnd); boxes.push([x - h * 0.1, y - h * 0.1, e + h * 0.1, y + h * 1.1]); return e; };
   if (uv) {
-    // four rows, the biggest on top and smaller down to the mouth (Golan 27.10)
-    let t = 0.26;
-    // every row has one "I LOVE U" centred on the front (three quarters of the way across the skin) and the rest evenly around it
-    [0.19, 0.105, 0.072, 0.05].forEach((k) => { const h = H * k, w = loveWordW(h), n = Math.max(1, Math.floor(W / (w + h * 0.9))), step = W / n;
-      for (let j = -n; j <= n; j++) { const x = W * 0.75 - w / 2 + j * step; if (x < W && x + w > 0) word(x, H * t, h); } t += k + 0.02; });
+    // big, small, big, small rows; every row has one "I LOVE U" centred on the front (three quarters of the way across the skin) and the rest evenly around it
+    for (const [t, k] of [[0.22, 0.17], [0.42, 0.06], [0.5, 0.12], [0.65, 0.05]]) { const h = H * k, w = loveWordW(h), n = Math.max(1, Math.floor(W / (w + h * 0.9))), step = W / n;
+      for (let j = -n; j <= n; j++) { const x = W * 0.75 - w / 2 + j * step; if (x < W && x + w > 0) word(x, H * t, h); } }
   } else {
     // four rows, narrower and smaller down the heart, as in the drawing: [top, letter height, room] in the 100 x 120 box
     for (const [y, h, room] of [[6, 10, 78], [21, 10, 76], [36, 9.5, 66], [51, 8.5, 50], [65, 7, 32]]) {
@@ -51,14 +50,14 @@ function paintLove(ctx, W, H, d, uv) {
     }
   }
   // hearts in the gaps, filled and outlined, never on the words
-  const unit = uv ? H * 0.11 : H * 0.09, want = uv ? 30 : 14, placed = [];
+  const unit = uv ? H * 0.1 : H * 0.09, want = uv ? 120 : 14, placed = [];
   const env = uv ? null : new Path2D(LOVE_ENV), inEnv = (x, y, r) => !env || [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => ctx.isPointInPath(env, (x + dx) * 100 / W, (y + dy) * 134 / H - 14));
-  for (let k = 0; k < 600 && placed.length < want; k++) {
-    const r = unit * (0.22 + rnd() * 0.28), x = r + rnd() * (W - 2 * r), y = H * (uv ? 0.1 : 0.03) + rnd() * H * (uv ? 0.78 : 0.75);
+  for (let k = 0; k < 6000 && placed.length < want; k++) {
+    const r = unit * (0.18 + rnd() * 0.32), x = r + rnd() * (W - 2 * r), y = H * (uv ? 0.1 : 0.03) + rnd() * H * (uv ? 0.78 : 0.75);
     if (!inEnv(x, y, r * 1.6)) continue;
     if (boxes.some(([x0, y0, x1, y1]) => x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r)) continue;
-    if (placed.some(([px, py, pr]) => Math.hypot(px - x, py - y) < (pr + r) * 1.3)) continue;
-    placed.push([x, y, r]); ctx.lineWidth = unit * 0.1; loveHeart(ctx, x, y, r, rnd() < 0.65);
+    if (placed.some(([px, py, pr]) => Math.hypot(px - x, py - y) < (pr + r) * 1.15)) continue;
+    placed.push([x, y, r]); ctx.fillStyle = ctx.strokeStyle = hearts[Math.floor(rnd() * hearts.length)]; ctx.lineWidth = unit * 0.1; loveHeart(ctx, x, y, r, rnd() < 0.7);
   }
   ctx.restore();
 }
