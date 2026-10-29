@@ -634,7 +634,7 @@
     if (LM && GENDER_ALT[id]) { for (const g of LM.lineIds(GENDER_ALT[id])) { if (g === GENDER_ALT[id]) continue; const c = getClip(g); if (c._ok) return g; } return id; }
     if (!LM || !GENDERED.has(id)) return id;
     for (const g of LM.lineIds(id)) { const c = getClip(g); if (c._ok) return g; }
-    return id;
+    return id === "sd_q2" ? "sd_q2_m" : id;   // a child with no boy/girl set: the masculine form (no bare sd_q2 clip, by design)
   }
   function preloadGendered() { if (LM) for (const id of [...GENDERED, ...Object.values(GENDER_ALT)]) LM.lineIds(id).forEach((g) => { if (g !== "ins_balloon") getClip(g); }); }
   const AUDIO = "../../voice/audio/";   // the shared clip bank (as the memory game)

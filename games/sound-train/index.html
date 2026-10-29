@@ -584,7 +584,7 @@
   function genderedId(id) {
     if (!id || !GENDER_LINES.includes(id) || !(window.FL && FL.learner)) return id;
     for (const g of FL.learner.lineIds(id)) { const c = getClip(g); if (c._ok) return g; }
-    return id;
+    return id === "sd_q2" ? "sd_q2_m" : id;   // a child with no boy/girl set: the masculine form (no bare sd_q2 clip, by design)
   }
   function clipFor(text) { return CLIP_OF_TEXT[text] || CLIP_OF_LETTER[text] || null; }
   let settingsOpen = false;   // no voice at all while the settings screen is open (Golan 16.10, all games)
