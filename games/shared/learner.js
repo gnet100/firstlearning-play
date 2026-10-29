@@ -1311,6 +1311,7 @@ ${items[item]}</svg>`;
     { id: "train", g: "train", path: "games/letter-train/index.html", tier: "hard" },
     { id: "mole", g: "mole", path: "games/mole/index.html", tier: "hard" },
     { id: "sound", g: "sound", path: "games/sound-detective/index.html", tier: "isle2" },
+    { id: "wheel", g: "wheel", path: "games/sound-wheel/index.html", tier: "isle2" },
   ];
   function confidentCount() { const p = cur(); if (!p) return 0; const c = cardsFor(p);
     return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; }
