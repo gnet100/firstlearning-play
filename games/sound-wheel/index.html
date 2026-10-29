@@ -345,7 +345,7 @@
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
   .topic .belt { position: absolute; top: 0; bottom: 0; left: 0; display: flex; gap: 8px; padding: 6px 0; animation: belt var(--bt, 24s) linear infinite; }
   .topic.locked .belt { animation-play-state: paused; }
-  .topic .belt img { height: 100%; aspect-ratio: 1; display: block; }
+  .topic .belt img, .topic .belt svg { height: 100%; aspect-ratio: 1; display: block; flex: none; }
   @keyframes belt { to { transform: translateX(-50%); } }
   @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ffb27a; transform: translateY(-2px); } }
 
@@ -488,6 +488,7 @@
 
 <script src="../waking-letter/pictures.js"></script>
 <script src="../sound-detective/sound-pictures.js"></script>
+<script src="wheel-pictures.js"></script>
 <script src="../waking-letter/pictures-animated/pictures-animated.js"></script>
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/screen.js"></script>
@@ -520,17 +521,22 @@
   }
 
   // ---------- content (spec 7): words that open with kamatz, patah or hataf patah; the sounds of the sound detective ----------
-  const PICS = window.PICTURES || {}, PA = window.PICTURES_ANIMATED || null;
+  // transport and toys: their own drawings with their own wake-up motion (wheel-pictures.js, Golan 29.10); shown as a live svg, not an image
+  const WP = window.WHEEL_PICTURES || null;
+  const PICS = Object.assign({}, window.PICTURES || {}, WP ? WP.pics : {}), PA = window.PICTURES_ANIMATED || null;
+  if (PICS.trumpet && PICS.trumpet.clip === "word_hatzotzra") PICS.trumpet = Object.assign({}, PICS.trumpet, { clip: "word_hatsotsra" });   // the recorded clip's name (voice/lines.js)
   const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
-    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
-  // the topics: a picture key (pictures.js / sound-pictures.js) and the sound its word opens with. Transport and toys wait for their drawings.
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" },
+    "מ": { syl: "מַ", s: "syl_ma" }, "ע": { syl: "עַ", s: "syl_a_ayin" }, "פ": { syl: "פַּ", s: "syl_pa" } };   // מ ע פ for transport and toys (29.10)
+  // the topics: a picture key (pictures.js / sound-pictures.js / wheel-pictures.js) and the sound its word opens with
   const TOPICS = [
     { id: "animals", name: "חיות", clip: "sw_cat_animals", pics: [["ג", "ג"], ["נ", "נ"], ["ט", "ט"], ["י", "י"], ["א", "א"], ["ח", "ח"], ["צ", "צ"],
       ["tiger", "נ"], ["rabbit", "א"], ["donkey", "ח"], ["rooster", "ת"], ["crocodile", "ת"]] },
-    { id: "transport", name: "תחבורה", clip: "sw_cat_transport", pics: [["ר", "ר"]], soon: true },
-    { id: "toys", name: "צעצועים", clip: "sw_cat_toys", pics: [["כ", "כ"], ["ן", "ב"], ["rattle", "ר"]], soon: true },
+    { id: "transport", name: "תחבורה", clip: "sw_cat_transport", pics: [["ר", "ר"], ["plane", "מ"], ["helicopter", "מ"], ["truck", "מ"], ["fireTruck", "כ"], ["ambulance", "א"], ["spaceship", "ח"]] },
+    { id: "toys", name: "צעצועים", clip: "sw_cat_toys", pics: [["כ", "כ"], ["ן", "ב"], ["rattle", "ר"],
+      ["swing", "נ"], ["slide", "מ"], ["kite", "ע"], ["trumpet", "ח"], ["mask", "מ"], ["puzzle", "פ"]] },
   ];
   const topic = () => TOPICS.find((t) => t.id === settings.topic && !t.soon) || TOPICS[0];
   const soundOf = (k) => (topic().pics.find((p) => p[0] === k) || [])[1];
@@ -676,6 +682,7 @@
   const IMG = {};
   const picUrl = (k) => IMG[k] || (IMG[k] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(picSvg(k)));
   // the moving picture of "האות שמתעוררת" when there is one (pictures-animated), else the still picture that bounces (spec 4)
+  const picHtml = (k) => (WP && WP.pics[k] ? `<svg viewBox="0 0 1000 1000">${WP.pics[k].svg}</svg>` : `<img alt="" src="${picUrl(k)}">`);
   const awake = (k) => (PA && PA.svg && PA.svg[k] ? `<svg viewBox="0 0 1000 1000">${PA.svg[k]}</svg>` : null);
 
   // The same 9 balloons as every game (Golan 16.10), from "האות שמתעוררת"; the chosen one is the surprise card (spec 4)
@@ -752,7 +759,7 @@
   let geo = { ts: 120, step: 140, cx: 0, cy: 0, w: 0, h: 0 };
   function buildWheel(keys) {
     const fr = $("frame"); fr.textContent = "";
-    state.tiles = keys.map((k) => { const el = document.createElement("div"); el.className = "tile"; el.innerHTML = `<img alt="" src="${picUrl(k)}">`; fr.append(el); return { k, el }; });
+    state.tiles = keys.map((k) => { const el = document.createElement("div"); el.className = "tile"; el.innerHTML = picHtml(k); fr.append(el); return { k, el }; });
   }
   const mod = (a, n) => ((a % n) + n) % n;
   const under = () => state.tiles[mod(Math.round(state.pos), state.tiles.length)];
@@ -892,11 +899,11 @@
   }
   const lit = (b, on) => b && b.classList.toggle("lit", on);
   const word = (k) => (PICS[k] || {}).clip;
-  // levels 1-2: the word, then each ball's sound as it lights; then the question. Level 3: the word and the question (spec 3)
+  // the question, then the word ("בְּאֵיזֶה צְלִיל מַתְחִילָה הַמִּלָּה" + word, Golan 29.10); levels 1-2: then each ball's sound as it lights (spec 3)
   function readSteps(q, names) {
-    const steps = [word(q.k)];
+    const steps = ["sw_q", word(q.k)];
     if (names && saySounds()) for (const b of [...$("balls").children].filter((x) => !x.classList.contains("gone"))) steps.push(() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false));
-    return steps.concat("sw_q");
+    return steps;
   }
   function ask() {
     const t = under(); if (!t) return readySpin();
@@ -904,18 +911,17 @@
     state.q = { k, l, balls: makeBalls(l), wrongs: 0, dropped: 0, firstWrong: null, start: performance.now(), audioEnd: Infinity, firstTap: 0, reads: 1, auto: false, resolved: false, big: false };
     state.mode = "ask";
     $("spinRow").hidden = true;
-    const s = $("star"); $("starPic").innerHTML = `<img alt="" src="${picUrl(k)}">`; $("starPic").className = "pic"; s.hidden = false; placeStar();
+    const s = $("star"); $("starPic").innerHTML = picHtml(k); $("starPic").className = "pic"; s.hidden = false; placeStar();
     requestAnimationFrame(() => { state.q.big = true; placeStar(); });
     const box = $("balls"); box.textContent = ""; box.hidden = false;
     const q = state.q;
-    // the word first; then the balls come in one by one, each with its sound (levels 1-2), then the question
-    playIds([word(k)], () => {
+    // the question and the word first; then the balls come in one by one, each with its sound (levels 1-2)
+    playIds(["sw_q", word(k)], () => {
       if (state.q !== q) return;
       const steps = [];
       q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); if (saySounds()) lit(b, true); else sfx.pop(); },
         saySounds() ? SOUNDS[bl].s : () => {}, () => { lit(box.lastChild, false); }));
-      if (!saySounds()) steps.push(() => {}, "sw_q"); else steps.push("sw_q");
-      // the balls are touchable at once; the question is said once more for a level-3 child too (spec 6: only the word and the question)
+      // the balls are touchable at once
       state.mode = "play";
       playIds(steps, () => { if (state.q === q) { q.audioEnd = performance.now(); idleFrom(); } });
     });
@@ -977,7 +983,8 @@
   // the picture wakes up for a moment: the moving drawing of "האות שמתעוררת" when there is one, else it bounces (spec 4)
   function wake(k) {
     const p = $("starPic"), a = awake(k);
-    if (a) { p.innerHTML = a; setTimeout(() => { if (state.q && state.q.k === k) p.innerHTML = `<img alt="" src="${picUrl(k)}">`; }, ms(2800)); }
+    if (WP && WP.pics[k] && p.firstElementChild) return WP.wake(p.firstElementChild);   // its own motion, ~2.6 s
+    if (a) { p.innerHTML = a; setTimeout(() => { if (state.q && state.q.k === k) p.innerHTML = picHtml(k); }, ms(2800)); }
     p.classList.remove("wake"); void p.offsetWidth; p.classList.add("wake");
   }
   function sparks() {
@@ -1218,7 +1225,7 @@
     const box = $("topicList"); box.textContent = "";
     TOPICS.forEach((t, i) => {
       const b = document.createElement("button"); b.type = "button"; b.className = "topic" + (t.soon ? " locked" : ""); b.dataset.id = t.id;
-      const imgs = t.pics.map(([k]) => `<img alt="" src="${picUrl(k)}">`).join("");
+      const imgs = t.pics.map(([k]) => picHtml(k)).join("");
       b.innerHTML = `<span>${t.name}</span><span class="strip"><span class="belt" style="--bt:${18 + i * 5}s">${imgs}${imgs}${t.pics.length < 6 ? imgs + imgs : ""}</span></span>`;
       if (!t.soon) b.addEventListener("click", () => pickTopic(t, b));
       box.append(b);

@@ -1084,7 +1084,7 @@ ${items[item]}</svg>`;
   // Golan 19.10: the parent's view is one heading "<name> · התקדמות למידה"; a tap opens the learning topics, another tap
   // closes them. Only letter recognition is measured today; the other topics say so until a game measures them.
   // the 8 opening sounds of בלש הצלילים (summaries/sound-detective-spec.md sec 6), shown with their nikud
-  const SOUND_SYL = { "ב": "בַּ", "ג": "גָּ", "נ": "נָ", "ט": "טַ", "י": "יַ", "כ": "כַּ", "א": "אַ", "ח": "חָ", "צ": "צָ", "ר": "רָ", "ת": "תָּ" };   // צ ר ת added 28.10 18:53
+  const SOUND_SYL = { "ב": "בַּ", "ג": "גָּ", "נ": "נָ", "ט": "טַ", "י": "יַ", "כ": "כַּ", "א": "אַ", "ח": "חָ", "צ": "צָ", "ר": "רָ", "ת": "תָּ", "מ": "מַ", "ע": "עַ", "פ": "פַּ" };   // צ ר ת added 28.10 18:53; מ ע פ 29.10 (sound wheel: transport, toys)
   const SOUND_LETTERS = Object.keys(SOUND_SYL), SOUND_SKILL = 6;
   function soundsKnown() { const c = cardsFor(cur()); return SOUND_LETTERS.filter((l) => c[l] && c[l].sound.state === "known").length; }
   const TOPICS = ["זיהוי צלילים (הצליל של כל אות)", "זיהוי הברות", "קריאת הברות עם ניקוד", "קריאת מילים", "כתיבת אותיות ומילים", "שפה ואוצר מילים", "הבנת הנשמע", "שטף קריאה"];
