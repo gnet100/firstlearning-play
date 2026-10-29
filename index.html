@@ -170,7 +170,7 @@
     { id: "race", ac: "#4dabf7", name: "מֵרוֹץ הַשְּׁעָרִים", path: "voice/race-gates-voice/index.html", bg: "#d8f1ff", pic: "car" },
     { id: "detective", ac: "#22b8cf", name: "הַבַּלָּשׁ בָּעֲנָנִים", path: "games/letter-recognition/detective/index.html", bg: "#e4f6ff", pic: "detective" },
     { id: "waking", ac: "#9775fa", name: "הָאוֹת שֶׁמִּתְעוֹרֶרֶת", path: "games/waking-letter/index.html", bg: "#efe9ff", pic: "waking" },
-    { id: "tellme", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/tell-me/index.html", bg: "#fff1df", pic: "tellme" },
+    { id: "tellme", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/tell-me/index.html", bg: "#fff1df", pic: "tellme", adult: true },
     { id: "train", ac: "#40c057", name: "רַכֶּבֶת הָאוֹתִיּוֹת", path: "games/letter-train/index.html", bg: "#e3f8ea", pic: "train" },
     { id: "circle", ac: "#f06595", name: "מַעְגַּל הָאוֹתִיּוֹת", path: "games/letter-circle/index.html", bg: "#ffe8ef", pic: "circle" },
     { id: "memory", ac: "#7048e8", name: "מִשְׂחַק זִכָּרוֹן", path: "games/memory/index.html", bg: "#1f2350", pic: "memory" },
@@ -269,11 +269,12 @@
       onOpen: (i) => { isleNow = i || 0; try { localStorage.setItem("fl-hub-isle", isleNow); } catch (e) {} showGames(); }, onFail: () => showGames(), onSystem: systemPick });
     if (location.hash !== "#map") history.replaceState(null, "", "#map");
   }
+  // Golan 29.10: the system never picks the song or a game that needs an adult (adult: true, "משחקים ביחד" and the shared games to come)
   // "בחירת משחק על ידי המערכת על פי התקדמות" (Golan 20.10): for now one of the letter games, never the same one twice
   // in a row; each game's own system choice already puts the letters not yet recognised first.
   function systemPick() {
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem && !isleOf(g)), g = pool[Math.floor(Math.random() * pool.length)];
+    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem && !g.adult && !isleOf(g)), g = pool[Math.floor(Math.random() * pool.length)];
     try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
     openGame(g, document.createElement("div"));
   }
