@@ -342,7 +342,7 @@
   .topic.locked::after { content: "בקרוב"; position: absolute; left: 12px; top: 50%; translate: 0 -50%; font-size: .6em; background: #fff; border-radius: 999px; padding: 2px 12px; color: var(--muted); }
   .topic.flash { animation: carFlash 1s ease-in-out; }
   /* Golan 29.10: the pictures sit fixed on a turning bracelet (a ring seen a little from above), not a sliding belt */
-  .topic .strip { position: relative; height: max(calc(112 * var(--u, 1px)), 74px); overflow: hidden; border-radius: 14px; background: #fff; direction: ltr; perspective: 1600px; }
+  .topic .strip { position: relative; height: min(max(calc(150 * var(--u, 1px)), 96px), max(calc((100dvh - 170px) / 3), 64px)); overflow: hidden; border-radius: 14px; background: #fff; direction: ltr; perspective: 1600px; }
   .topic .ring { position: absolute; left: 50%; top: 44%; width: 0; height: 0; transform-style: preserve-3d; animation: ring var(--bt, 24s) linear infinite; }
   .topic > span:first-child { min-width: 3.8em; }   /* the same ring width in every row */
   .topic.locked .ring { animation-play-state: paused; }
@@ -1239,9 +1239,9 @@
   // the pictures around a ring: as many as fit the row's width (whole rounds of the topic's pictures), each one fixed on the ring
   function bracelet(ring, keys) {
     const st = ring.parentNode, W = st.clientWidth, H = st.clientHeight;
-    const gap = 1.15, r = Math.max(40, W * 0.45 - H * 0.28);   // the ring fills the row's width
-    const n = keys.length * Math.max(1, Math.round((2 * Math.PI * r) / (H * 0.5 * gap) / keys.length));
-    const s = Math.min(H * 0.56, (2 * Math.PI * r) / (n * gap));   // whole rounds of the pictures, each as big as fits
+    const gap = 1.1, r0 = Math.max(40, W * 0.46 - H * 0.3);   // the ring fills the row's width; big cards (Golan 29.10)
+    const n = keys.length * Math.max(1, Math.round((2 * Math.PI * r0) / (H * 0.64 * gap) / keys.length));
+    const s = Math.min(H * 0.64, (2 * Math.PI * r0) / (n * gap)), r = (n * s * gap) / (2 * Math.PI);   // the cards close together   // whole rounds of the pictures, each as big as fits
     ring.style.setProperty("--s", s + "px");
     ring.innerHTML = Array.from({ length: n }, (_, j) => `<span class="bead" style="transform: rotateY(${(j * 360) / n}deg) translateZ(${r}px)"><i class="f">${picHtml(keys[j % keys.length])}</i><i class="b"></i></span>`).join("");
   }
