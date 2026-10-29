@@ -1569,7 +1569,8 @@ ${items[item]}</svg>`;
   function endFly(opt = {}) {
     endFlyReset();
     const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const keep = (el) => /^(door|gear|pause)/i.test(el.id || "") || el.classList.contains("gear") || el.classList.contains("door-btn");
+    // the 3-2-1 box stays home too: it is empty now, and a flown box showed the next round's countdown at the top of the screen (Golan 29.10)
+    const keep = (el) => /^(door|gear|pause|count)/i.test(el.id || "") || el.classList.contains("gear") || el.classList.contains("door-btn") || el.classList.contains("count");
     const shown = (el) => el && el.isConnected && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
     const hud = document.getElementById("hud");
     const els = new Set([...(hud && shown(hud) ? hud.children : []), ...document.querySelectorAll("[data-fl-stars], .fl-hg, #flRestart"), ...(opt.dom || [])]);
