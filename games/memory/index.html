@@ -382,7 +382,6 @@
   @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   /* the level question: two drawn boards, the child touches one */
   #levelAsk .panel { width: 100%; }
-  .fl-hg { display: none !important; }   /* the hourglass still times the round, it is just not shown (Golan 22.10) */
   .boards button svg { width: 0; height: 0; }
   .boards .bcount { font-weight: 800; font-size: max(calc(26 * var(--u, 1px)), 17px); color: #25307a; line-height: 1.1; }
   #levelAsk .panel h1 { font-size: max(calc(40 * var(--u, 1px)), 24px); }
@@ -816,12 +815,14 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
     const W = innerWidth, H = innerHeight, et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
     const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
-    const g = Math.max(8, px("--gap", 10) * 0.6), hgW = 0, left = Math.max(door.right, el + 60) + g;
+    // the hourglass under the star pill (learner.js places it the same way): its width and bottom keep the cards clear of it (Golan 29.10)
+    const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), hgW = hgH * 1.012 + 8, hgBot = pill.bottom + 8 + hgH * 1.725;
+    const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, el + 60) + g;
     // A: a full-height column between the door column and the stars / hourglass column; B: under the star pill, full width
     // C: under the door / gear column and the hourglass, the whole width (a standing phone)
-    const gear = $("gear").getBoundingClientRect(), hgB = pill.bottom;   // no hourglass on screen (Golan 22.10)
-    return [{ x0: left, x1: Math.min(pill.left, W - er - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: W - er - hgW - g, y0: pill.bottom + g, y1: H - eb },
-      { x0: el, x1: W - er, y0: Math.max(gear.bottom, hgB) + g, y1: H - eb }];
+    const gear = $("gear").getBoundingClientRect();
+    return [{ x0: left, x1: Math.min(pill.left, pill.right - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: pill.right - hgW - g, y0: pill.bottom + g, y1: H - eb },
+      { x0: el, x1: W - er, y0: Math.max(gear.bottom, hgBot) + g, y1: H - eb }];
   }
   const wideBoard = () => { const r = rooms().sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0]; return r.x1 - r.x0 >= r.y1 - r.y0; };
   // the biggest square cards that fit; each card at its cell (c.at), the row shape centred in the free room
@@ -903,7 +904,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
         later(ms(650), () => {
           const closed = state.cards.filter((x) => x.state === "closed" && !x.surprise);
           closed.forEach((x) => x.el.classList.add("peek"));
-          later(ms(1600), () => { closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
+          // the more cards still to turn, the longer they stay open: up to 6 as before, up to 10 x1.5, more x2 (Golan 29.10)
+          const peekK = closed.length <= 6 ? 1 : closed.length <= 10 ? 1.5 : 2;
+          later(ms(1600 * peekK), () => { closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
         });
       });
     });
