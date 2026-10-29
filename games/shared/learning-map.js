@@ -34,7 +34,8 @@
     return { x: d * L.gap * D.x + w * L.lat.x, y: i * 0.55, z: d * L.gap * D.z + w * L.lat.z }; };
   const mid = (v) => { const L = lay(), d = far0(v); return { x: d * L.gap * L.dir.x, z: d * L.gap * L.dir.z }; };   // the middle of the trail
   const ISLE = 0.62;   // island size (Golan 20.10: smaller)
-  const BAL = { x: 0, y: 1.8, z: 0.2 };   // Golan 20.10: the balloon hangs right above the middle of the island it serves
+  const BAL = { x: 0, y: 1.8, z: 0.2 };
+  const BACK = 0.85, BACK_TALL = 0.4, SHIFT = 1.4;   // SHIFT: on a wide screen the view moves right a little, so the balloon's island is not at the edge   // Golan 29.10: the camera stands this much of the way behind the balloon, so the island before shows   // Golan 20.10: the balloon hangs right above the middle of the island it serves
 
   let host = null, opt = null, ui = null, engine = null, scene = null, cam = null, built = false, loading = null, visible = false;
   let isles = [], balloon = null, s = 0, sTo = 0, tw = null, dragTo = 0, home = 0, focus = -1, focusedAt = 0, dragging = null, zoom = 0, open = 1, seenKey = "";
@@ -174,7 +175,32 @@
       const s0 = { x: a.x + ux * R, y: a.y - 0.12, z: a.z + uz * R }, s1 = { x: b.x + vx * R, y: b.y - 0.12, z: b.z + vz * R };
       for (let k = 0; k < 7; k++) { const t = (k + 0.5) / 7, d = dots[n++] || (dots.push(BABYLON.MeshBuilder.CreateSphere("dot", { diameter: 0.16, segments: 6 }, scene)), dots[dots.length - 1]);
         d.position.set(s0.x + (s1.x - s0.x) * t, s0.y + (s1.y - s0.y) * t, s0.z + (s1.z - s0.z) * t);
-        if (!d.material) d.material = dotOff(); d.isPickable = false; d.metadata = { seg: i }; } }
+        if (!d.material) d.material = dotOff(); d.isPickable = false; d.metadata = { seg: i };
+        // Golan 29.10: a touch on a dot takes the balloon there (a finger-size touch area that never shows)
+        if (!d.hit) { d.hit = BABYLON.MeshBuilder.CreateSphere("dotHit", { diameter: 0.8, segments: 6 }, scene); d.hit.parent = d; d.hit.visibility = 0; d.hit.isPickable = true; }
+        d.hit.metadata = { dot: n - 1 }; } }
+    route();
+  }
+  // Golan 29.10: the balloon flies over the dots. The way: from the middle of an island to its edge, along the dots,
+  // into the next island's edge and its middle, as one soft curve (Catmull-Rom). A float stop number v: whole numbers
+  // are the islands, the fraction is the share of the way to the next island.
+  let way = [], wayLen = [], isleLen = [], dotV = [];
+  function route() {
+    const R = 2.3 * ISLE, unit = (x, z) => { const l = Math.hypot(x, z) || 1; return [x / l, z / l]; }, pts = [], isleAt = [], dotAt = [];
+    for (let i = 0; i < STOPS.length; i++) { const a = spot(i); isleAt.push(pts.length); pts.push(a);
+      if (i === STOPS.length - 1) break;
+      const b = spot(i + 1), [ux, uz] = unit(b.x - a.x, b.z - a.z), [vx, vz] = unit(a.x - b.x, a.z - b.z - 2.2);
+      const s0 = { x: a.x + ux * R, y: a.y - 0.12, z: a.z + uz * R }, s1 = { x: b.x + vx * R, y: b.y - 0.12, z: b.z + vz * R };
+      pts.push(s0); for (let k = 0; k < 7; k++) { const t = (k + 0.5) / 7; dotAt.push(pts.length); pts.push({ x: s0.x + (s1.x - s0.x) * t, y: s0.y + (s1.y - s0.y) * t, z: s0.z + (s1.z - s0.z) * t }); }
+      pts.push(s1); }
+    const N = 10, cr = (p0, p1, p2, p3, t, c) => 0.5 * (2 * p1[c] + (p2[c] - p0[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t * t + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * t * t * t);
+    way = []; wayLen = []; const at = [];
+    for (let j = 0; j < pts.length - 1; j++) { const p0 = pts[Math.max(0, j - 1)], p1 = pts[j], p2 = pts[j + 1], p3 = pts[Math.min(pts.length - 1, j + 2)];
+      at[j] = way.length; for (let k = 0; k < N; k++) { const t = k / N; way.push({ x: cr(p0, p1, p2, p3, t, "x"), y: cr(p0, p1, p2, p3, t, "y"), z: cr(p0, p1, p2, p3, t, "z") }); } }
+    at[pts.length - 1] = way.length; way.push(pts[pts.length - 1]);
+    let L = 0; way.forEach((q, n) => { if (n) L += Math.hypot(q.x - way[n - 1].x, q.y - way[n - 1].y, q.z - way[n - 1].z); wayLen.push(L); });
+    isleLen = isleAt.map((j) => wayLen[at[j]]);
+    dotV = dotAt.map((j, n) => { const i = Math.floor(n / 7); return i + (wayLen[at[j]] - isleLen[i]) / (isleLen[i + 1] - isleLen[i]); });
   }
   // places islands, trail and far clouds for the current screen shape (called again when a phone turns)
   function layout() { isles.forEach((it, i) => { const P = spot(i); it.root.position.set(P.x, P.y, P.z); }); pathDots(); placeFar(); }
@@ -211,11 +237,13 @@
 
   // ---------- motion ----------
   const lerp = (a, b, k) => a + (b - a) * k;
-  function along(v) {   // a point on the path for a float stop number
-    const i = Math.max(0, Math.min(STOPS.length - 1, Math.floor(v))), j = Math.min(STOPS.length - 1, i + 1), t = v - i, e = t * t * (3 - 2 * t);
-    const a = spot(i), b = spot(j); return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, e), z: lerp(a.z, b.z, e) };
+  function along(v) {   // a point on the way (over the dots) for a float stop number
+    v = Math.max(0, Math.min(STOPS.length - 1, v)); const i = Math.min(STOPS.length - 2, Math.floor(v)), L = lerp(isleLen[i], isleLen[i + 1], v - i);
+    let lo = 0, hi = wayLen.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (wayLen[m] <= L) lo = m; else hi = m; }
+    const a = way[lo], b = way[hi], t = wayLen[hi] > wayLen[lo] ? (L - wayLen[lo]) / (wayLen[hi] - wayLen[lo]) : 0;
+    return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t) };
   }
-  let T = 0, camLook = null, balSide = 0;
+  let T = 0, camLook = null, balSide = 0, vel = 0;
   // how far the view must move (world units: x along the screen's right, y up) so no island in view sits behind the start button.
   // Islands move right on a wide screen and up on a standing one; the view only eases back while there is room to spare.
   const btnOff = { x: 0, y: 0 };
@@ -263,18 +291,24 @@
   function tick() {
     const dt = Math.min(0.05, engine.getDeltaTime() / 1000); T += dt;
     // Golan 20.10: the balloon glides softly from island to island (eases in and out); a drag moves it gently too
+    // Golan 29.10: rebuilt: a soft start and a soft stop over any distance, along the dots; a new target on the way
+    // keeps the speed the balloon already has, so it never jerks
+    const s0 = s;
     if (dragging) s += (dragTo - s) * Math.min(1, dt * 5);
-    else { if (!tw || tw.to !== sTo) tw = { from: s, to: sTo, t: 0, dur: Math.min(3.2, 1.5 + Math.abs(sTo - s) * 0.35) };
-      tw.t = Math.min(tw.dur, tw.t + dt); const u = tw.t / tw.dur; s = tw.from + (tw.to - tw.from) * (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2); }
-    const P = along(s), bob = prefersStill ? 0 : Math.sin(T * 1.6) * 0.15;
+    else { if (!tw || tw.to !== sTo) { const d = Math.abs(sTo - s); tw = { from: s, to: sTo, t: 0, v0: vel, dur: Math.min(6, 1.4 + d * 1.1) }; }
+      tw.t = Math.min(tw.dur, tw.t + dt); const u = tw.t / tw.dur, m0 = tw.v0 * tw.dur;
+      s = tw.from * (2 * u * u * u - 3 * u * u + 1) + m0 * (u * u * u - 2 * u * u + u) + tw.to * (3 * u * u - 2 * u * u * u); }
+    vel = dt > 0 ? (s - s0) / dt : 0;
+    const P = along(s), C = along(s - (tall ? BACK_TALL : BACK)), bob = prefersStill ? 0 : Math.sin(T * 1.6) * 0.15;
     // Golan 20.10: the balloon never hides an island ahead: on screen it slides sideways (left or right, whichever is
     // nearer and stays on the screen) until it no longer covers any of them
-    balSide += (clearSide(P) - balSide) * Math.min(1, dt * 4);
+    const nearIsle = Math.max(0, 1 - Math.abs(s - Math.round(s)) * 4);   // between islands it stays right over the dots
+    balSide += (clearSide(P) * nearIsle - balSide) * Math.min(1, dt * 4);
     const R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize();
     balloon.position.set(P.x + BAL.x + R.x * balSide, P.y + BAL.y + bob, P.z + BAL.z + R.z * balSide); balloon.rotation.y += dt * 0.25;
-    const near = Math.round(s), settled = !dragging && Math.abs(sTo - s) < 0.04;
+    const near = Math.round(s), settled = !dragging && Math.abs(sTo - s) < 0.04 && Math.abs(sTo - near) < 0.01;   // resting on a dot: no island in focus
     if (settled && focus !== near) setFocus(near);
-    if (!settled && focus !== -1 && Math.abs(s - focus) > 0.35) setFocus(-1);
+    if (!settled && focus !== -1 && (Math.abs(s - focus) > 0.35 || Math.abs(sTo - focus) > 0.01)) setFocus(-1);
     dotsInView();
     // every plain cloud drifts gently on its own (Golan 20.10)
     if (!prefersStill) far.forEach((g) => { const h = g.metadata.home, q = T * 0.12 + g.metadata.ph; g.position.set(h.x + Math.sin(q) * 1.2, h.y + Math.sin(q * 1.7) * 0.25, h.z + Math.cos(q * 0.8) * 0.6); });
@@ -284,12 +318,12 @@
     // the next ones up and to the right, farther and smaller; a focused island brings it closer
     let want, look;
     if (tall) {   // standing phone: the camera stays over the middle of the trail and looks up it; islands zigzag around the middle
-      const M = mid(s), cx = lerp(M.x, P.x, zoom * 0.6);
-      want = new BABYLON.Vector3(cx, P.y + lerp(11, 6, zoom), P.z - lerp(7.5, 6.5, zoom));
-      look = new BABYLON.Vector3(cx + lerp(0.6, 0.2, zoom), P.y + lerp(2.6, 1.2, zoom), P.z + lerp(11, 5, zoom));
+      const M = mid(Math.max(0, s - BACK_TALL)), cx = lerp(M.x, C.x, zoom * 0.6);
+      want = new BABYLON.Vector3(cx, C.y + lerp(11, 6, zoom), C.z - lerp(7.5, 6.5, zoom));
+      look = new BABYLON.Vector3(cx + lerp(0.6, 0.2, zoom), C.y + lerp(2.6, 1.2, zoom), C.z + lerp(11, 5, zoom));
     } else {
-      want = new BABYLON.Vector3(P.x + lerp(1.0, 0.4, zoom), P.y + lerp(5.2, 3.5, zoom), P.z - lerp(9.5, 7.3, zoom));
-      look = new BABYLON.Vector3(P.x + lerp(6.8, 3.8, zoom), P.y + lerp(0.7, 0.2, zoom), P.z + lerp(9, 4.5, zoom));
+      want = new BABYLON.Vector3(C.x + lerp(1.0, 0.4, zoom) + SHIFT, C.y + lerp(5.2, 3.5, zoom), C.z - lerp(9.5, 7.3, zoom));
+      look = new BABYLON.Vector3(C.x + lerp(6.8, 3.8, zoom) + SHIFT, C.y + lerp(0.7, 0.2, zoom), C.z + lerp(9, 4.5, zoom));
     }
     { const R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize(); keepClear(dt);   // Golan 20.10: islands make room for the start button (it never moves)
       const off = R.scale(-btnOff.x).add(new BABYLON.Vector3(0, -btnOff.y, 0)); want.addInPlace(off); look.addInPlace(off); }
@@ -297,7 +331,7 @@
     // Golan 20.10: only the balloon's island and the next 4 show; moving on brings one more in and lets the first go
     const cur = Math.max(0, Math.min(STOPS.length - 1, Math.round(s)));
     isles.forEach((it, i) => {
-      const inView = i >= cur && i <= cur + 4 ? 1 : 0; it.vis = it.vis == null ? inView : it.vis + (inView - it.vis) * Math.min(1, dt * 3.5);
+      const inView = i >= cur - 1 && i <= cur + 4 ? 1 : 0;   /* Golan 29.10: the island before stays in view too */ it.vis = it.vis == null ? inView : it.vis + (inView - it.vis) * Math.min(1, dt * 3.5);
       const v = it.vis < 0.02 ? 0 : it.vis; it.root.setEnabled(v > 0); it.root.scaling.setAll(ISLE * (v * v * (3 - 2 * v)));
       const f = i === focus ? 1 : 0; it.grow += (f - it.grow) * Math.min(1, dt * 3);
       // the ring of letters turns the other way and slowly (Golan 20.10)
@@ -312,7 +346,7 @@
       if (!it.open) it.root.rotation.z = i === focus && !prefersStill ? Math.sin(T * 14) * 0.05 * Math.max(0, 1 - (T - focusedAt) / 0.8) : 0;
     });
   }
-  function dotsInView() { const cur = Math.round(s); dots.forEach((d) => d.setEnabled(d.metadata.seg >= cur && d.metadata.seg < cur + 4)); }
+  function dotsInView() { const cur = Math.round(s); dots.forEach((d) => d.setEnabled(d.metadata.seg >= cur - 1 && d.metadata.seg < cur + 4)); }
     function tint(it, k) {   // k = 0 closed (in its bubble), 1 open; in between the bubble swells and pops
     const b = it.bubble; b.setEnabled(k < 1); if (k < 1) { const e = k * k; b.scaling.setAll(1 + e * 0.35); b.visibility = 1 - e; }
     it.show.setEnabled(k > 0.02);
@@ -330,11 +364,10 @@
     pill.querySelector(".spk").dataset.clip = openNow ? "map_t" + (focus + 1) : "map_d" + (focus + 1);
     go.hidden = true; fit();   /* Golan 20.10: no round ▶ button; a tap on the island (or the balloon) opens it */
   }
-  function fit() {   // nikud only at 28px or more (literacy ruling 16.10)
+  function fit() {   // Golan 29.10: every word shown in the topics keeps its nikud (was: only at 28px or more)
     const b = ui.querySelector(".pill b"); b.textContent = b.dataset.nq || "";
-    if (parseFloat(getComputedStyle(b).fontSize) < 28) b.textContent = FL.plainHe(b.textContent);
   }
-  function goTo(i, far) {   // Golan 20.10: one island at a time (only the balloon's way home may skip several)
+  function goTo(i, far) {   // arrows and the wheel: one island at a time; a touch (far) flies to any island ahead or behind (Golan 29.10)
     const c = Math.round(s); if (!far) i = Math.max(c - 1, Math.min(c + 1, i)); sTo = Math.max(0, Math.min(STOPS.length - 1, i)); }
   function enter(i) {
     if (!isles[i].open) { opt.say("map_t" + (i + 1), null, ["map_d" + (i + 1), "map_locked"]); focusedAt = T; return; }
@@ -355,14 +388,15 @@
     });
     const up = () => {
       if (!dragging) return; const d = dragging; dragging = null;
-      if (d.moved) { tw = null; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(dragTo))); return; }
-      const hit = scene.pick(scene.pointerX, scene.pointerY, (m) => m.metadata && (m.metadata.stop != null || m.metadata.balloon));
+      if (d.moved) { tw = null; vel = 0; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(dragTo))); return; }
+      const hit = scene.pick(scene.pointerX, scene.pointerY, (m) => m.isEnabled() && m.metadata && (m.metadata.stop != null || m.metadata.balloon || m.metadata.dot != null));
       if (!hit || !hit.hit) return;
       // Golan 20.10: a tap on the balloon past the child's progress flies it back to the last open island
       // Golan 20.10: a tap on the balloon brings it back to where it started (the island its progress recommends); there, it opens it
-      if (hit.pickedMesh.metadata.balloon) { if (Math.round(sTo) !== home) goTo(home, true); else if (focus >= 0) enter(focus); return; }
+      if (hit.pickedMesh.metadata.balloon) { if (sTo !== home) goTo(home, true); else if (focus >= 0) enter(focus); return; }
+      if (hit.pickedMesh.metadata.dot != null) { sTo = dotV[hit.pickedMesh.metadata.dot]; return; }   // Golan 29.10: a dot on the way: the balloon goes to it
       const i = hit.pickedMesh.metadata.stop;
-      if (i === focus) enter(i); else goTo(i);
+      if (i === focus) enter(i); else goTo(i, true);
     };
     canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", () => { if (dragging) { dragging.moved = true; up(); } });
     canvas.addEventListener("wheel", (e) => { e.preventDefault(); goTo(Math.round(s) + (e.deltaY + e.deltaX > 0 ? 1 : -1)); }, { passive: false });
@@ -376,7 +410,7 @@
     ui.innerHTML = `<canvas aria-label="מפת הלמידה"></canvas><div class="wait">…</div>
       <div class="top"><div class="pill" style="opacity:0"><span class="lk" aria-hidden="true" hidden></span><b></b><button class="spk" type="button" aria-label="הקשבה">🔊</button></div>
       <button class="go" type="button" aria-label="כניסה" hidden>${PLAY}</button></div>
-      <button class="sys" type="button"><span class="tx"><b>התחל משחק</b><small>על פי רמת התקדמות</small></span><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="map_system">🔊</span></button>`;
+      <button class="sys" type="button"><span class="tx"><b>הַתְחֵל מִשְׂחָק</b><small>עַל פִּי רָמַת הִתְקַדְּמוּת</small></span><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="map_system">🔊</span></button>`;
     ui.querySelector(".go").onclick = () => focus >= 0 && enter(focus);
     ui.querySelector(".pill .spk").onclick = (e) => { e.stopPropagation(); if (focus >= 0) setFocus(focus); };
     ui.querySelector(".sys").onclick = (e) => { if (e.target.closest(".spk")) return; opt.onSystem(); };
@@ -399,7 +433,7 @@
       tint(it, it.open ? Math.max(0, it.gone) : 0); });
     dots.forEach((d) => { d.material = d.metadata.seg < open - 1 ? dotOn() : dotOff(); });
     const fresh = open > seen;   // a new island opened since the last visit: start there so the cloud blows away in view
-    s = sTo = fresh ? open - 1 : Math.min(open - 1, o.at != null ? o.at : 0); home = open - 1; tw = null; focus = -1; zoom = 0;
+    s = sTo = fresh ? open - 1 : Math.min(open - 1, o.at != null ? o.at : 0); home = open - 1; tw = null; vel = 0; focus = -1; zoom = 0;
     const P = along(s); cam.position.set(P.x + 1, P.y + 7, P.z - 14); camLook = null;
     try { localStorage.setItem(seenKey, String(open)); } catch (e) {}
     fov(); engine.resize(); engine.runRenderLoop(() => scene.render()); fit();

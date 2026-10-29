@@ -57,6 +57,12 @@
 
   .hud { position: fixed; inset: 0; pointer-events: none; }
   .hud > * { pointer-events: auto; }
+  /* "איך משחקים?" in the game (Golan 29.10): a card with a question mark, bottom left */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(58 * var(--u, 1px)), 46px); aspect-ratio: 3 / 4; border-radius: 18%;
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(38 * var(--u, 1px)), 30px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
+  #demoStart { display: none; }   /* the card in the game replaces the button in the start window */
 
   .prompt {
     position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
@@ -376,6 +382,7 @@
 <canvas id="game" aria-label="בלש הצלילים"></canvas>
 
 <div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
   <div class="prompt" id="promptBox" role="status">
     <!-- the "מִצְאוּ אֶת כָּל" caption was removed (Golan, 15.10, all games): the letter and the speaker are enough -->
     <span class="target" id="target"></span>
@@ -643,7 +650,7 @@
     }
     return clipCache[id];
   }
-  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).map((o) => o.s), ...SOUND_L.flatMap(picsOf).map((k) => PICS[k].clip), "sd_q1", "sd_explain", "sd_demo"].forEach(getClip);
+  [...Object.values(CLIP_OF_TEXT), ...Object.values(SOUNDS).map((o) => o.s), ...SOUND_L.flatMap(picsOf).map((k) => PICS[k].clip), "sd_q1", "sd_explain", "sd_explain_f", "sd_explain_p", "sd_demo"].forEach(getClip);
   let browserSpeaking = false;
   function sayBrowser(text, rate) {
     if (!("speechSynthesis" in window)) return;
@@ -1056,6 +1063,8 @@
     const meshes = parts.map(([x, y, r]) => { const s = BABYLON.MeshBuilder.CreateSphere("puff", { diameter: r * 2, segments: 10 }, scene); s.position.set(x, y, 0.3); s.scaling.z = 0.55; return s; });
     const m = BABYLON.Mesh.MergeMeshes(meshes, true, true);
     m.name = "cloud" + i; m.material = cloudMat; m.isPickable = false;
+    // the random puffs make each cloud lopsided: move it so its middle is under the picture (Golan 29.10: pictures not centred)
+    m.refreshBoundingInfo(); const cc = m.getBoundingInfo().boundingBox.center; m.position.x -= cc.x; m.position.y -= cc.y - 0.05;
     return m;
   }
   const clouds = Array.from({ length: 12 }, (_, i) => {
@@ -1368,6 +1377,7 @@
     }, Math.max(300, pace().inDur * 1000 / motionK()));
   }
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
+  $("helpCard").addEventListener("click", (e) => { e.stopPropagation(); $("demoPause").click(); });
   $("demoPause").addEventListener("click", () => { if (pausedFrom !== null) resumeGame(); if (!state.q || state.mode === "end") return;
     clouds.forEach((c) => { if (c.state !== "off") { c.state = "off"; c.root.setEnabled(false); } }); if (tok.c) finishTok();
     runDemo(() => askQuestion()); });
@@ -1522,7 +1532,7 @@
     // the letter with its nikud shows beside the picture once it hangs; Hila: "בַּ... בַּיִת" (+ the explanation after a solved sky)
     const landMs = Math.max(0, ...tags.filter((g) => g.on).map((g) => TAG_FLY - g.t)) * 1000 / motionK();
     setTimeout(() => { if (state.q === myQ) showOk(q.letter); }, Math.max(0, landMs - 300));
-    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, "sd_explain", S.s] : ["fb_correct", S.s, W];   // "יש! נכון!" first (Golan 29.10)
+    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, FL.explainClip((PICS[picFor(q.letter)] || {}).word), S.s] : ["fb_correct", S.s, W];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => setTimeout(() => {
       if (state.q !== myQ) return;
       clouds.forEach((c) => { if (c.state === "drop" || c.state === "idle" || c.state === "wrong" || c.state === "empty") { c.state = "out"; c.t = 0; c.flyFrom = { x: c.root.position.x, y: c.root.position.y }; } });

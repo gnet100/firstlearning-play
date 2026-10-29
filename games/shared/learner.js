@@ -18,6 +18,11 @@
     const opts = g.filter((x) => x !== lastOf.get(g)), pick = opts[Math.floor(Math.random() * opts.length)];
     lastOf.set(g, pick); return pick;
   };
+  // "מַתְחִיל / מַתְחִילָה / מַתְחִילִים בַּצְּלִיל" by the picture's word (Golan 29.10, every sound game): feminine and plural
+  // words by their plain spelling; any other word is masculine. Clips: sd_explain, sd_explain_f, sd_explain_p.
+  const WORD_F = new Set(["דלת", "סכריה", "מטריה", "רכבת", "שמש", "זברה", "בננה", "נעל", "טבעת", "יד", "כף", "צלחת", "משאית", "כבאית", "חללית", "נדנדה", "מגלשה", "חצוצרה", "מסכה"]);
+  const WORD_P = new Set(["גרבים"]);
+  FL.explainClip = (word) => { const w = String(word || "").replace(/[\u0591-\u05C7]/g, ""); return WORD_P.has(w) ? "sd_explain_p" : WORD_F.has(w) ? "sd_explain_f" : "sd_explain"; };
   const KEY = "fl-learner-v1";
   const SESSION_GAP = 4 * 3600e3;          // a new session after 4 hours without play (Golan 15.10: 2nd success in another session)
   const FAST_WRONG_MS = 800;               // a wrong tap faster than this is a game-skill slip, not a letter error
@@ -1686,6 +1691,85 @@ ${items[item]}</svg>`;
     const st = cardsFor(cur())[l].cursive.state;
     return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
   }
+  // ---------- moving progress between devices (Golan 29.10: a file; all the children; merged, nothing is lost) ----------
+  // The file holds the learner store and every other "fl-" setting of this browser. Opening it on another device merges:
+  // a child with the same id or the same name becomes one child (all practice from both devices, sessions counted again
+  // by time); a new child is added. Per-child settings follow the device the child played on last.
+  const SKIP_KEYS = new Set([KEY, "fl-alive", "fl-hub-url", "fl-hourglass-ms"]);
+  function exportAll() {
+    load(); const other = {};
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("fl-") && !SKIP_KEYS.has(k)) other[k] = localStorage.getItem(k); } } catch (e) {}
+    return { app: "FirstLearning", kind: "progress", v: 1, at: Date.now(), learner: db, other };
+  }
+  function importAll(file) {
+    if (!file || file.app !== "FirstLearning" || file.kind !== "progress" || !file.learner || !file.learner.profiles) throw new Error("not a progress file");
+    const ids = {}, added = [], merged = [];
+    mutate(() => {
+      const plain = (n) => stripNikud(cleanName(n || "")).replace(/\s+/g, " ").trim();
+      for (const ip0 of Object.values(file.learner.profiles)) {
+        const ip = JSON.parse(JSON.stringify(ip0));
+        const lp = db.profiles[ip.id] || Object.values(db.profiles).find((q) => plain(q.name) === plain(ip.name) && (!q.gender || !ip.gender || q.gender === ip.gender));
+        if (!lp) {
+          if (db.profiles[ip.id]) ip.id = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+          db.profiles[ip.id] = ip; if (taken(ip.id).includes(ip.color + ":" + ip.item)) Object.assign(ip, freeCombo(ip.id));
+          ids[ip0.id] = ip.id; added.push(ip.name); continue;
+        }
+        ids[ip0.id] = lp.id; merged.push(lp.name);
+        const newer = (ip.lastAt || 0) > (lp.lastAt || 0) ? ip : lp;
+        const seen = new Set(), evs = [];
+        for (const e of [...(lp.events || []), ...(ip.events || [])]) { const k = e.t + "|" + e.l + "|" + e.g + "|" + e.m; if (!seen.has(k)) { seen.add(k); evs.push(e); } }
+        evs.sort((a, b) => a.t - b.t);
+        let sess = 0, last = 0; for (const e of evs) { if (!last || e.t - last > SESSION_GAP) sess++; last = e.t; e.s = sess; }   // sessions again, by time
+        const rs = new Set(), rounds = [...(lp.rounds || []), ...(ip.rounds || [])].filter((r) => { const k = r.t + "|" + r.g; return rs.has(k) ? false : (rs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-50);
+        const keep = { id: lp.id, name: lp.name, color: lp.color, item: lp.item, created: Math.min(lp.created || Infinity, ip.created || Infinity) };
+        Object.assign(lp, newer === lp ? {} : ip, keep, {
+          events: evs.slice(-MAX_EVENTS), rounds, session: sess, lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1,
+          motor: [...(lp.motor || []), ...(ip.motor || [])].slice(-12), gameLevels: Object.assign({}, (newer === lp ? ip : lp).gameLevels || {}, newer.gameLevels || {}),
+          gender: lp.gender || ip.gender || null, birthYear: lp.birthYear || ip.birthYear || null });
+      }
+      if (!db.current && file.learner.current) db.current = ids[file.learner.current] || null;
+    });
+    // the other settings: keys named for a child follow the child; a setting this device already has stays as it is,
+    // but the speed table (per child) merges
+    const rename = (k) => { for (const [a, b] of Object.entries(ids)) if (a !== b && k.includes(a)) k = k.split(a).join(b); return k; };
+    try {
+      for (const [k0, v] of Object.entries(file.other || {})) { const k = rename(k0); if (SKIP_KEYS.has(k)) continue;
+        if (k === SPEED_KEY) { let a = {}, b = {}; try { a = JSON.parse(localStorage.getItem(k) || "{}") || {}; b = JSON.parse(v || "{}") || {}; } catch (e) {}
+          for (const [id, m] of Object.entries(b)) { const j = ids[id] || id; a[j] = Object.assign({}, m, a[j] || {}); }
+          localStorage.setItem(k, JSON.stringify(a)); speedDb = null; continue; }
+        if (/^fl-map-seen-/.test(k)) { localStorage.setItem(k, String(Math.max(+localStorage.getItem(k) || 0, +v || 0))); continue; }
+        if (localStorage.getItem(k) == null) localStorage.setItem(k, v);
+      }
+    } catch (e) {}
+    cache = null; return { added, merged };
+  }
+  // buttons for a settings window: "שמירת ההתקדמות לקובץ" and "פתיחת קובץ התקדמות" (the hub's parent settings)
+  function transferRow(host, { onDone } = {}) {
+    const box = document.createElement("div"); box.className = "fl-transfer";
+    box.innerHTML = `<div class="fl-tr-title">העברת ההתקדמות למכשיר אחר</div>
+      <div class="fl-tr-btns"><button type="button" class="fl-tr-save">💾 שמירת ההתקדמות לקובץ</button><button type="button" class="fl-tr-open">📂 פתיחת קובץ התקדמות</button></div>
+      <div class="fl-tr-msg" aria-live="polite"></div><input type="file" accept=".json,application/json" hidden>`;
+    const msg = box.querySelector(".fl-tr-msg"), inp = box.querySelector("input");
+    box.querySelector(".fl-tr-save").onclick = async () => {
+      const d = new Date(), name = `firstlearning-progress-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.json`;
+      const blob = new Blob([JSON.stringify(exportAll())], { type: "application/json" });
+      try { const f = new File([blob], name, { type: "application/json" });   // a phone can send it on (WhatsApp, mail)
+        if (navigator.canShare && navigator.canShare({ files: [f] }) && matchMedia("(pointer: coarse)").matches) { await navigator.share({ files: [f], title: name }); msg.textContent = "הקובץ נשלח."; return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      msg.textContent = "הקובץ נשמר (" + name + "). שלחו אותו למכשיר השני ופתחו אותו שם בכפתור \"פתיחת קובץ התקדמות\".";
+    };
+    box.querySelector(".fl-tr-open").onclick = () => { inp.value = ""; inp.click(); };
+    inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const r = new FileReader();
+      r.onload = () => { try { const res = importAll(JSON.parse(String(r.result)));
+          msg.textContent = "ההתקדמות נפתחה." + (res.merged.length ? " אוחדו: " + res.merged.join(", ") + "." : "") + (res.added.length ? " נוספו: " + res.added.join(", ") + "." : "");
+          if (onDone) onDone(res); } catch (e) { msg.textContent = "זה לא קובץ התקדמות של המשחק."; } };
+      r.readAsText(f); };
+    if (!document.getElementById("fl-tr-css")) { const st = document.createElement("style"); st.id = "fl-tr-css";
+      st.textContent = `.fl-transfer{margin:14px 0 4px;padding:12px;border-radius:14px;background:#f4f8fc;text-align:center}.fl-tr-title{font-weight:800;margin-bottom:8px}
+        .fl-tr-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}.fl-tr-btns button{font:inherit;font-weight:700;border:2px solid #d5dde6;background:#fff;border-radius:999px;padding:8px 16px;cursor:pointer;min-height:44px}
+        .fl-tr-msg{margin-top:8px;font-size:.9em;color:#3b4a5c;min-height:1em}`; document.head.append(st); }
+    host.append(box); return box;
+  }
   FL.learner = {
     cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
@@ -1702,7 +1786,7 @@ ${items[item]}</svg>`;
     roundLength: () => { const p = (load(), cur()); return roundLengthFor(p && p.birthYear ? new Date().getFullYear() - p.birthYear : null); },
     age: () => { const p = cur(); return p && p.birthYear ? new Date().getFullYear() - p.birthYear : null; },
     renderParentTable, renderChildLetters, endPanel, letterPicker, PICKER_TITLE, setGame, autoCount: () => autoCount(cur()), setPalette, palettes: () => Object.keys(PALETTES), autoLetters, withAutoForce, autoForce: () => ({ in: [...autoForce.in], out: [...autoForce.out] }), visit, childMedianRt: (game) => (cardsFor(cur()), cache ? cache.gameMedian[game || cache.lastG] ?? null : null),
-    fromHub: FROM_HUB, hubUrl: HUB_URL, markHub,
+    fromHub: FROM_HUB, hubUrl: HUB_URL, markHub, exportAll, importAll, transferRow,
     sessionId: () => SESSION.sid, freshSession: () => SESSION.fresh,
     _reset: () => { db = { v: 1, current: null, profiles: {} }; save(); cache = null; },
   };

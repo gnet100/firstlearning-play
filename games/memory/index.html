@@ -903,10 +903,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
         c.state = "used"; c.el.classList.remove("surprise-pop"); c.el.classList.add("gone");
         later(ms(650), () => {
           const closed = state.cards.filter((x) => x.state === "closed" && !x.surprise);
-          closed.forEach((x) => x.el.classList.add("peek"));
+          closed.forEach((x) => { x.el.classList.add("peek"); if (x.la) x.la.wake(); });   // awake, like an open card: every letter the same colour (Golan 29.10)
           // the more cards still to turn, the longer they stay open: up to 6 as before, up to 10 x1.5, more x2 (Golan 29.10)
           const peekK = closed.length <= 6 ? 1 : closed.length <= 10 ? 1.5 : 2;
-          later(ms(1600 * peekK), () => { closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
+          later(ms(1600 * peekK), () => { closed.forEach((x) => { x.el.classList.remove("peek"); if (x.la && x.state === "closed") x.la.sleep(); }); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
         });
       });
     });

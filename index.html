@@ -287,7 +287,7 @@
     const n = LRN && LRN.nextGame ? LRN.nextGame(null) : null, g = (n && GAMES.find((x) => x.id === n.id)) || GAMES.find((x) => x.id === "detective");
     openGame(g, document.createElement("div"));
   }
-  // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
+  // Golan 29.10: every word under the pictures and in the topics keeps its nikud, at any size (was: only at 28px or more)
   const NIKUD = /[\u0591-\u05BD\u05BF-\u05C7]/g;   // keeps the maqaf
   // 9 cards (Golan 21.10): the cards shrink until every row fits on the screen, no scrolling
   // Golan 21.10: bottom row, right to left: "משחקים ביחד" (always, in every station), the song, the letter circle
@@ -330,7 +330,6 @@
   function fitNikud() {
     for (const el of document.querySelectorAll("[data-nq]")) {
       el.textContent = el.dataset.nq; el.classList.add("nq");
-      if (parseFloat(getComputedStyle(el).fontSize) < 28) { el.textContent = window.FL && FL.plainHe ? FL.plainHe(el.dataset.nq) : el.dataset.nq.replace(NIKUD, ""); el.classList.remove("nq"); }   // full spelling: זיהוי (Golan 28.10)
     }
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden && screen === "games") { fitGrid(); fitNikud(); } });
@@ -402,6 +401,9 @@
     o.addEventListener("click", (e) => { if (e.target === o) back(); });
     drawKids(); if (LRN) LRN.renderParentTable(o.querySelector(".set-table"));
     drawSummary(); o.querySelector(".set-chk .go").onclick = startCheck;
+    // Golan 29.10: the progress of all the children goes to another device as a file, and merges there
+    if (LRN && LRN.transferRow) { const sec = document.createElement("section"); o.querySelector(".set-body").append(sec);
+      LRN.transferRow(sec, { onDone: () => { drawKids(); LRN.renderParentTable(o.querySelector(".set-table")); drawSummary(); refreshWho(); } }); }
   }
   // ---------- parent summary and letter check round (Golan 20.10): both come from the game "תגיד לי" ----------
   // The summary reads that game's record on this device (the current child's rows; rows from before 20.10 carry no child).
@@ -589,7 +591,7 @@
     if (d.flag) { ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, top + 1); ctx.lineTo(50, top - 10); ctx.stroke();
       ctx.fillStyle = d.flag; ctx.beginPath(); ctx.moveTo(50, top - 10); ctx.lineTo(64, top - 10); ctx.lineTo(60, top - 5.5); ctx.lineTo(64, top - 1); ctx.lineTo(50, top - 1); ctx.fill(); }
     ctx.strokeStyle = "#5b4632"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(50 - mx, 89); ctx.lineTo(32, 97); ctx.moveTo(50 + mx, 89); ctx.lineTo(68, 97); ctx.stroke();
-    if (d.shape === "heart") {   // the heart balloon (shared/love-balloon.js): its own outline, painted at full size
+    if (d.shape === "heart") {   // until the picture loads: the flat heart drawing
       const he = new Path2D(LOVE_ENV), pc = document.createElement("canvas"); pc.width = 250; pc.height = 335; paintLove(pc.getContext("2d"), 250, 335, d, false);
       ctx.save(); ctx.clip(he); ctx.drawImage(pc, 0, -14, 100, 134); ctx.restore(); ctx.strokeStyle = d.c[1]; ctx.lineWidth = 1.8; ctx.stroke(he);
     } else {
@@ -621,7 +623,9 @@
       r = r ? { l: Math.min(r.l, q.left), r: Math.max(r.r, q.right), t: Math.min(r.t, q.top), b: Math.max(r.b, q.bottom) } : { l: q.left, r: q.right, t: q.top, b: q.bottom }; }
     return r;
   }
-  const sizeOf = (f) => { const sp = sprites[f.i], sc = f.s * Math.min(Wd, Hd) / 520 * 1.6; return { w: sp.w * sc, h: sp.h * sc, sc }; };
+  // Golan 29.10: rising also takes a balloon farther away: smaller (to about half at the top of the screen), a little paler, slower
+  const depthOf = (f) => { const t = Math.max(0, Math.min(1, (f.y || 0) / (Hd || 1))); return 0.5 + 0.5 * t; };
+  const sizeOf = (f) => { const sp = sprites[f.i], sc = f.s * depthOf(f) * Math.min(Wd, Hd) / 520 * 1.6; return { w: sp.w * sc, h: sp.h * sc, sc }; };
   function zonesFor(w) {   // free strips at the sides, wide enough for this balloon
     const r = keepOut(), m = 12, z = [];
     if (!r) return [[0, Wd]];
@@ -647,6 +651,23 @@
   let last = performance.now(), zoneCheck = 0;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   function cloud(x, y, s) { sctx.fillStyle = "#ffffffcc"; sctx.beginPath(); for (const [dx, dy, r] of [[0, 0, 26], [26, -10, 30], [54, 0, 24], [26, 8, 26]]) { sctx.moveTo(x + dx * s + r * s, y + dy * s); sctx.arc(x + dx * s, y + dy * s, r * s, 0, 7); } sctx.fill(); }
+  // Golan 29.10: the balloons never hide one another (as in "משחקים ביחד", 20.10): when two come near, the farther (smaller)
+  // one turns its slant away from the other; if the strip is too narrow to pass, it keeps behind or ahead instead of overtaking
+  function keepApart(dt) {
+    for (let i = 0; i < floats.length; i++) for (let j = i + 1; j < floats.length; j++) {
+      const A = floats[i], B = floats[j], a = sizeOf(A), b = sizeOf(B), m = 0.2 * Math.min(a.w, b.w);
+      const ix = Math.min(A.x + a.w / 2, B.x + b.w / 2) - Math.max(A.x - a.w / 2, B.x - b.w / 2) + m, iy = Math.min(A.y + a.h, B.y + b.h) - Math.max(A.y, B.y) + m;
+      if (ix <= 0 || iy <= 0) continue;
+      const [far, near, fs, ns] = A.s < B.s ? [A, B, a, b] : [B, A, b, a], away = far.x < near.x ? -1 : 1;
+      far.a = away * Math.max(0.45, Math.abs(far.a));   // the farther one turns away
+      // and they glide apart softly the short way: sideways when the strip has room, else one waits behind the other
+      const z = far.zone || [0, Wd], step = Math.min(1, dt * 3);
+      const roomX = away < 0 ? far.x - fs.w / 2 - z[0] : z[1] - far.x - fs.w / 2;
+      if (ix < iy * 1.5 && roomX > 2) far.x += away * Math.min(roomX, ix * step);
+      else { const below = far.y > near.y ? 1 : -1; far.y += below * iy * step * 0.6; near.y -= below * iy * step * 0.4;
+        if (below > 0) far.v = Math.min(far.v, near.v * 0.85); else far.v = Math.max(far.v, near.v * 1.2); }
+    }
+  }
   function frame(t) {
     const dt = Math.min(0.05, (t - last) / 1000); last = t;
     sctx.clearRect(0, 0, Wd, Hd);
@@ -655,14 +676,15 @@
     if (t - zoneCheck > 500) { zoneCheck = t; for (const f of floats) { const { w } = sizeOf(f), z = zonesFor(w);   // the screen changed (cards shown / hidden)
       if (z.length && !(f.zone && z.some((q) => Math.abs(q[0] - f.zone[0]) < 1 && Math.abs(q[1] - f.zone[1]) < 1))) launch(f, true); } }
     floats.sort((a, b) => a.s - b.s);   // small ones are far away, drawn first
+    if (!still) keepApart(dt);
     for (const f of floats) {
       const { w, h } = sizeOf(f);
-      if (!still) { const dy = f.v * Hd * dt; f.y -= dy; f.x += dy * f.a;
+      if (!still) { const dy = f.v * Hd * dt * (0.45 + 0.55 * depthOf(f)); f.y -= dy; f.x += dy * f.a;
         if (f.zone) { if (f.x - w / 2 < f.zone[0]) { f.x = f.zone[0] + w / 2; f.a = Math.abs(f.a); } if (f.x + w / 2 > f.zone[1]) { f.x = f.zone[1] - w / 2; f.a = -Math.abs(f.a); } }
         else if (f.x < -w || f.x > Wd + w) f.a = -f.a;
         if (f.y < -h) launch(f, false); }
       const sway = Math.sin(t / 1400 + f.ph) * 6 * f.s, x = f.x - w / 2 + sway;
-      let alpha = 0.6 + f.s * 0.4;
+      let alpha = (0.6 + f.s * 0.4) * (0.7 + 0.3 * depthOf(f));
       if (!f.zone && out) {   // no free strip: fade out while behind the cards
         const over = x + w > out.l && x < out.r && f.y + h > out.t && f.y < out.b; f.fade = Math.max(0, Math.min(1, (f.fade ?? 1) + (over ? -dt * 4 : dt * 4)));
         alpha *= f.fade; }
@@ -675,6 +697,7 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+  window.__hubFloats = () => floats.map((f) => Object.assign({ x: f.x, y: f.y }, sizeOf(f)));   // for the tester
 
   // ---------- the balloons in 3D, turning slowly like the balloon of the letter train (Golan 29.10, every island) ----------
   // The same 9 balloons as the games: a sphere envelope with the game skin, skirt, ropes, striped basket, flag; the heart balloon

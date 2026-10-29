@@ -31,6 +31,12 @@
 
   .hud { position: fixed; inset: 0; pointer-events: none; }
   .hud > * { pointer-events: auto; }
+  /* "איך משחקים?" in the game (Golan 29.10): a card with a question mark, bottom left */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(58 * var(--u, 1px)), 46px); aspect-ratio: 3 / 4; border-radius: 18%;
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(38 * var(--u, 1px)), 30px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
+  #demoStart { display: none; }   /* the card in the game replaces the button in the start window */
   .hud[hidden] { display: none; }
 
   .prompt {
@@ -362,7 +368,7 @@
   #wheel .frame::before { left: 0; background: linear-gradient(90deg, #ffe9b8, #ffe9b800); }
   #wheel .frame::after { right: 0; background: linear-gradient(270deg, #ffe9b8, #ffe9b800); }
   /* Golan 29.10: the pictures sit fixed on a turning bracelet, as in "בחר גלגל" (a ring seen a little from above) */
-  #wheel .ring3d { position: absolute; left: 50%; top: 45%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+  #wheel .ring3d { position: absolute; left: 50%; top: 53%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
   .tile { position: absolute; width: var(--tr); height: var(--tr); left: calc(var(--tr) * -.5); top: calc(var(--tr) * -.5); transform-style: preserve-3d; }
   .tile > i { position: absolute; inset: 0; border-radius: 18%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
   .tile .f { background: #fff; box-shadow: 0 0 0 calc(var(--ts) * .015) #f2b84b inset; }
@@ -420,7 +426,10 @@
   #stopBtn { background: #ff8a3d; box-shadow: 0 5px 0 #c45f1d; }
   #spinRow button:active { transform: translateY(3px); box-shadow: none; }
   #spinRow button[hidden] { display: none; }
-  #spinRow button.nudge { animation: carFlash 1s ease-in-out 2; }
+  /* Golan 29.10: "סובב" and "עצור" both breathe softly the whole time (a gentle blink, not a jump) */
+  #spinRow button { animation: softPulse 1.8s ease-in-out infinite; }
+  @keyframes softPulse { 50% { transform: scale(1.045); filter: brightness(1.08); } }
+  #spinRow button:active { animation: none; }
   .demo-hand { position: fixed; z-index: 9; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
   .demo-hand.show { display: block; }
   .demo-hand svg { display: block; width: 100%; height: auto; }
@@ -444,6 +453,7 @@
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
 
 <div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
   <!-- Golan 29.10: no speaker above the wheel (it hit the arrow) and none on the picture; every ball has its own -->
   <div class="prompt listen" id="promptBox" style="display: none"><button class="round-btn" id="replay" aria-label="שמיעה חוזרת">🔊</button></div>
   <div class="stars" id="stars" data-fl-stars data-fl-title="גַּלְגַּל הַצְּלִילִים"></div>
@@ -534,7 +544,7 @@
     $("startText").textContent = gt("מסובבים את הגלגל ועוצרים", "סובב את הגלגל ועצור", "סובבי את הגלגל ועצרי");
     $("startText2").textContent = gt("ואז נוגעים בצליל שהתמונה מתחילה בו", "ואז גע בצליל שהתמונה מתחילה בו", "ואז געי בצליל שהתמונה מתחילה בו");
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
-    $("topicTitle").textContent = gt("בוחרים גלגל", "בחר גלגל", "בחרי גלגל");
+    $("topicTitle").textContent = gt("בּוֹחֲרִים גַּלְגַּל", "בְּחַר גַּלְגַּל", "בַּחֲרִי גַּלְגַּל")   /* nikud: Golan 29.10 */;
   }
 
   // ---------- content (spec 7): words that open with kamatz, patah or hataf patah; the sounds of the sound detective ----------
@@ -548,10 +558,10 @@
     "מ": { syl: "מַ", s: "syl_ma" }, "ע": { syl: "עַ", s: "syl_a_ayin" }, "פ": { syl: "פַּ", s: "syl_pa" } };   // מ ע פ for transport and toys (29.10)
   // the topics: a picture key (pictures.js / sound-pictures.js / wheel-pictures.js) and the sound its word opens with
   const TOPICS = [
-    { id: "animals", name: "חיות", clip: "sw_cat_animals", pics: [["camel", "ג"], ["נ", "נ"], ["ט", "ט"], ["י", "י"], ["א", "א"], ["ח", "ח"], ["צ", "צ"],
+    { id: "animals", name: "חַיּוֹת", clip: "sw_cat_animals", pics: [["camel", "ג"], ["נ", "נ"], ["ט", "ט"], ["י", "י"], ["א", "א"], ["ח", "ח"], ["צ", "צ"],
       ["tiger", "נ"], ["rabbit", "א"], ["donkey", "ח"], ["rooster", "ת"], ["crocodile", "ת"]] },
-    { id: "transport", name: "תחבורה", clip: "sw_cat_transport", pics: [["ר", "ר"], ["plane", "מ"], ["helicopter", "מ"], ["truck", "מ"], ["fireTruck", "כ"], ["ambulance", "א"], ["spaceship", "ח"]] },
-    { id: "toys", name: "צעצועים", clip: "sw_cat_toys", pics: [["כ", "כ"], ["ן", "ב"], ["rattle", "ר"],
+    { id: "transport", name: "תַּחְבּוּרָה", clip: "sw_cat_transport", pics: [["ר", "ר"], ["plane", "מ"], ["helicopter", "מ"], ["truck", "מ"], ["fireTruck", "כ"], ["ambulance", "א"], ["spaceship", "ח"]] },
+    { id: "toys", name: "צַעֲצוּעִים", clip: "sw_cat_toys", pics: [["כ", "כ"], ["ן", "ב"], ["rattle", "ר"],
       ["swing", "נ"], ["slide", "מ"], ["kite", "ע"], ["trumpet", "ח"], ["mask", "מ"], ["puzzle", "פ"]] },
   ];
   const topic = () => TOPICS.find((t) => t.id === settings.topic && !t.soon) || TOPICS[0];
@@ -639,7 +649,7 @@
     return clipCache[id];
   }
   // lines of the voice thread (lines.js): sw_start (opening), sw_q (the question), sw_cat_* (topic names), hub_g_wheel; sd_demo and sd_explain shared with the sound detective; silent until recorded
-  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "ins_balloon", "sw_pick", "sw_q", "sd_demo", "sd_explain", "day_break", "day_end"];
+  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "ins_balloon", "sw_pick", "sw_q", "sd_demo", "sd_explain", "sd_explain_f", "sd_explain_p", "day_break", "day_end"];
   const CHILD_LINES = ["sw_start", "ins_balloon", "sw_pick", "day_break"];   // boy / girl versions first, else the plural clip
   LINES.forEach(getClip); Object.values(SOUNDS).forEach((s) => getClip(s.s)); TOPICS.forEach((t) => { getClip(t.clip); t.pics.forEach(([k]) => PICS[k] && getClip(PICS[k].clip)); });
   if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
@@ -779,7 +789,7 @@
   const N_TILES = 8, SPIN_V = 2.2;   // tiles a second at full spin (Golan 29.10: much slower)
   let geo = { ts: 120, step: 140, cx: 0, cy: 0, w: 0, h: 0 };
   // the bracelet: whole rounds of the pictures, as many as fill the wheel's width (never the same picture side by side)
-  const TILE_K = 0.76;   // a card on the bracelet, to the size of the picture card
+  const TILE_K = 0.64;   // a card on the bracelet, to the size of the picture card
   function buildWheel(keys) {
     const fr = $("frame"); fr.textContent = ""; const ring = document.createElement("div"); ring.className = "ring3d"; fr.append(ring);
     const want = geo && geo.ts ? (2 * Math.PI * Math.max(geo.ts, geo.w * 0.43 - geo.ts * 0.4)) / (geo.ts * TILE_K * 1.1) : 12;
@@ -832,8 +842,8 @@
   // the big picture over the wheel's middle (spec 3: the picture grows a little)
   function placeStar() {
     const s = $("star"); if (s.hidden) return;
-    const k = state.q && state.q.big ? 1.32 : 1, ss = geo.ts * k;
-    s.style.left = geo.cx + "px"; s.style.top = geo.cy + "px"; s.style.width = ss + "px"; s.style.height = ss + "px"; s.style.setProperty("--ss", ss + "px");
+    const big = state.q && state.q.big, k = big ? 1.1 : 1, ss = geo.ts * k;   // smaller and a bit lower, so the red arrow stays seen (Golan 29.10)
+    s.style.left = geo.cx + "px"; s.style.top = (geo.cy + (big ? geo.ts * 0.12 : 0)) + "px"; s.style.width = ss + "px"; s.style.height = ss + "px"; s.style.setProperty("--ss", ss + "px");
   }
   // run the wheel: SPIN_V tiles a second; "עצור" (or a touch on the wheel) stops it right where it is, then the nearest
   // tile glides under the arrow (spec 2: the wheel stops exactly where the child stopped it)
@@ -994,7 +1004,7 @@
     b.classList.add("fly"); b.style.transform = `translate(${(s.left + s.width * 0.82 - (r.left + r.width / 2)).toFixed(0)}px, ${(s.top + s.height * 0.18 - (r.top + r.height / 2)).toFixed(0)}px) scale(.6)`;
     sfx.good();
     setTimeout(() => { if (state.q !== q) return; b.style.opacity = "0"; showOk(q); sparks(); wake(q.k); }, 800);
-    const ids = auto ? [SOUNDS[q.l].s, word(q.k), word(q.k), "sd_explain", SOUNDS[q.l].s] : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
+    const ids = auto ? [SOUNDS[q.l].s, word(q.k), word(q.k), FL.explainClip((PICS[q.k] || {}).word), SOUNDS[q.l].s] : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => later(ms(1200), () => {
       if (state.q !== q) return;
       $("balls").textContent = "";
@@ -1098,6 +1108,7 @@
     });
   }
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
+  $("helpCard").addEventListener("click", (e) => { e.stopPropagation(); if (["intro", "end", "flying", "ready", "pick", "demo"].includes(state.mode)) return; unlockAudio(); hideOk(); runDemo(() => readySpin()); });
   $("demoSettings").addEventListener("click", (e) => { e.stopPropagation(); if (state.mode === "intro" || state.mode === "end") return; closeSettings(); hideOk(); runDemo(() => readySpin()); });
 
   // ---------- one round = the golden hourglass: spin after spin ----------
