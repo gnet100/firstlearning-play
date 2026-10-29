@@ -1418,10 +1418,19 @@
       }, 750);   // the next sky comes sooner (Golan, 16.10)
     }, Math.max(250, landing)));
   }
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (hg) hg.stop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     // the round's stars in order, gold and silver, counted from 0 each round (Golan, 15.10)
     state.mode = "end"; if (hg) hg.stop();
     // shiny gold / silver stars from the shared code (same look in every game, Golan 16.10); the emoji only if it failed to load

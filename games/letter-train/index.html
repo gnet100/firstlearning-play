@@ -1540,10 +1540,19 @@
     newTrain(false);
   }
   let endCard = null;
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.phase = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.phase === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready"].includes(state.phase)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready"].includes(state.phase)) endRound(); }
   function endRound() {
-    if (state.phase === "end") return;
+    if (state.phase === "end" || (state.phase === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     state.phase = "end";   // one star per right drop, counted during the round
     if (HG) HG.stop();
     const secs = Math.round((performance.now() - state.roundStart) / 1000);

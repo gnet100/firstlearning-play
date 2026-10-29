@@ -986,10 +986,19 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     if (HG) HG.start();
     newBoard();
   }
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: null, dom: [...$("board").children].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     state.mode = "end"; if (HG) HG.stop();
     $("board").hidden = true; $("fx").innerHTML = "";
     const day = kid() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null;

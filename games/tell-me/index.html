@@ -1250,7 +1250,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
     $("target").textContent = ""; state.queue = buildQueue(); state.results = state.queue.map(() => "");
     state.qIndex = 0; state.roundStart = performance.now(); state.roundT0 = Date.now(); state.roundLater = 0; state.mode = "play";
     state.stars = 0; state.starRow = []; state.recorded = new Set(); if (sc) sc.reset();   // this round's stars only
-    if (!hgOn()) hgStop(); else if (!hgGet().running) hg.start();   // a rebuilt round (settings) keeps the sand that is left
+    if (!hgOn()) { hgStop(); FL.learner.endFlyReset && FL.learner.endFlyReset(); } else if (!hgGet().running) hg.start();   // a rebuilt round (settings) keeps the sand that is left
     renderDots(); askQuestion();
   }
   // hourglass: one more letter after the queue ran out (picked as buildQueue picks them)
@@ -1380,10 +1380,19 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
   let pendingT0 = 0;
   function dropUnconfirmed() { const L = window.FL && FL.learner; if (pendingT0 && L && L.discardSince) L.discardSince("tellme", pendingT0); pendingT0 = 0; }
   addEventListener("pagehide", dropUnconfirmed);
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; hgStop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     state.mode = "end"; card.setEnabled(false); hgStop();
     const okFirst = state.queue.filter((x, i) => !x.re && state.results[i] === "ok").length;
     showConfirm();

@@ -1148,10 +1148,19 @@
   if (HG) $("dotsWrap").hidden = true;   // the dots counted the 9 letters; no count now
   // "לסיים" on the left does the same as the door (Golan 17.10)
   let endP = null;
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     state.mode = "end"; state.q = null; roundsPlayed++; if (HG) HG.stop();   // the hanging letters stay behind the end popup; a new round clears them
     const s = state.s;
     if (LRN && s.asked) LRN.setLevelFromDiagnostic();   // the starting level for every game, from how many letters are known

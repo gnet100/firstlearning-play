@@ -1223,10 +1223,19 @@
   // two buttons in every game (Golan 17.10): עוד סיבוב on the right, לסיים on the left (= the door; on a day-end a short goodbye first)
   let dayEndNow = false;
   const endButtons = () => [{ text: "לסיים", ghost: true, id: "finish", onClick: finishDay }, { text: "עוד סיבוב", primary: true, id: "again", onClick: againRound }];
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (hg) hg.stop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     state.mode = "end"; if (hg) hg.stop();
     // star icons only, one per star earned this round (Golan, 15.10): no text, no seconds, no gate count
     let note = "", canFinish = false, dayLine = null;

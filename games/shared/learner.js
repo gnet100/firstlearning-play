@@ -1528,12 +1528,141 @@ ${items[item]}</svg>`;
       if (k >= 1 && !hg.ended) { hg.ended = true; el.classList.add("fl-hg-end"); draw(1, t); try { hg.opt.onEnd && hg.opt.onEnd(); } catch (e) {} }
       raf = requestAnimationFrame(tick);
     };
-    hg.start = (ms) => { hg.total = ms || playMs(); hg.used = 0; hg.ended = false; hg.running = true; last = 0; el.classList.remove("fl-hg-end"); el.hidden = false; place(); draw(0, 0); if (!raf) raf = requestAnimationFrame(tick); return hg; };
+    hg.start = (ms) => { endFlyReset(); hg.total = ms || playMs(); hg.used = 0; hg.ended = false; hg.running = true; last = 0; el.classList.remove("fl-hg-end"); el.hidden = false; place(); draw(0, 0); if (!raf) raf = requestAnimationFrame(tick); return hg; };
     hg.stop = () => { hg.running = false; el.hidden = true; if (raf) cancelAnimationFrame(raf); raf = 0; };
     hg.done = () => hg.ended;
     hg.left = () => Math.max(0, hg.total - hg.used);
     hg.show = (on) => { el.hidden = !on; };
     return (hgOne = hg);
+  }
+  // ---------- end of a round: "everything flies up" (Golan 29.10, summaries/end-transition-spec.md) ----------
+  // await FL.learner.endFly({ scene, dom: [els], paused: () => bool, mute: bool }) before the end window, in every game.
+  // Each piece (the Babylon scene's top nodes, the HUD pieces, the star counter, the hourglass, opt.dom) lets go in turn over
+  // the first 1.5 s and rises faster and faster, swaying a little, until it is off the screen; after 5 s a clean sky is left.
+  // The door and the gear stay and work; every other touch is swallowed (no skipping). A soft wordless wind plays meanwhile.
+  // The pieces stay away behind the end window; the next round's hourglass.start() (or endFlyReset()) brings them back.
+  const FLY_MS = 5000;
+  let flyNow = null;
+  function endFlyReset() {
+    const f = flyNow; flyNow = null; if (!f) return;
+    f.stop();
+    f.doms.forEach((d) => { d.el.style.translate = d.tr; d.el.style.rotate = d.ro; d.el.style.opacity = d.op; });
+    if (f.sky) f.sky.remove();
+  }
+  function flyWind(mute) {
+    if (mute) return () => {};
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return () => {};
+      const ac = flyWind.ac || (flyWind.ac = new AC()); if (ac.state === "suspended") ac.resume();
+      const n = ac.sampleRate * 2, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+      let b = 0; for (let i = 0; i < n; i++) { b = 0.97 * b + 0.03 * (Math.random() * 2 - 1); d[i] = b * 3; }   // soft brown-ish noise
+      const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 500; bp.Q.value = 0.8;
+      const g = ac.createGain(), t = ac.currentTime; g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.16, t + 1.2); g.gain.linearRampToValueAtTime(0.12, t + 3.6); g.gain.linearRampToValueAtTime(0, t + FLY_MS / 1000);
+      bp.frequency.setValueAtTime(380, t); bp.frequency.linearRampToValueAtTime(900, t + FLY_MS / 1000);   // the wind rises with them
+      src.connect(bp); bp.connect(g); g.connect(ac.destination); src.start();
+      return () => { try { g.gain.cancelScheduledValues(ac.currentTime); g.gain.setTargetAtTime(0, ac.currentTime, 0.08); src.stop(ac.currentTime + 0.4); } catch (e) {} };
+    } catch (e) { return () => {}; }
+  }
+  function endFly(opt = {}) {
+    endFlyReset();
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const keep = (el) => /^(door|gear|pause)/i.test(el.id || "") || el.classList.contains("gear") || el.classList.contains("door-btn");
+    const shown = (el) => el && el.isConnected && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    const hud = document.getElementById("hud");
+    const els = new Set([...(hud && shown(hud) ? hud.children : []), ...document.querySelectorAll("[data-fl-stars], .fl-hg, #flRestart"), ...(opt.dom || [])]);
+    const W = innerWidth, H = innerHeight;
+    // DOM pieces: the separate translate / rotate properties, so the game's own transform is kept
+    const doms = [...els].filter((el) => el && shown(el) && !keep(el)).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { el, tr: el.style.translate, ro: el.style.rotate, op: el.style.opacity, x: r.left + r.width / 2, rise: r.bottom + H * 0.15, big: r.width * r.height > W * H * 0.5 };
+    });
+    // Babylon pieces: the scene's top nodes, moved up in world units (one screen high at their depth) just for each drawing
+    const nodes = [], sc = opt.scene, cam = sc && sc.activeCamera;
+    if (sc && cam && window.BABYLON) {
+      const B = BABYLON, eng = sc.getEngine(), vh = eng.getRenderHeight() || H, vw = eng.getRenderWidth() || W;
+      const ortho = cam.mode === B.Camera.ORTHOGRAPHIC_CAMERA;
+      const prj = (v) => B.Vector3.Project(v, B.Matrix.Identity(), sc.getTransformMatrix(), cam.viewport.toGlobal(vw, vh));
+      const heightAt = (p) => {   // one screen high, in world units, at this depth
+        if (ortho) return Math.abs((cam.orthoTop != null ? cam.orthoTop : 1) - (cam.orthoBottom != null ? cam.orthoBottom : -1)) || 1;
+        const dist = Math.max(0.5, B.Vector3.Dot(p.subtract(cam.globalPosition || cam.position), cam.getDirection(B.Axis.Z)));
+        const t = Math.tan((cam.fov || 0.8) / 2); return 2 * dist * (cam.fovMode === B.Camera.FOVMODE_HORIZONTAL_FIXED ? t * vh / vw : t);
+      };
+      const usable = (n) => !(n instanceof B.Camera || n instanceof B.Light) && n.position && !(n.isEnabled && !n.isEnabled()) && !(opt.skip && opt.skip(n));
+      const take = (n, depth) => {
+        if (!usable(n)) return;
+        const own = n instanceof B.AbstractMesh && n.isVisible ? [n] : [];
+        const ms = own.concat(n.getChildMeshes ? n.getChildMeshes(false) : []).filter((m) => m.isVisible && m.isEnabled());
+        if (!ms.length) return;
+        // its box in the world: its place on the screen (the order of letting go) and its size
+        let mn = null, mx = null;
+        ms.forEach((m) => { const bb = m.getBoundingInfo && m.getBoundingInfo().boundingBox; if (!bb) return; mn = mn ? B.Vector3.Minimize(mn, bb.minimumWorld) : bb.minimumWorld.clone(); mx = mx ? B.Vector3.Maximize(mx, bb.maximumWorld) : bb.maximumWorld.clone(); });
+        if (!mn) return;
+        const c = mn.add(mx).scale(0.5), worldH = heightAt(c), sizeH = mx.y - mn.y;
+        let x = W / 2;
+        try {
+          x = prj(c).x * (W / vw);
+          // a piece wholly under (or over) the screen stays where it is: rising, it would only come into sight
+          const top = prj(new B.Vector3(c.x, mx.y, c.z)).y, bot = prj(new B.Vector3(c.x, mn.y, c.z)).y;
+          if (Math.min(top, bot) > vh || Math.max(top, bot) < 0) return;
+        } catch (e) {}
+        const big = mx.x - mn.x > worldH * 2.5 || sizeH > worldH * 0.9;
+        const kids = n.getChildren ? n.getChildren() : [];
+        // a very big piece (a whole island, the land, a world that holds everything): its parts fly on their own, its own ground fades
+        if (big && depth < 4 && kids.length) {
+          if (own.length) nodes.push({ n, ms: own, x, rise: 0, big: true, fade: true, up: null });
+          kids.forEach((k) => take(k, depth + 1)); return;
+        }
+        // "up" in the parent's own units, so a piece inside a turned or scaled group still rises straight up
+        let up = null;
+        if (n.parent && n.parent.getWorldMatrix) { const inv = n.parent.getWorldMatrix().clone(); inv.invert(); up = B.Vector3.TransformNormal(new B.Vector3(0, 1, 0), inv); }
+        nodes.push({ n, ms, x, rise: worldH * 1.25 + sizeH, big, up, rot0: n.rotationQuaternion || n.parent ? null : n.rotation.z });
+      };
+      sc.rootNodes.slice().forEach((n) => take(n, 0));
+    }
+    // the order of letting go: shuffled a little, the first 1.5 s
+    const all = doms.concat(nodes); all.forEach((it) => { it.k = Math.random(); }); all.sort((a, b) => a.k - b.k);
+    all.forEach((it, i) => { it.st = all.length > 1 ? (i / (all.length - 1)) * 1500 : 0; it.ph = Math.random() * 6; });
+    const sky = document.createElement("div");   // the clean sky that is left (as before the 3-2-1)
+    sky.style.cssText = "position:fixed;inset:0;background:var(--sky,#bfe6ff);opacity:0;pointer-events:none;transition:none";
+    const hudEl = document.getElementById("hud");   // just above the game's drawing, under the HUD, the door, the gear and the end window
+    if (hudEl && hudEl.parentNode) hudEl.parentNode.insertBefore(sky, hudEl); else (document.body || document.documentElement).appendChild(sky);
+    let used = 0, last = 0, raf = 0, done = false, ok;
+    const flying = (it) => { const q = Math.max(0, Math.min(1, (used - it.st) / 3000)); return { q, e: q * q, sway: Math.sin(q * 6 + it.ph), rot: Math.sin(q * 5 + it.ph) * 0.15 }; };
+    const before = sc ? sc.onBeforeRenderObservable.add(() => {
+      for (const it of nodes) {
+        const f = flying(it); it.dy = it.big ? 0 : f.e * it.rise;
+        if (it.up) it.n.position.addInPlace(it.up.scale(it.dy)); else it.n.position.y += it.dy;
+        if (!it.big && it.rot0 != null) it.n.rotation.z = it.rot0 + f.rot;
+        if (it.big || reduce) { it.vis = it.ms.map((m) => m.visibility); const a = Math.max(0, 1 - (reduce ? used / 1500 : (used - it.st) / 2000)); it.ms.forEach((m) => { m.visibility *= a; }); }
+      }
+    }) : null;
+    const after = sc ? sc.onAfterRenderObservable.add(() => {
+      for (const it of nodes) { if (it.up) it.n.position.subtractInPlace(it.up.scale(it.dy || 0)); else it.n.position.y -= it.dy || 0; it.dy = 0; if (it.rot0 != null) it.n.rotation.z = it.rot0; if (it.vis) { it.ms.forEach((m, j) => { m.visibility = it.vis[j]; }); it.vis = null; } }
+    }) : null;
+    // touches during the flight do nothing, except on the door and the gear (and the settings window they open)
+    const allow = (t) => t && t.closest && t.closest('[id^="door"], #gear, .gear, #pause, #settings, .fl-ov, .fl-set, dialog');
+    const swallow = (e) => { if (!allow(e.target)) { e.stopPropagation(); if (e.cancelable && e.type !== "pointermove") e.preventDefault(); } };
+    const EV = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "touchstart", "touchend", "keydown", "wheel"];
+    EV.forEach((t) => window.addEventListener(t, swallow, { capture: true, passive: false }));
+    const isPaused = () => { try { return document.hidden || !!(opt.paused && opt.paused()) || !!document.querySelector("#settings:not([hidden])"); } catch (e) { return false; } };
+    const wind = flyWind(opt.mute);
+    const stopAll = () => { if (raf) cancelAnimationFrame(raf); raf = 0; EV.forEach((t) => window.removeEventListener(t, swallow, { capture: true })); wind(); };
+    const tick = (t) => {
+      raf = 0; const dt = last ? Math.min(100, t - last) : 0; last = t;
+      if (!isPaused()) used += dt;
+      for (const it of doms) {
+        const f = flying(it);
+        if (reduce || it.big) { it.el.style.opacity = String(Math.max(0, 1 - (reduce ? used / 1500 : (used - it.st) / 2000))); continue; }
+        it.el.style.translate = `${(f.sway * W * 0.01).toFixed(1)}px ${(-f.e * it.rise).toFixed(1)}px`; it.el.style.rotate = `${(f.rot * 57.3).toFixed(1)}deg`;
+      }
+      sky.style.opacity = String(Math.max(0, Math.min(1, (used - 3800) / 900)));   // whatever is left (land too big to leave) is under a clean sky
+      if (used >= FLY_MS) { done = true; stopAll(); ok && ok(); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    flyNow = { doms, sky, stop: () => { stopAll(); if (before) sc.onBeforeRenderObservable.remove(before); if (after) sc.onAfterRenderObservable.remove(after); if (!done) { done = true; ok && ok(false); } } };
+    return new Promise((res) => { ok = (v) => { ok = null; res(v !== false); }; raf = requestAnimationFrame(tick); });
   }
   // Letters to practise (for the parent's "recommended" button in the letter picker).
   function recommended(mode) { const c = cardsFor(cur()); return FL.LETTERS.filter((l) => c[l] && ["hard", "learning", "almost"].includes(stateIn(c[l], mode).state)); }
@@ -1557,7 +1686,7 @@ ${items[item]}</svg>`;
     speed, speedPct, setSpeedPct, speedRow, refreshSpeed,
     pace: () => (cur() ? cur().pace : 1), roundEnd, setLevelFromDiagnostic, star, starSvg, starCounter, lineIds, stripNikud,
     dayInfo: () => dayInfo(), breakShown, warmup, motorMedian: () => { const p = cur(); return p ? median(p.motor || []) : null; },
-    hourglass, playMs: () => playMs(), settingsForm,
+    hourglass, playMs: () => playMs(), settingsForm, endFly, endFlyReset,
     // Golan 18.10 (all games): once a letter is "מוכרת" (or known), the bar beside the speaker no longer shows it; the letter is only said
     hearOnly: (l) => { try { const k = cardsFor(cur())[l]; return !!k && ["almost", "known"].includes(k.recognize.state); } catch (e) { return false; } },
     roundLength: () => { const p = (load(), cur()); return roundLengthFor(p && p.birthYear ? new Date().getFullYear() - p.birthYear : null); },

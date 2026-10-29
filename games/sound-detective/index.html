@@ -530,7 +530,7 @@
   const lvl = () => (LM ? Math.min(3, Math.max(1, LM.level() || 1)) : 1);
   // Golan 28.10: level 1 = 3 pictures and their names first, level 2 = 4 pictures and their names, level 3 = 4 pictures, no names
   // (the speaker repeats the question only). The close-sound distractor of level 3 (גָּ / כַּ) waits for the literacy advisor.
-  const cloudCount = () => [3, 4, 6][lvl() - 1] || 4;   // Golan 28.10 19:00: level 3 = 6 pictures
+  const cloudCount = () => [3, 4, 5][lvl() - 1] || 4;   // Golan 29.10: levels 1-3 = 3, 4, 5 pictures
   const sayNames = () => lvl() < 3;
   const cardOf = (l) => { try { return (LM && LM.card && LM.card(l)) || null; } catch (e) { return null; } };
   const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
@@ -1536,10 +1536,19 @@
       }, 750);
     }, 400)), Math.max(250, landMs - 200));
   }
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (hg) hg.stop();
+    L.endFly({ scene: scene, dom: [$("sylMark"), ...$("cloudSpks").children].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
-    if (state.mode === "end") return;
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
     // the round's stars in order, gold and silver, counted from 0 each round (Golan, 15.10)
     state.mode = "end"; if (hg) hg.stop();
     // shiny gold / silver stars from the shared code (same look in every game, Golan 16.10); the emoji only if it failed to load
@@ -1624,8 +1633,8 @@
     if (form) return form.refresh();
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LM.settingsForm($("flForm"), { game: "sound", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות (3, 4, 6), וברמה 3 הקריינית לא אומרת את השמות.",   // one sentence, as in every game (Golan 28.10)
-      levels: ["3 תמונות, הקריינית אומרת את השמות.", "4 תמונות, הקריינית אומרת את השמות.", "6 תמונות, בלי שמות: שומעים רק את הצליל."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות (3, 4, 5), וברמה 3 הקריינית לא אומרת את השמות.",   // one sentence, as in every game (Golan 28.10)
+      levels: ["3 תמונות, הקריינית אומרת את השמות.", "4 תמונות, הקריינית אומרת את השמות.", "5 תמונות, בלי שמות: שומעים רק את הצליל."],
       onLevel: () => { lettersChanged = lettersChanged || "keep"; },
       // only the 8 sounds of this game can be marked (spec sec 7)
       picker: { available: SOUND_L, finals: false, autoList: () => soundPool(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
