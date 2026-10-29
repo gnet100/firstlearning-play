@@ -940,7 +940,7 @@
     const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
     return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${idp}${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
       (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
-      `<image href="${balloonPics[i]}" x="0" y="${d.shape === "heart" ? -14 : 0}" width="100" height="${d.shape === "heart" ? 134 : 120}" preserveAspectRatio="none" clip-path="url(#${idp}${i})"/>` +
+      `<image href="${balloonPics[i]}" x="0" y="${d.shape === "heart" ? -14 : Math.min(0, top - 2).toFixed(1)}" width="100" height="${d.shape === "heart" ? 134 : (120 - Math.min(0, top - 2)).toFixed(1)}" preserveAspectRatio="none" clip-path="url(#${idp}${i})"/>` +
       `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
       `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
       `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
