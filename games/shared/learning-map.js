@@ -308,7 +308,7 @@
     // Golan 20.10: the balloon never hides an island ahead: on screen it slides sideways (left or right, whichever is
     // nearer and stays on the screen) until it no longer covers any of them
     const nearIsle = Math.max(0, 1 - Math.abs(s - Math.round(s)) * 4);   // between islands it stays right over the dots
-    balSide += (clearSide(P) * nearIsle - balSide) * Math.min(1, dt * 4);
+    balSide += (0 * clearSide(P) * nearIsle - balSide) * Math.min(1, dt * 4);   // Golan 29.10 21:19: the balloon stays right over the island's middle (its slide aside, 20.10, read as passing the island)
     const R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize();
     balloon.position.set(P.x + BAL.x + R.x * balSide, P.y + BAL.y + bob, P.z + BAL.z + R.z * balSide); balloon.rotation.y += dt * 0.25;
     const near = Math.round(s), settled = !dragging && Math.abs(sTo - s) < 0.04 && Math.abs(sTo - near) < 0.01;   // resting on a dot: no island in focus
