@@ -361,8 +361,12 @@
   #wheel .frame::before, #wheel .frame::after { content: ""; position: absolute; top: 0; bottom: 0; width: 18%; z-index: 2; pointer-events: none; }
   #wheel .frame::before { left: 0; background: linear-gradient(90deg, #ffe9b8, #ffe9b800); }
   #wheel .frame::after { right: 0; background: linear-gradient(270deg, #ffe9b8, #ffe9b800); }
-  .tile { position: absolute; top: 50%; left: 50%; width: var(--ts); height: var(--ts); margin: calc(var(--ts) * -.5) 0 0 calc(var(--ts) * -.5); border-radius: 18%;
-    background: #fff; box-shadow: 0 calc(var(--ts) * .03) calc(var(--ts) * .08) #0002; will-change: transform; }
+  /* Golan 29.10: the pictures sit fixed on a turning bracelet, as in "בחר גלגל" (a ring seen a little from above) */
+  #wheel .ring3d { position: absolute; left: 50%; top: 45%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+  .tile { position: absolute; width: var(--tr); height: var(--tr); left: calc(var(--tr) * -.5); top: calc(var(--tr) * -.5); transform-style: preserve-3d; }
+  .tile > i { position: absolute; inset: 0; border-radius: 18%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .tile .f { background: #fff; box-shadow: 0 0 0 calc(var(--ts) * .015) #f2b84b inset; }
+  .tile .b { background: linear-gradient(#ffe7a8, #f5c95c); transform: rotateY(180deg); }
   .tile img, .tile svg { position: absolute; inset: 6%; width: 88%; height: 88%; display: block; }
   /* the arrow over the middle of the wheel */
   #pointer { position: absolute; left: 50%; top: 0; width: calc(var(--ts) * .34); translate: -50% -62%; z-index: 3; filter: drop-shadow(0 3px 3px #0004); pointer-events: none; }
@@ -771,24 +775,24 @@
   const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
   const N_TILES = 8, SPIN_V = 2.2;   // tiles a second at full spin (Golan 29.10: much slower)
   let geo = { ts: 120, step: 140, cx: 0, cy: 0, w: 0, h: 0 };
+  // the bracelet: whole rounds of the pictures, as many as fill the wheel's width (never the same picture side by side)
+  const TILE_K = 0.76;   // a card on the bracelet, to the size of the picture card
   function buildWheel(keys) {
-    const fr = $("frame"); fr.textContent = "";
-    state.tiles = keys.map((k) => { const el = document.createElement("div"); el.className = "tile"; el.innerHTML = picHtml(k); fr.append(el); return { k, el }; });
+    const fr = $("frame"); fr.textContent = ""; const ring = document.createElement("div"); ring.className = "ring3d"; fr.append(ring);
+    const want = geo && geo.ts ? (2 * Math.PI * Math.max(geo.ts, geo.w * 0.43 - geo.ts * 0.4)) / (geo.ts * TILE_K * 1.1) : 12;
+    const n = Math.min(24, keys.length * Math.max(1, Math.round(want / keys.length)));
+    state.tiles = Array.from({ length: n }, (_, i) => { const k = keys[i % keys.length], el = document.createElement("div"); el.className = "tile";
+      el.innerHTML = `<i class="f">${picHtml(k)}</i><i class="b"></i>`; ring.append(el); return { k, el }; });
   }
   const mod = (a, n) => ((a % n) + n) % n;
   const under = () => state.tiles[mod(Math.round(state.pos), state.tiles.length)];
   let lastTick = 0;
   function drawWheel() {
     const n = state.tiles.length; if (!n) return;
-    const R = geo.step * 2.6;   // the drum: tiles further from the arrow turn away and get smaller
-    state.tiles.forEach((t, i) => {
-      let d = i - mod(state.pos, n); if (d > n / 2) d -= n; if (d < -n / 2) d += n;   // tiles from the arrow (right = negative: the wheel turns right to left)
-      const a = Math.max(-1.45, Math.min(1.45, (d * geo.step) / R));
-      const x = Math.sin(a) * R, z = (Math.cos(a) - 1) * R;
-      t.el.style.transform = `translateX(${(-x).toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${(a * 57.3).toFixed(1)}deg)`;
-      t.el.style.opacity = Math.abs(a) > 1.35 ? 0 : 1;
-      t.el.style.zIndex = String(100 - Math.round(Math.abs(d) * 10));
-    });
+    // the ring turns, the tiles stay fixed on it: the tile at pos sits in front under the arrow, the next ones to the left (right to left)
+    const tr = geo.ts * TILE_K, step = 360 / n, R = (n * tr * 1.1) / (2 * Math.PI), ring = state.tiles[0].el.parentNode;
+    if (ring._R !== R) { ring._R = R; ring.style.setProperty("--tr", tr + "px"); state.tiles.forEach((t, i) => (t.el.style.transform = `rotateY(${(-i * step).toFixed(2)}deg) translateZ(${R.toFixed(1)}px)`)); }
+    ring.style.transform = `translateZ(${(-R).toFixed(1)}px) rotateX(-4deg) rotateY(${(mod(state.pos, n) * step).toFixed(2)}deg)`;
     const r = Math.round(state.pos); if (r !== lastTick) { lastTick = r; if (state.spinning) tick(); }
   }
   // sizes: the wheel across the screen under the pill, the balls (or the spin button) under it
@@ -885,7 +889,7 @@
   function readySpin() {
     epoch++; state.q = null; hideOk();
     $("star").hidden = true; $("balls").hidden = true; $("balls").textContent = "";
-    buildWheel(wheelPics()); state.pos = Math.floor(Math.random() * N_TILES); state.spinning = false; snap = null;
+    layout(); buildWheel(wheelPics()); state.pos = Math.floor(Math.random() * N_TILES); state.spinning = false; snap = null;
     $("wheel").hidden = false; $("spinRow").hidden = false; $("spinBtn").hidden = false; $("stopBtn").hidden = true;
     state.mode = "ready2spin"; layout(); nudgeLater("spinBtn", 5000);
   }
