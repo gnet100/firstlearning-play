@@ -23,6 +23,46 @@
   const WORD_F = new Set(["דלת", "סכריה", "מטריה", "רכבת", "שמש", "זברה", "בננה", "נעל", "טבעת", "יד", "כף", "צלחת", "משאית", "כבאית", "חללית", "נדנדה", "מגלשה", "חצוצרה", "מסכה"]);
   const WORD_P = new Set(["גרבים"]);
   FL.explainClip = (word) => { const w = String(word || "").replace(/[\u0591-\u05C7]/g, ""); return WORD_P.has(w) ? "sd_explain_p" : WORD_F.has(w) ? "sd_explain_f" : "sd_explain"; };
+  // Golan 29.10 20:30 (all games): "יוצאים לדרך" and "עוד סיבוב" take one tap; more taps right after it (2-3 in a row) are
+  // swallowed for 1.5 s, so a round never starts twice. Runs first (capture), before the games' own handlers.
+  if (root.addEventListener) root.addEventListener("click", (e) => {
+    const t = e.target && e.target.closest ? e.target : null; if (!t || t.closest(".fl-end-spk, .spk")) return;
+    const b = t.closest("#go, .go-btn, .fl-end-btn"); if (!b) return;
+    const now = Date.now(); if (b._flBusy && now < b._flBusy) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    b._flBusy = now + 1500;
+  }, true);
+  // ---------- demo marks (Golan 29.10 20:22, every demo): a yellow wavy frame while a demo plays, gone when the game begins,
+  // and an arrow that points at each picture while its name is said. FL.demoFrame(true/false); FL.demoArrow(x, y) / FL.demoArrow(null)
+  function demoCss() {
+    if (document.getElementById("fl-demo-css")) return; const st = document.createElement("style"); st.id = "fl-demo-css";
+    st.textContent = `.fl-demo-frame{position:fixed;inset:max(10px,2.2vmin);z-index:45;pointer-events:none;opacity:0;transition:opacity .35s}
+      .fl-demo-frame.on{opacity:1}.fl-demo-frame svg{width:100%;height:100%;display:block;overflow:visible}
+      .fl-demo-arrow{position:fixed;z-index:46;pointer-events:none;width:max(54px,7vmin);height:max(54px,7vmin);translate:-50% -100%;opacity:0;transition:opacity .2s,left .35s ease,top .35s ease}
+      .fl-demo-arrow.on{opacity:1}.fl-demo-arrow svg{width:100%;height:100%;display:block;animation:flDemoBob .7s ease-in-out infinite alternate}
+      @keyframes flDemoBob{from{transform:translateY(-14%)}to{transform:translateY(4%)}}`;
+    document.head.append(st);
+  }
+  let demoFrameEl = null, demoArrowEl = null;
+  FL.demoFrame = (on) => {
+    if (typeof document === "undefined") return; demoCss();
+    if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.body.append(demoFrameEl); }
+    if (on) {   // a wavy line all round, drawn for the frame's own size
+      const r = demoFrameEl.getBoundingClientRect(), W = Math.max(100, r.width), H = Math.max(100, r.height), A = 10, step = 34, pts = [];
+      const side = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(L / step)), nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
+        for (let i = 0; i < n; i++) { const t = i / n, w = Math.sin(t * n * Math.PI) * A; pts.push([x0 + (x1 - x0) * t + nx * w, y0 + (y1 - y0) * t + ny * w]); } };
+      side(A, A, W - A, A); side(W - A, A, W - A, H - A); side(W - A, H - A, A, H - A); side(A, H - A, A, A);
+      const d = "M" + pts.map((q) => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L") + " Z";
+      demoFrameEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffffaa" stroke-width="11" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#ffc233" stroke-width="7" stroke-linejoin="round"/></svg>`;
+    }
+    demoFrameEl.classList.toggle("on", !!on); if (!on) FL.demoArrow(null);
+  };
+  FL.demoArrow = (x, y) => {
+    if (typeof document === "undefined") return; demoCss();
+    if (!demoArrowEl) { demoArrowEl = document.createElement("div"); demoArrowEl.className = "fl-demo-arrow";
+      demoArrowEl.innerHTML = '<svg viewBox="0 0 60 60"><path d="M22 4 H38 V30 H50 L30 56 L10 30 H22 Z" fill="#ff5a4e" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>'; document.body.append(demoArrowEl); }
+    if (x == null) { demoArrowEl.classList.remove("on"); return; }
+    demoArrowEl.style.left = x + "px"; demoArrowEl.style.top = y + "px"; demoArrowEl.classList.add("on");
+  };
   const KEY = "fl-learner-v1";
   const SESSION_GAP = 4 * 3600e3;          // a new session after 4 hours without play (Golan 15.10: 2nd success in another session)
   const FAST_WRONG_MS = 800;               // a wrong tap faster than this is a game-skill slip, not a letter error

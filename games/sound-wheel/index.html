@@ -32,9 +32,9 @@
   .hud { position: fixed; inset: 0; pointer-events: none; }
   .hud > * { pointer-events: auto; }
   /* "איך משחקים?" in the game (Golan 29.10): a card with a question mark, bottom left */
-  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(58 * var(--u, 1px)), 46px); aspect-ratio: 3 / 4; border-radius: 18%;
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
     border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
-    font: 900 max(calc(38 * var(--u, 1px)), 30px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
   #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
   #demoStart { display: none; }   /* the card in the game replaces the button in the start window */
   .hud[hidden] { display: none; }
@@ -1004,7 +1004,7 @@
     b.classList.add("fly"); b.style.transform = `translate(${(s.left + s.width * 0.82 - (r.left + r.width / 2)).toFixed(0)}px, ${(s.top + s.height * 0.18 - (r.top + r.height / 2)).toFixed(0)}px) scale(.6)`;
     sfx.good();
     setTimeout(() => { if (state.q !== q) return; b.style.opacity = "0"; showOk(q); sparks(); wake(q.k); }, 800);
-    const ids = auto ? [SOUNDS[q.l].s, word(q.k), word(q.k), FL.explainClip((PICS[q.k] || {}).word), SOUNDS[q.l].s] : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
+    const ids = auto ? [SOUNDS[q.l].s, word(q.k)]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => later(ms(1200), () => {
       if (state.q !== q) return;
       $("balls").textContent = "";
@@ -1080,7 +1080,8 @@
   // a hand presses "סובב", then "עצור"; Hila says the word and the sounds; the hand touches the right ball; the picture wakes
   function runDemo(done) {
     stopVoice(); state.mode = "demo";
-    demoAfter = () => { hideHand(); markDemo(); if (done) done(); };
+    if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays
+    demoAfter = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); hideHand(); markDemo(); if (done) done(); };
     readySpin(); state.mode = "demo";
     const my = epoch;
     playIds(["sd_demo"], () => {
@@ -1096,9 +1097,11 @@
             const keep = ask; stop();
             const wait = () => { if (my !== epoch) return; if (!state.q) return setTimeout(wait, 100); state.q.demo = true; state.mode = "demo";
               const q = state.q;
+              { const r = $("star").getBoundingClientRect(); if (window.FL && FL.demoArrow && r.width) FL.demoArrow(r.left + r.width / 2, r.top + 6); }   // an arrow at the picture while its name is said
               const go = () => { if (state.q !== q) return; if (state.mode === "play") state.mode = "demo";
                 if (voiceBusy() || $("balls").children.length < q.balls.length) return setTimeout(go, 150);
                 const b = [...$("balls").children].find((x) => x._l === q.l); if (!b) return demoAfter && demoAfter();
+                if (window.FL && FL.demoArrow) FL.demoArrow(null);
                 moveHand(mid($("stopBtn").hidden ? $("balls") : $("stopBtn")), mid(b), 1200, () => setTimeout(() => { if (state.q !== q) return hideHand(); state.mode = "play"; right(b, false); setTimeout(hideHand, 700); }, 300)); };
               go(); };
             wait();

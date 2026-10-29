@@ -382,7 +382,7 @@
   function nearestOnWay(px, py) {
     const cv = engine.getRenderingCanvas(), r = cv.getBoundingClientRect(), k = cv.clientWidth / engine.getRenderWidth();
     const vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()), M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly;
-    const cur = Math.round(s), lo = Math.max(0, cur - 1), hi = Math.min(STOPS.length - 1, cur + 4);
+    const lo = Math.max(0, s - 1.2), hi = Math.min(STOPS.length - 1, s + 1.2);   // only the way near the balloon (far islands crowd together on the screen)
     let best = s, bd = Infinity;
     for (let v = lo; v <= hi + 1e-6; v += 0.02) { const q = along(v), p = BABYLON.Vector3.Project(new BABYLON.Vector3(q.x, q.y + BAL.y * 0.6, q.z), I, M, vp);
       if (p.z < 0 || p.z > 1) continue; const d = Math.hypot(r.left + p.x * k - px, r.top + p.y * k - py); if (d < bd) { bd = d; best = v; } }
@@ -399,7 +399,7 @@
     });
     const up = () => {
       if (!dragging) return; const d = dragging; dragging = null;
-      if (d.moved) { tw = null; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(s + Math.max(-0.45, Math.min(0.45, (dragTo - s)))))); return; }   // on to the nearest island, softly, keeping its speed
+      if (d.moved) { tw = null; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(s))); return; }   // Golan 29.10 20:31: let go = the island nearest to where the balloon IS, softly (never on past it)
       const hit = scene.pick(scene.pointerX, scene.pointerY, (m) => m.isEnabled() && m.metadata && (m.metadata.stop != null || m.metadata.balloon || m.metadata.dot != null));
       if (!hit || !hit.hit) return;
       // Golan 20.10: a tap on the balloon past the child's progress flies it back to the last open island
@@ -469,5 +469,5 @@
   const FULL = { "זהוי": "זיהוי", "זכרון": "זיכרון" };
   FL.plainHe = (t) => t.replace(/[\u0591-\u05BD\u05BF-\u05C7]/g, "").replace(/[\u05D0-\u05EA]+/g, (w) => FULL[w] || w);
   FL.loadBabylon = loadBabylon;   // one loader for the hub's 3D sky balloons too
-  FL.map = { show, hide, STOPS, UNLOCK_AT, at: () => Math.round(sTo), probe };
+  FL.map = { show, hide, STOPS, UNLOCK_AT, at: () => Math.round(sTo), probe, state: () => ({ s, sTo, dragTo, dragging: !!dragging, moved: !!(dragging && dragging.moved), vel }) };   // state: for the tester
 })();

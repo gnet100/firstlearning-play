@@ -58,9 +58,9 @@
   .hud { position: fixed; inset: 0; pointer-events: none; }
   .hud > * { pointer-events: auto; }
   /* "איך משחקים?" in the game (Golan 29.10): a card with a question mark, bottom left */
-  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(58 * var(--u, 1px)), 46px); aspect-ratio: 3 / 4; border-radius: 18%;
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
     border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
-    font: 900 max(calc(38 * var(--u, 1px)), 30px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
   #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
   #demoStart { display: none; }   /* the card in the game replaces the button in the start window */
 
@@ -1318,7 +1318,7 @@
   const sc = LM && LM.starCounter ? LM.starCounter($("stars")) : null;
   // the golden hourglass under the star pill (Golan 18.10): the round runs until the sand is down, then the sky going on ends it.
   // Without it (an older learner.js) the round is 5 skies, as before.
-  const hg = LM && LM.hourglass ? LM.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden, onEnd: () => timeUp() }) : null;
+  const hg = LM && LM.hourglass ? LM.hourglass({ paused: () => state.mode === "paused" || state.mode === "demo" || !$("settings").hidden, onEnd: () => timeUp() }) : null;
   if (hg) $("dotsWrap").style.display = "none";
   function startRound() { state.usedRound.clear(); state.roundLen = ROUND_SKIES; lmPace = LM ? LM.pace() : 1; state.roundSlips = 0; state.stars = 0; state.starKinds = []; if (sc) sc.reset(); state.qIndex = 0; state.roundStart = performance.now(); state.roundWrongs = 0; state.roundOpen = true; const go = () => { if (hg) hg.start(); askQuestion(); }; if (state.demoNext || !demoSeen()) { state.demoNext = false; runDemo(go); } else go(); }   /* the shared visit carries a pending listening sky across rounds */
 
@@ -1343,14 +1343,16 @@
   }
   function runDemo(done) {
     hush(); hushUntil = 0;
-    demoAfter = () => { hideHand(); markDemo(); clearTags(); hideOk(); state.swap = null; if (done) done(); };
+    if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays
+    demoAfter = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); hideHand(); markDemo(); clearTags(); hideOk(); state.swap = null; if (done) done(); };
     askQuestion(null, true); state.mode = "demo";
     const q = state.q, S = SOUNDS[q.letter];
     setTimeout(() => {
       if (state.q !== q) return;
       const shown = clouds.filter((c) => c.state !== "off").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
       const steps = ["sd_demo"];
-      for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
+      const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = screenOf(c.root.position.x, c.root.position.y + 1.25 * c.size); FL.demoArrow(a.x, a.y); };   // an arrow at each picture while its name is said
+      for (const c of shown) steps.push(() => { glowName(c, true); arrow(c); }, wordOf(c.letter), () => { glowName(c, false); FL.demoArrow && FL.demoArrow(null); });
       steps.push(...qIds(q));
       playIds(steps, () => {
         if (state.q !== q) return;
@@ -1532,7 +1534,7 @@
     // the letter with its nikud shows beside the picture once it hangs; Hila: "בַּ... בַּיִת" (+ the explanation after a solved sky)
     const landMs = Math.max(0, ...tags.filter((g) => g.on).map((g) => TAG_FLY - g.t)) * 1000 / motionK();
     setTimeout(() => { if (state.q === myQ) showOk(q.letter); }, Math.max(0, landMs - 300));
-    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, FL.explainClip((PICS[picFor(q.letter)] || {}).word), S.s] : ["fb_correct", S.s, W];   // "יש! נכון!" first (Golan 29.10)
+    const W = wordOf(q.letter), ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : ["fb_correct", S.s, W];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => setTimeout(() => {
       if (state.q !== myQ) return;
       clouds.forEach((c) => { if (c.state === "drop" || c.state === "idle" || c.state === "wrong" || c.state === "empty") { c.state = "out"; c.t = 0; c.flyFrom = { x: c.root.position.x, y: c.root.position.y }; } });

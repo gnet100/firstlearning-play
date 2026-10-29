@@ -326,9 +326,9 @@
   html[data-screen] .seg[data-key="move"] button { flex: 1 1 auto; white-space: nowrap; }
   #settings .panel.settings { height: 100%; }
   /* ---- sound train (29.10): the "?" card = "איך משחקים?" (as in the sound detective), the demo hand, a speaker on every wagon ---- */
-  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(58 * var(--u, 1px)), 46px); aspect-ratio: 3 / 4; border-radius: 18%;
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
     border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
-    font: 900 max(calc(38 * var(--u, 1px)), 30px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
   #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
   .demo-hand { position: fixed; z-index: 7; width: max(calc(90 * var(--uu, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
   .demo-hand.show { display: block; }
@@ -1499,7 +1499,7 @@
     state.phase = "cheer"; state.squash = 0; state.autoDrop = false;
     const myTrain = state.train, S = SOUNDS[state.letter], P = PICS[c.pic] || {}, W = P.clip;
     const explain = window.FL && FL.explainClip ? FL.explainClip(P.word) : "sd_explain";
-    const ids = auto ? [S.s, W, W, explain, S.s] : ["fb_correct", S.s, W];   // "יש! נכון!" first, then "רָ... רַעֲשָׁן" (Golan 29.10)
+    const ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : ["fb_correct", S.s, W];   // "יש! נכון!" first, then "רָ... רַעֲשָׁן" (Golan 29.10)
     stopSeq();
     after(250, () => playIds(ids, () => after(300, () => {
       if (state.train !== myTrain || state.phase !== "cheer") return;
@@ -1762,10 +1762,10 @@
   const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
   const hand = $("demoHand"); let demoRaf = 0;
   function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
-  function signScreen(c) {
+  function signScreen(c, top) {   // top: just above the picture (where the demo's arrow points from)
     const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect();
     c.signRoot.computeWorldMatrix(true);
-    const p = BABYLON.Vector3.Project(c.signRoot.getAbsolutePosition(), BABYLON.Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(W, H));
+    const p = BABYLON.Vector3.Project(c.signRoot.getAbsolutePosition().add(new BABYLON.Vector3(0, top ? 0.8 : 0, 0)), BABYLON.Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(W, H));
     return { x: r.left + p.x * r.width / W, y: r.top + p.y * r.height / H };
   }
   function moveHand(from, to, ms, then) {
@@ -1777,7 +1777,9 @@
   }
   function runDemo() {
     const L = state.letter, T = state.train;
-    const names = []; for (const c of activeCars().slice().sort((a, b) => a.root.getAbsolutePosition().x - b.root.getAbsolutePosition().x)) names.push(() => drawCarSign(c, "glow"), PICS[c.pic] && PICS[c.pic].clip, () => drawCarSign(c, "normal"));
+    if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays, an arrow at each picture as it is named
+    const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = signScreen(c, true); FL.demoArrow(a.x, a.y); }, noArrow = () => FL.demoArrow && FL.demoArrow(null);
+    const names = []; for (const c of activeCars().slice().sort((a, b) => a.root.getAbsolutePosition().x - b.root.getAbsolutePosition().x)) names.push(() => { drawCarSign(c, "glow"); arrow(c); }, PICS[c.pic] && PICS[c.pic].clip, () => { drawCarSign(c, "normal"); noArrow(); });
     playIds(["sd_demo", ...names, ...qIds(L)], () => {
       if (!state.demo || state.train !== T) return;
       const c = rightCar(); if (!c) return endDemo();
@@ -1789,7 +1791,7 @@
       }, 300));
     });
   }
-  function endDemo() { if (!state.demo) return; state.demo = false; hideHand(); markDemo(); state.nagAt = gameMs; }
+  function endDemo() { if (window.FL && FL.demoFrame) FL.demoFrame(false); if (!state.demo) return; state.demo = false; hideHand(); markDemo(); state.nagAt = gameMs; }
   // the "?" card: the train on the screen is replaced by a demo train
   $("helpCard").addEventListener("click", (e) => {
     e.stopPropagation(); unlockAudio();
@@ -2502,7 +2504,7 @@
   // ---------- 3, 2, 1 before the first train: the station is empty, then the cars roll in ----------
   let countToken = 0;
   function countdown() {
-    const my = ++countToken;
+    const my = ++countToken; if (window.FL && FL.demoFrame) FL.demoFrame(false);
     document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
     clearTimers(); stopSeq(); hideHand(); state.auto = false; state.autoDrop = false; state.phase = "ready"; state.letter = null; state.flyUp = null; state.lift = 0; state.needCrate = false; dropStar();
     for (const c of cars) { for (const k of c.cubes || []) { k.root.dispose(); crates.splice(crates.indexOf(k), 1); } c.cubes = []; c.count = 0; }
