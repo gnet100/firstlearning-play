@@ -1144,11 +1144,14 @@
   // the counter at the top: the shared gold and silver star counter (same in every game, Golan 16.10)
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null;
   // the golden hourglass under the stars (Golan 18.10): the round goes on until the sand runs out; without it, 9 letters as before
-  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold }) : null;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold, onEnd: () => timeUp() }) : null;
   if (HG) $("dotsWrap").hidden = true;   // the dots counted the 9 letters; no count now
   // "לסיים" on the left does the same as the door (Golan 17.10)
   let endP = null;
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     state.mode = "end"; state.q = null; roundsPlayed++; if (HG) HG.stop();   // the hanging letters stay behind the end popup; a new round clears them
     const s = state.s;
     if (LRN && s.asked) LRN.setLevelFromDiagnostic();   // the starting level for every game, from how many letters are known

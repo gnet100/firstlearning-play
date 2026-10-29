@@ -1230,7 +1230,7 @@
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
   // the golden hourglass (Golan 18.10): finds go on until the sand runs out, then the find going on ends and the letter goes back to its picture.
   // No hourglass in learner.js: the old count (1 wake + finds by age + 1 back) as before.
-  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden }) : null;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden, onEnd: () => timeUp() }) : null;
 
 
   document.querySelectorAll(".row > span > small").forEach((sm) => { sm.classList.add("row-note"); sm.closest(".row").append(sm); });
@@ -1467,7 +1467,10 @@
       if (g.wrongTaps >= 2 && !g.removed) { g.removed = true; drawSign(g, "", false); }
     }
   }
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     state.mode = "end"; if (HG) HG.stop();
     closeLetter();
     // pace and level (learner model): trouble with the game itself = 2+ changed choices or 2+ quick slips in the round

@@ -1311,7 +1311,7 @@
   const sc = LM && LM.starCounter ? LM.starCounter($("stars")) : null;
   // the golden hourglass under the star pill (Golan 18.10): the round runs until the sand is down, then the sky going on ends it.
   // Without it (an older learner.js) the round is 5 skies, as before.
-  const hg = LM && LM.hourglass ? LM.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden }) : null;
+  const hg = LM && LM.hourglass ? LM.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden, onEnd: () => timeUp() }) : null;
   if (hg) $("dotsWrap").style.display = "none";
   function startRound() { state.usedRound.clear(); state.roundLen = ROUND_SKIES; lmPace = LM ? LM.pace() : 1; state.roundSlips = 0; state.stars = 0; state.starKinds = []; if (sc) sc.reset(); state.qIndex = 0; state.roundStart = performance.now(); state.roundWrongs = 0; state.roundOpen = true; const go = () => { if (hg) hg.start(); askQuestion(); }; if (state.demoNext || !demoSeen()) { state.demoNext = false; runDemo(go); } else go(); }   /* the shared visit carries a pending listening sky across rounds */
 
@@ -1536,7 +1536,10 @@
       }, 750);
     }, 400)), Math.max(250, landMs - 200));
   }
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     // the round's stars in order, gold and silver, counted from 0 each round (Golan, 15.10)
     state.mode = "end"; if (hg) hg.stop();
     // shiny gold / silver stars from the shared code (same look in every game, Golan 16.10); the emoji only if it failed to load

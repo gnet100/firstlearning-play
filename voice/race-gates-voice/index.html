@@ -518,7 +518,7 @@
   if (LRN && LRN.setGame) LRN.setGame("race", { autoCount: (age) => (age == null ? 4 : age <= 4 ? 3 : age === 5 ? 4 : 5) });
   const VISIT = LRN && LRN.visit ? LRN.visit("race") : null;   // one visit per page load, kept across rounds
   // hourglass (Golan 18.10): a round runs until the golden sand is out, not a set number of gates; no hourglass = the old count
-  const hg = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || settingsOpen() }) : null;
+  const hg = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || settingsOpen(), onEnd: () => timeUp() }) : null;
   // "לפי הרמה" = the child's level decides (3 or 4 gates); a number chosen by the parent wins (README step 2).
   // gates by age (advisor ruling 16.10, section 11): 2 up to 4, 3 at 5, 3 at 6-7 (4 at 6-7 only when the child's level is high)
   const gatesByAge = () => { const a = LRN && LRN.age ? LRN.age() : null; if (a != null && a <= 4) return 2; if (a != null && a >= 6 && LRN.levelInfo().choices >= 4) return 4; return 3; };
@@ -1223,7 +1223,10 @@
   // two buttons in every game (Golan 17.10): עוד סיבוב on the right, לסיים on the left (= the door; on a day-end a short goodbye first)
   let dayEndNow = false;
   const endButtons = () => [{ text: "לסיים", ghost: true, id: "finish", onClick: finishDay }, { text: "עוד סיבוב", primary: true, id: "again", onClick: againRound }];
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     state.mode = "end"; if (hg) hg.stop();
     // star icons only, one per star earned this round (Golan, 15.10): no text, no seconds, no gate count
     let note = "", canFinish = false, dayLine = null;

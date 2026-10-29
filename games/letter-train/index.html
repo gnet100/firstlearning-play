@@ -467,7 +467,7 @@
   // round length by age (5 / 7 / 9 cubes, learner.js), the last train full too
   // Golan 18.10: the round runs on the shared golden hourglass (1.5 / 2 / 2.5 min by level); when the sand is out, the train
   // on the screen is the last one. Without the hourglass (older learner.js): 5 / 7 / 9 trains by age, as before.
-  const HG = window.FL && FL.learner && FL.learner.hourglass ? FL.learner.hourglass({ paused: () => state.paused || settingsOpen }) : null;
+  const HG = window.FL && FL.learner && FL.learner.hourglass ? FL.learner.hourglass({ paused: () => state.paused || settingsOpen, onEnd: () => timeUp() }) : null;
   const roundOver = () => (HG ? HG.done() : state.trainNo >= trainsPerRound());
   const trainsPerRound = () => Math.max(1, ROUND_DROPS_NOW());   // Golan 17.10 (later): one right drop per train, so a round = 5 / 7 / 9 trains by age
   const CUBES_PER_CAR = 1;
@@ -1540,7 +1540,10 @@
     newTrain(false);
   }
   let endCard = null;
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready"].includes(state.phase)) endRound(); }
   function endRound() {
+    if (state.phase === "end") return;
     state.phase = "end";   // one star per right drop, counted during the round
     if (HG) HG.stop();
     const secs = Math.round((performance.now() - state.roundStart) / 1000);

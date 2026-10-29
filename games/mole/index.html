@@ -976,7 +976,7 @@
   // game with no mistake; after that (and at the other levels) the sign shows "?" and the letter is only heard
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null;
   // the golden hourglass (Golan 18.10): the round goes on until the sand runs out; the guide reacts when it does (Golan 21.10)
-  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold, onEnd: () => { if (!$("hud").hidden) guideReact("timeup"); } }) : null;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold, onEnd: () => { if (!$("hud").hidden) guideReact("timeup"); timeUp(); } }) : null;
   const freeSeen = {};   // per child, this visit
   const seenSet = () => (freeSeen[pid()] = freeSeen[pid()] || new Set());
   let form = null, pk = null;
@@ -1202,7 +1202,10 @@
     if (HG) HG.start(); setTimeout(onScreen, 60); askNext();
   }
   let endP = null;
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     state.mode = "end"; state.q = null; if (HG) HG.stop();
     if (LRN && state.roundOpen) { try { LRN.roundEnd({ game: "mole" }); } catch (e) {} state.roundOpen = false; }
     moles.forEach((m) => { if (m.state !== "off") { m.state = "duck"; m.t = 0; } });

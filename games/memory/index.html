@@ -747,7 +747,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // ---------- the board ----------
   const state = { mode: "intro", n: 4, cards: [], open: [], busy: false, mistakes: 0, missed: new Set(), pairsLeft: 0, starRow: [], boards: 0, roundWins: 0, letters: [], flips: 0 };
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
-  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "levelask" }) : null;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "levelask", onEnd: () => timeUp() }) : null;
   const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
 
   function newBoard() {
@@ -986,7 +986,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     if (HG) HG.start();
     newBoard();
   }
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() { if (!["end", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
   function endRound() {
+    if (state.mode === "end") return;
     state.mode = "end"; if (HG) HG.stop();
     $("board").hidden = true; $("fx").innerHTML = "";
     const day = kid() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null;
