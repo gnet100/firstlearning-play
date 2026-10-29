@@ -524,7 +524,6 @@
   // transport and toys: their own drawings with their own wake-up motion (wheel-pictures.js, Golan 29.10); shown as a live svg, not an image
   const WP = window.WHEEL_PICTURES || null;
   const PICS = Object.assign({}, window.PICTURES || {}, WP ? WP.pics : {}), PA = window.PICTURES_ANIMATED || null;
-  if (PICS.trumpet && PICS.trumpet.clip === "word_hatzotzra") PICS.trumpet = Object.assign({}, PICS.trumpet, { clip: "word_hatsotsra" });   // the recorded clip's name (voice/lines.js)
   const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
