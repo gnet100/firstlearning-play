@@ -341,12 +341,17 @@
   .topic.locked { opacity: .45; cursor: default; }
   .topic.locked::after { content: "בקרוב"; position: absolute; left: 12px; top: 50%; translate: 0 -50%; font-size: .6em; background: #fff; border-radius: 999px; padding: 2px 12px; color: var(--muted); }
   .topic.flash { animation: carFlash 1s ease-in-out; }
-  .topic .strip { position: relative; height: max(calc(96 * var(--u, 1px)), 64px); overflow: hidden; border-radius: 14px; background: #fff; direction: ltr;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-  .topic .belt { position: absolute; top: 0; bottom: 0; left: 0; display: flex; gap: 8px; padding: 6px 0; animation: belt var(--bt, 24s) linear infinite; }
-  .topic.locked .belt { animation-play-state: paused; }
-  .topic .belt img, .topic .belt svg { height: 100%; aspect-ratio: 1; display: block; flex: none; }
-  @keyframes belt { to { transform: translateX(-50%); } }
+  /* Golan 29.10: the pictures sit fixed on a turning bracelet (a ring seen a little from above), not a sliding belt */
+  .topic .strip { position: relative; height: max(calc(112 * var(--u, 1px)), 74px); overflow: hidden; border-radius: 14px; background: #fff; direction: ltr; perspective: 1600px; }
+  .topic .ring { position: absolute; left: 50%; top: 44%; width: 0; height: 0; transform-style: preserve-3d; animation: ring var(--bt, 24s) linear infinite; }
+  .topic > span:first-child { min-width: 3.8em; }   /* the same ring width in every row */
+  .topic.locked .ring { animation-play-state: paused; }
+  @keyframes ring { from { transform: rotateX(-7deg) rotateY(0deg); } to { transform: rotateX(-7deg) rotateY(-360deg); } }
+  .topic .bead { position: absolute; left: calc(var(--s) * -.5); top: calc(var(--s) * -.5); width: var(--s); height: var(--s); transform-style: preserve-3d; }
+  .topic .bead > i { position: absolute; inset: 0; border-radius: 18%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .topic .bead .f { background: #fff; box-shadow: 0 0 0 2px #FFC233 inset; }
+  .topic .bead .b { background: linear-gradient(#ffe7a8, #f5c95c); transform: rotateY(180deg); }
+  .topic .bead svg, .topic .bead img { position: absolute; inset: 8%; width: 84%; height: 84%; display: block; }
   @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ffb27a; transform: translateY(-2px); } }
 
   /* the game: one wide wheel of pictures across the screen (spec 2) */
@@ -1224,12 +1229,21 @@
     const box = $("topicList"); box.textContent = "";
     TOPICS.forEach((t, i) => {
       const b = document.createElement("button"); b.type = "button"; b.className = "topic" + (t.soon ? " locked" : ""); b.dataset.id = t.id;
-      const imgs = t.pics.map(([k]) => picHtml(k)).join("");
-      b.innerHTML = `<span>${t.name}</span><span class="strip"><span class="belt" style="--bt:${18 + i * 5}s">${imgs}${imgs}${t.pics.length < 6 ? imgs + imgs : ""}</span></span>`;
+      b.innerHTML = `<span>${t.name}</span><span class="strip"><span class="ring" style="--bt:${26 + i * 4}s"></span></span>`;
       if (!t.soon) b.addEventListener("click", () => pickTopic(t, b));
       box.append(b);
     });
     $("topics").hidden = false;
+    requestAnimationFrame(() => [...box.children].forEach((b, i) => bracelet(b.querySelector(".ring"), TOPICS[i].pics.map(([k]) => k))));
+  }
+  // the pictures around a ring: as many as fit the row's width (whole rounds of the topic's pictures), each one fixed on the ring
+  function bracelet(ring, keys) {
+    const st = ring.parentNode, W = st.clientWidth, H = st.clientHeight;
+    const gap = 1.15, r = Math.max(40, W * 0.45 - H * 0.28);   // the ring fills the row's width
+    const n = keys.length * Math.max(1, Math.round((2 * Math.PI * r) / (H * 0.5 * gap) / keys.length));
+    const s = Math.min(H * 0.56, (2 * Math.PI * r) / (n * gap));   // whole rounds of the pictures, each as big as fits
+    ring.style.setProperty("--s", s + "px");
+    ring.innerHTML = Array.from({ length: n }, (_, j) => `<span class="bead" style="transform: rotateY(${(j * 360) / n}deg) translateZ(${r}px)"><i class="f">${picHtml(keys[j % keys.length])}</i><i class="b"></i></span>`).join("");
   }
   let topicBusy = false;
   function pickTopic(t, b) {
