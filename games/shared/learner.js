@@ -384,7 +384,8 @@ ${items[item]}</svg>`;
     const acc = (a) => (a.length ? a.filter((e) => e.ok).length / a.length : null);
     const first = acc(ev.slice(0, 12)), last = acc(ev.slice(-12));
     const tired = ev.length >= 24 && first != null && last != null && first - last >= 0.25;
-    const suggest = minutes >= target ? "end" : tired ? "end" : minutes >= target / 2 && p.breakShown !== today ? "break" : null;
+    // Golan 29.10: no "זמן להתמתח" and no "שיחקנו יפה היום" in any game; the minutes and "tired" are still counted
+    const suggest = null;
     return { minutes, target, suggest, tired };
   }
   // The game calls this after it showed the break, so it is suggested once a day.
