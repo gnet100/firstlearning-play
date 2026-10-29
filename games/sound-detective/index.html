@@ -153,7 +153,7 @@
   .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
 
   .overlay {
-    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px;
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20; padding: 16px;
   }
   .overlay[hidden], .row[hidden] { display: none; }
   .round-btn[hidden] { display: none; }
@@ -1038,12 +1038,11 @@
     for (const y of [base - xh, base]) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W - x0, y); ctx.stroke(); }
     ctx.restore();
   }
-  // is this sky in cursive? "סוג כתב" in settings; automatic = a letter known in print shows in cursive about 1 time in 4,
-  // more as the child learns it, up to about half (FL.learner.cursiveShare)
+  // is this sky in cursive? "סוג כתב" in settings; automatic = print only (Golan 29.10)
   function cursiveFor(l) {
     const m = settings.script || "auto";
     if (m === "print") return false; if (m === "cursive") return true; if (m === "mixed") return Math.random() < 0.5;   // "משולב": half and half (Golan 28.10)
-    return !!(LM && LM.cursiveShare && Math.random() < LM.cursiveShare(l));
+    return false;   // Golan 29.10: in the sound games the system choice is print only, no cursive mix
   }
   const cloudMat = mat("#ffffff", 0.35);
   function makeCloudMesh(i) {
@@ -1291,18 +1290,17 @@
     renderDots();
     const myQ = state.q;
     if (demo) return;   // the demo says its own lines (runDemo)
-    // levels 1-2: the pictures' names first, each picture lights up as it is said (right to left, top to bottom), then the question,
-    // so the sound asked for is the last thing heard (spec sec 1)
+    // Golan 29.10: the opening is the question only, no picture names (the clouds' speakers and the replay still say them)
     setTimeout(() => {
       if (state.q !== myQ || state.resolved) return;
-      playIds(readSteps(myQ), () => { if (state.q !== myQ) return; state.opening = false; state.audioEnd = performance.now(); state.idleAt = state.gameT; });
+      playIds(readSteps(myQ, false), () => { if (state.q !== myQ) return; state.opening = false; state.audioEnd = performance.now(); state.idleAt = state.gameT; });
     }, Math.max(300, p.inDur * 1000 / motionK()));
   }
   // levels 1-2: the names of the pictures still in the sky (right to left, top to bottom), then the question; level 3: the question
-  function readSteps(q) {
+  function readSteps(q, names = true) {
     const shown = clouds.filter((c) => c.state === "idle" || c.state === "in" || c.state === "wrong").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
     const steps = [];
-    if (sayNames()) for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
+    if (names && sayNames()) for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
     return steps.concat(qIds(q));
   }
   // a picture lights up while its name is said
@@ -1524,7 +1522,7 @@
     // the letter with its nikud shows beside the picture once it hangs; Hila: "בַּ... בַּיִת" (+ the explanation after a solved sky)
     const landMs = Math.max(0, ...tags.filter((g) => g.on).map((g) => TAG_FLY - g.t)) * 1000 / motionK();
     setTimeout(() => { if (state.q === myQ) showOk(q.letter); }, Math.max(0, landMs - 300));
-    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, "sd_explain", S.s] : [S.s, W];
+    const W = wordOf(q.letter), ids = auto ? [S.s, W, W, "sd_explain", S.s] : ["fb_correct", S.s, W];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => setTimeout(() => {
       if (state.q !== myQ) return;
       clouds.forEach((c) => { if (c.state === "drop" || c.state === "idle" || c.state === "wrong" || c.state === "empty") { c.state = "out"; c.t = 0; c.flyFrom = { x: c.root.position.x, y: c.root.position.y }; } });
@@ -1545,7 +1543,7 @@
     return true;
   }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
   function endRound() {
     if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
     if (endFlyFirst()) return;
@@ -1560,7 +1558,7 @@
     $("swapAsk").hidden = !ask; if (ask) state.perfectRounds = 0;
     $("end").hidden = false; $("pause").hidden = true;   // shown first, so the shared panel can measure itself; nothing to pause here (Golan, 15.10)
     // the shared panel draws the stars, both letter rows, the day note and the buttons; the game adds only the swap question
-    endP.set({ stars: state.starKinds.slice(), letters: false, note: dayNote(day && day.suggest), extra: $("swapAsk") });   // only the regular end window (Golan 28.10)
+    endP.set({ stars: state.starKinds.slice(), letters: false, sounds: true, note: dayNote(day && day.suggest), extra: $("swapAsk") });   // only the regular end window (Golan 28.10)
     say("יש! סיימנו סיבוב", 1);
     if (ask) say("רוצים להחליף אותיות?", 1);
   }
@@ -1638,7 +1636,7 @@
       onLevel: () => { lettersChanged = lettersChanged || "keep"; },
       // only the 8 sounds of this game can be marked (spec sec 7)
       picker: { available: SOUND_L, finals: false, autoList: () => soundPool(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
-      script: { ...seg("script"), note: "רק האות שמופיעה ליד התמונה אחרי התשובה. כתב יד מופיע רק באות שהילד כבר מזהה בביטחון בדפוס. משולב: חצי מהפעמים בכתב יד." },
+      script: { ...seg("script"), note: "רק האות שמופיעה ליד התמונה אחרי התשובה. החלטת מערכת: דפוס בלבד. כתב יד מופיע רק באות שהילד כבר מזהה בביטחון בדפוס. משולב: חצי מהפעמים בכתב יד." },
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),
       tech: { perf: seg("perf"), diag: () => diagnostics() } });
     pk = form.picker;

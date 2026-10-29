@@ -890,7 +890,7 @@ ${items[item]}</svg>`;
 /* the box never sits under the door and gear: room beside them when wide, below them when tall (screens audit 16.10) */
 @media (orientation:landscape){.fl-ov{padding-left:calc(var(--edge-l,max(16px,env(safe-area-inset-left))) + 72px)}}
 @media (orientation:portrait){.fl-ov{padding-top:calc(var(--edge-t,max(12px,env(safe-area-inset-top))) + 72px)}}
-.fl-rb{position:fixed;left:var(--edge-l,max(16px,env(safe-area-inset-left)));width:64px;height:64px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;font-size:30px;padding:0;z-index:1}
+.fl-rb{position:fixed;left:var(--edge-l,max(16px,env(safe-area-inset-left)));width:64px;height:64px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;font-size:30px;padding:0;z-index:30}
 .fl-rb svg{width:1em;height:1em;display:block}.fl-rb.fl-gear svg{width:1.3em;height:1.3em}
 .fl-rb.fl-door{top:var(--edge-t,max(12px,env(safe-area-inset-top)));background:#ff8a3d;box-shadow:0 3px 0 #c45f1d}
 .fl-rb.fl-gear{top:calc(var(--edge-t,max(12px,env(safe-area-inset-top))) + 76px);background:#ffffffee;box-shadow:0 4px 16px #0002}
@@ -1330,13 +1330,13 @@ ${items[item]}</svg>`;
   }
   function nextGameUrl(g) { if (!HUB_URL || !g) return null; try { return new URL(g.path, HUB_URL).href + "?hub=" + encodeURIComponent(HUB_URL); } catch (e) { return null; } }
   function goNextGame() { const u = nextGameUrl(nextGame()); if (u) location.href = u; }
-  let endShownAt = Date.now(), lastPractice = {};
+  let endShownAt = Date.now(), lastPractice = {}, lastSounds = {};
   function practicedThisRound() {
     const p = cur(); if (!p) return {};
     const fresh = p.events.filter((e) => e.t > endShownAt);
     if (!fresh.length) return lastPractice;   // a redraw of the same end panel
-    const n = {}; for (const e of fresh) if (e.l) n[e.l] = (n[e.l] || 0) + 1;
-    endShownAt = Date.now(); lastPractice = n; return n;
+    const n = {}, snd = {}; for (const e of fresh) if (e.l) { const m = e.m === "sound" ? snd : n; m[e.l] = (m[e.l] || 0) + 1; }   // sounds apart (the sound island)
+    endShownAt = Date.now(); lastPractice = n; lastSounds = snd; return n;
   }
   function endPanel(host, opt = {}) {
     css(); endCss();
@@ -1367,7 +1367,14 @@ ${items[item]}</svg>`;
         g.style.gridTemplateColumns = `repeat(${cols}, auto)`;
         for (const x of list) { const sp = document.createElement("span"); sp.textContent = x.l; sp.className = x.kind; if (x.n) sp.title = x.n + " פעמים"; g.append(sp); }
         el.append(g); };
-      if (Array.isArray(o.letters)) letRow("", o.letters.map((x) => (typeof x === "string" ? { l: x, kind: "full" } : x)), "");
+      // the sound island (Golan 29.10): sounds, not letters: the opening sounds practised this round, then the sounds known for sure
+      if (o.sounds) {
+        practicedThisRound(); const counts = lastSounds;
+        letRow("צלילי תחילת מילה שתורגלו", SOUND_LETTERS.filter((l) => counts[l]).map((l) => ({ l: SOUND_SYL[l], n: counts[l], kind: counts[l] >= 4 ? "p3" : counts[l] >= 2 ? "p2" : "p1" })), "fl-end-prac");
+        const c = cur() ? cardsFor(cur()) : null;
+        const known = c ? SOUND_LETTERS.filter((l) => c[l] && c[l].sound && c[l].sound.state === "known") : [];
+        letRow("צלילים שזוהו בביטחון בכל התרגולים", known.map((l) => ({ l: SOUND_SYL[l], kind: "kn" })), "fl-end-known");
+      } else if (Array.isArray(o.letters)) letRow("", o.letters.map((x) => (typeof x === "string" ? { l: x, kind: "full" } : x)), "");
       else if (o.letters !== false) {
         const counts = o.practiced || practicedThisRound();
         const order = [...FL.LETTERS, ...FL.FINALS].filter((l) => counts[l]);

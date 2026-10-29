@@ -103,7 +103,7 @@
   .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
 
   .overlay {
-    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px;
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20; padding: 16px;
   }
   .overlay[hidden] { display: none; }
   /* X in the top-right corner of settings (Golan 16.10, all games): stays in view while the panel scrolls; the scroll bar is on the left (RTL) */
@@ -1476,7 +1476,7 @@
     return true;
   }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
   function endRound() {
     if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
     if (endFlyFirst()) return;

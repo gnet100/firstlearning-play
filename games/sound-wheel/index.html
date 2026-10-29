@@ -103,7 +103,7 @@
   .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
 
   .overlay {
-    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px;
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; padding: 16px; z-index: 20;   /* above the picture card and the balls (Golan 29.10: the donkey covered the settings) */
   }
   .overlay[hidden] { display: none; }
   /* X in the top-right corner of settings (Golan 16.10, all games): stays in view while the panel scrolls; the scroll bar is on the left (RTL) */
@@ -588,14 +588,17 @@
   function makeBalls(t) {
     const n = ballCount();
     const others = shuffle(SOUND_L.filter((l) => l !== t && !alike(l, t))).reduce((a, l) => (a.length < n - 1 && !a.some((x) => alike(x, l)) ? a.concat(l) : a), []);
-    return shuffle([t, ...others]);
+    // a new order every question, but the right sound is never the first ball (Golan 29.10)
+    const out = shuffle([t, ...others]);
+    if (out[0] === t && out.length > 1) { const j = 1 + Math.floor(Math.random() * (out.length - 1)); [out[0], out[j]] = [out[j], out[0]]; }
+    return out;
   }
   // cursive (כתב יד) on a ball: by "סוג כתב", only for a letter whose cursive form is open (spec 6)
   function cursiveFor(l) {
     if (!(LRN && LRN.cursiveReady && LRN.cursiveReady(l))) return false;
     const m = settings.script || "auto";
     if (m === "print") return false; if (m === "cursive") return true; if (m === "mixed") return Math.random() < 0.5;
-    return !!(LRN.cursiveShare && Math.random() < LRN.cursiveShare(l));
+    return false;   // Golan 29.10: in the sound games the system choice is print only, no cursive mix
   }
   try { document.fonts.load('400 100px "FL Cursive"', "אב"); } catch (e) {}
 
@@ -991,7 +994,7 @@
     b.classList.add("fly"); b.style.transform = `translate(${(s.left + s.width * 0.82 - (r.left + r.width / 2)).toFixed(0)}px, ${(s.top + s.height * 0.18 - (r.top + r.height / 2)).toFixed(0)}px) scale(.6)`;
     sfx.good();
     setTimeout(() => { if (state.q !== q) return; b.style.opacity = "0"; showOk(q); sparks(); wake(q.k); }, 800);
-    const ids = auto ? [SOUNDS[q.l].s, word(q.k), word(q.k), "sd_explain", SOUNDS[q.l].s] : [SOUNDS[q.l].s, word(q.k)];
+    const ids = auto ? [SOUNDS[q.l].s, word(q.k), word(q.k), "sd_explain", SOUNDS[q.l].s] : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => later(ms(1200), () => {
       if (state.q !== q) return;
       $("balls").textContent = "";
@@ -1113,7 +1116,7 @@
     return true;
   }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
   function endRound() {
     if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
     if (endFlyFirst()) return;
@@ -1123,7 +1126,7 @@
     const sug = day && day.suggest;
     const note = !sug ? "" : sug === "break" ? gt("זמן להתמתח! קומו רגע, ונמשיך.", "זמן להתמתח! קום רגע, ונמשיך.", "זמן להתמתח! קומי רגע, ונמשיך.") : "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.";
     if (sug === "break") LRN.breakShown();
-    END.set({ stars: state.starRow.slice(), letters: kid() ? true : false, note });
+    END.set({ stars: state.starRow.slice(), letters: false, sounds: !!kid(), note });   // sounds, not letters (Golan 29.10)
     $("hud").hidden = true; $("end").hidden = false; END.fit();
     say("fb_round_done");
     if (sug) whenQuiet(() => later(300, () => { if (state.mode === "end") say(sug === "break" ? "day_break" : "day_end"); }));
@@ -1137,7 +1140,7 @@
       levelsText: "ככל שרמת הקושי עולה, יש יותר כדורים (3, 4, 5), וברמה 3 הקריינית אומרת רק את שם התמונה.",
       levels: ["3 כדורים, הקריינית מקריאה את הצלילים.", "4 כדורים, הקריינית מקריאה את הצלילים.", "5 כדורים, הקריינית אומרת רק את שם התמונה."],
       picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); } },
-      script: { get: () => settings.script || "auto", set: (v) => { settings.script = v; saveSettings(); }, note: "האות על הכדורים. כתב יד מופיע רק באות שהילד כבר מזהה בביטחון בדפוס. משולב: חצי מהפעמים בכתב יד." },
+      script: { get: () => settings.script || "auto", set: (v) => { settings.script = v; saveSettings(); }, note: "האות על הכדורים. החלטת מערכת: דפוס בלבד. כתב יד מופיע רק באות שהילד כבר מזהה בביטחון בדפוס. משולב: חצי מהפעמים בכתב יד." },
       voice: { get: () => settings.voice, set: (v) => { settings.voice = v; saveSettings(); } } });
   }
   function openSettings() {

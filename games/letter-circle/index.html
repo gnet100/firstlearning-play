@@ -103,7 +103,7 @@
   .toast { display: none; }   /* no "oops" and no text after a touch in this game */
 
   /* ---------- screens over the game: start, balloon pick, end, settings ---------- */
-  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc;
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20;
     padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
   .overlay[hidden], .row[hidden] { display: none; }
   .letters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* a hidden settings row really disappears (.row sets display: flex) */
@@ -1157,7 +1157,7 @@
     return true;
   }
   // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
-  function timeUp() { if (!["end", "flying", "intro", "ready", "pick", "demo"].includes(state.mode)) endRound(); }
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
   function endRound() {
     if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
     if (endFlyFirst()) return;
