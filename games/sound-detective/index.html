@@ -866,7 +866,7 @@
   // One string per letter, as in the letter-circle game: the same letter found again (a sky has 2-3 of it) flies into its own place.
   // The flying letter IS the hanging tag, so the flight ends exactly where it hangs. Strings start on the basket rim.
   // the round tags are green with a white letter (Golan 17.10, as in the letter-circle game): the shared "known" teal, flat, unlit
-  const tagCardMat = mat("#fffdf5"), TAG_R = 0.72, TAG_S = 1.3;   // a picture hangs on a white round card
+  const tagCardMat = mat("#fffdf5"), TAG_R = 0.64, TAG_S = 1.3;   // a picture hangs on a white round card; Golan 29.10: a thin white edge (was 0.72), the picture bigger (0.97 of the tag, was 0.8)
   tagCardMat.disableLighting = true; tagCardMat.emissiveColor = BABYLON.Color3.FromHexString("#fffdf5");
   // where the letters hang, in the order they fill: the centre of the letter, in the basket's space (the rim is at +0.5).
   // A round is 5 skies, so at most 5 letters; the two places beside the basket are spare.
@@ -1078,7 +1078,7 @@
     ctx.clearRect(0, 0, W, H); c.light = !!light;
     // no yellow ring around the picture (Golan 28.10 16:41: "העיגול הצהוב מיותר"); `glow` is kept for the callers
     const im = text && PIC_IMG[picFor(text)];
-    if (im && im.complete && im.naturalWidth !== 0) { const k = light ? 0.8 : 0.84, w = W * k; ctx.drawImage(im, (W - w) / 2, (H - w) / 2, w, w); }
+    if (im && im.complete && im.naturalWidth !== 0) { const k = light ? 0.97 : 0.84, w = W * k; ctx.drawImage(im, (W - w) / 2, (H - w) / 2, w, w); }
     c.tex.update(true);
   }
 
