@@ -1300,6 +1300,8 @@
     state.starCr = cr;
   }
   function dropStar() { const cr = state.starCr; if (!cr) return; cr.root.dispose(); const j = crates.indexOf(cr); if (j >= 0) crates.splice(j, 1); state.starCr = null; }
+  // Golan 29.10 20:12: the balloon comes in and goes out slower; the same numbers in the letter train and the sound train
+  const BAL_IN_MIN = 1.2, BAL_IN_K = 0.8, BAL_OUT_K = 0.55;
   const LIFT_OUT = 9;   // how high the balloon rises after a right drop before it is out of sight
   // the next pass of the balloon (levels 2-4) comes in with a new cube of the same letter, already tied on (Golan 18.10)
   function newCubeOn() {
@@ -2051,7 +2053,7 @@
     if (dt > 0) state.bVel = (state.bVel || 0) + (((state.bx - (state.bxPrev ?? state.bx)) / dt) - (state.bVel || 0)) * Math.min(1, dt * 20);
     state.bxPrev = state.bx;
     // Golan 18.10: after a right drop the balloon rises up and out of the screen (and comes back only with the next train)
-    if (state.flyUp != null) { state.flyUp += dt; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
+    if (state.flyUp != null) { state.flyUp += dt * BAL_OUT_K; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
     let lift = state.lift;
     if (state.bounce) {   // wrong car: the balloon jumps up a little and settles (like the car backing off)
       state.bounce.t += dt; const k = Math.min(1, state.bounce.t / 0.7);
@@ -2063,12 +2065,12 @@
     if (state.bEnter && !autoFly) {
       if (state.flyUp != null) bOff = 0;   // still rising out of sight after a right drop
       else if (state.phase === "ready" || state.holdBalloon) bOff = -26;   // 18.10: at the start it waits until the train has stopped, then flies in
-      else if ((state.bOffNow || 0) < -0.01) bOff = Math.min(0, state.bOffNow + dt * Math.max(3, -state.bOffNow * 2.2));
+      else if ((state.bOffNow || 0) < -0.01) bOff = Math.min(0, state.bOffNow + dt * Math.max(BAL_IN_MIN, -state.bOffNow * BAL_IN_K));   // Golan 29.10: slower, one shared speed in both train games
       else state.bEnter = false;
     }
     // the train is full: the balloon has no letter left, so it flies away to the left (and comes back with the next round)
     if (!autoFly && state.flyUp != null && state.lift > LIFT_OUT) { state.flyUp = null; state.lift = lift = 0; bOff = -30; dropStar(); }   // up and out of sight: it waits off the screen on the left
-    else if (!autoFly && state.flyUp == null && ["loco", "docked", "leave", "end"].includes(state.phase)) bOff = Math.max(-30, (state.bOffNow || 0) - dt * Math.min(9, 2 + 12 * Math.abs(state.bOffNow || 0.1)));
+    else if (!autoFly && state.flyUp == null && ["loco", "docked", "leave", "end"].includes(state.phase)) bOff = Math.max(-30, (state.bOffNow || 0) - dt * BAL_OUT_K * Math.min(9, 2 + 12 * Math.abs(state.bOffNow || 0.1)));
     state.bOffNow = bOff;
     // up and down: follows the finger while held, glides back to the normal height when let go
     const ty = drag.active && !autoMove() && (state.phase === "ask" || state.phase === "bounce") ? drag.dy : 0;

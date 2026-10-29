@@ -180,6 +180,8 @@
     html:not(.fl-keep-bg) #start, html:not(.fl-keep-bg) #pick, html:not(.fl-keep-bg) #balloonPick, html:not(.fl-keep-bg) #carPick,
     html:not(.fl-keep-bg) #agePick, html:not(.fl-keep-bg) #levelAsk { background: var(--sky, #bfe6ff); }
     html.fl-counting #count { z-index: 60; }
+    /* Golan 29.10: the number sits in the very middle of its circle in every game (the font's digits sat a little low) */
+    .count > span { line-height: 1; padding-bottom: .045em; box-sizing: border-box; }
     html.fl-counting #count::before { content: ""; position: fixed; inset: 0; background: var(--sky, #bfe6ff); z-index: -1; }`;
   (doc.head || html).appendChild(std);
 

@@ -374,7 +374,7 @@
   <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><g fill="#5f6a76"><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(0 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(45 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(90 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(135 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(180 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(225 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(270 12 12)"/><rect x="10.2" y="1.2" width="3.6" height="5" rx="0.9" transform="rotate(315 12 12)"/><circle cx="12" cy="12" r="7.4"/></g><circle cx="12" cy="12" r="3.1" fill="#fff"/></svg></button>
   <div class="panel">
     <h1>רכבת הצלילים</h1>
-    <p><span id="startText">שומעים צליל, ומוצאים את הקרון עם התמונה שמתחילה בו</span><br><span id="startHow">נוגעים בתמונה, והכדור מפיל אליה את הקובייה</span></p>
+    <p><span id="startText">זִיהוּי צְלִיל פּוֹתֵחַ</span><span id="startHow" hidden>נוגעים בתמונה, והכדור מפיל אליה את הקובייה</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
       <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
@@ -571,7 +571,7 @@
     "נ": "name_nun", "ס": "name_samekh", "ע": "name_ayin", "פ": "name_pe", "צ": "name_tsadi", "ק": "name_qof", "ר": "name_resh",
     "ש": "name_shin", "ת": "name_tav", "ך": "fin_kaf", "ם": "fin_mem", "ן": "fin_nun", "ף": "fin_pe", "ץ": "fin_tsadi" };
   // ins_train and ins_balloon are new lines for the voice thread; until they exist, the browser voice reads them.
-  const CLIP_OF_TEXT = { "יש! נכון!": "fb_correct", "יש! סיימנו סיבוב": "fb_round_done", "הוראות": "st_start",   // st_start: new line (silent until recorded)
+  const CLIP_OF_TEXT = { "יש! נכון!": "fb_correct", "יש! סיימנו סיבוב": "fb_round_done", "הוראות": "st_start", "שם המשחק": "hub_g_soundtrain",   // st_start: new line (silent until recorded)
     "יש לבחור כדור פורח": "ins_balloon", "יש לבחור קטר": "ins_loco", "יוצאים לדרך!": "fb_go", "רוצים להחליף אותיות?": "ask_letters", "יופי של בחירה!": "fb_choice1", "בחירה מצוינת!": "fb_choice2" };
   const NEW_LINES = [];   // ins_train, ins_balloon and ask_train recorded 15.10
   const LETTER_NAME = { "א": "אָלֶף", "ב": "בֵּית", "ג": "גִּימֶל", "ד": "דָּלֶת", "ה": "הֵיי", "ו": "וָו", "ז": "זַיִן", "ח": "חֵית",
@@ -650,12 +650,13 @@
   // clips one after another (from the sound detective): the question line, then the sound; a step can be a function.
   // A clip that is not recorded yet is skipped (never the browser voice). With the voice off the steps still follow, a little apart.
   let seqTok = 0, seqOn = false;
+  let seqThen = null;   // what the running chain does when it ends (a wagon speaker that cuts in runs it afterwards)
   function playIds(ids, then) {
-    const my = ++seqTok; let i = 0; seqOn = true;
+    const my = ++seqTok; let i = 0; seqOn = true; seqThen = then || null;
     const next = () => {
       if (my !== seqTok) return;
       if (settingsOpen || state.paused) return setTimeout(next, 200);
-      if (i >= ids.length) { seqOn = false; return then && then(); }
+      if (i >= ids.length) { seqOn = false; seqThen = null; return then && then(); }
       const item = ids[i++];
       if (typeof item === "function") { item(); return next(); }
       const a = item && settings.voice === "on" ? getClip(genderedId(vary(item))) : null;
@@ -1270,7 +1271,7 @@
       if (state.train !== T || state.letter !== L || !["ask", "bounce"].includes(state.phase) || state.auto) return;   // already answered (a drop while the train rolled in)
       if (state.arriving && state.trainX > 0.8) return after(120, go);   // the names wait until the train (almost) stands still
       if (state.demo) return runDemo();
-      readQuestion(true, true);
+      readQuestion(false, true);   // Golan 29.10 20:11: no picture names when a train comes in (the wagon speakers and the replay say them)
     };
     after(200, go);
   }
@@ -1326,6 +1327,8 @@
     state.starCr = cr;
   }
   function dropStar() { const cr = state.starCr; if (!cr) return; cr.root.dispose(); const j = crates.indexOf(cr); if (j >= 0) crates.splice(j, 1); state.starCr = null; }
+  // Golan 29.10 20:12: the balloon comes in and goes out slower; the same numbers in the letter train and the sound train
+  const BAL_IN_MIN = 1.2, BAL_IN_K = 0.8, BAL_OUT_K = 0.55;
   const LIFT_OUT = 9;   // how high the balloon rises after a right drop before it is out of sight
   // the next pass of the balloon (levels 2-4) comes in with a new cube of the same letter, already tied on (Golan 18.10)
   function newCubeOn() {
@@ -1360,7 +1363,7 @@
   // on-screen words to the child: boy or girl form by the chosen child's card, plural when unknown (Golan 16.10, all games)
   const gt = (pl, m, f) => { const g = LRN && LRN.profile() && LRN.profile().gender; return g === "m" ? m : g === "f" ? f : pl; };
   function genderTexts() {
-    $("startText").textContent = gt("שומעים צליל, ומוצאים את הקרון עם התמונה שמתחילה בו", "שמע את הצליל, ומצא את הקרון עם התמונה שמתחילה בו", "שמעי את הצליל, ומצאי את הקרון עם התמונה שמתחילה בו");   // parent text: no nikud (advisor ruling 16.10)
+    $("startText").textContent = "זִיהוּי צְלִיל פּוֹתֵחַ"; $("startHow").hidden = true;   // Golan 29.10 20:07: the skill only
     $("startHow").textContent = gt("נוגעים בתמונה, והכדור מפיל אליה את הקובייה", "גע בתמונה, והכדור יפיל אליה את הקובייה", "געי בתמונה, והכדור יפיל אליה את הקובייה");
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
     $("swapAskText").textContent = gt("רוצים להחליף אותיות?", "רוצה להחליף אותיות?", "רוצה להחליף אותיות?");   // under 28px: no nikud (advisor ruling 16.10)
@@ -1729,7 +1732,10 @@
     b.addEventListener("pointerdown", (e) => e.stopPropagation());
     b.addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); if (state.demo || state.auto || !c.pic || c.removed) return;
       const P = PICS[c.pic]; if (!P) return; drawCarSign(c, c.filled ? "full" : "glow");
-      playIds([P.clip], () => { if (c.look === "glow") drawCarSign(c, "normal"); }); state.nagAt = gameMs; });
+      // Golan 29.10 20:10 (bug): a word said over a running chain (the "רַ... רַכֶּבֶת" after a drop) used to cut that chain
+      // off with its ending, so the train never left; now the cut chain's ending still runs after the word
+      const after = seqOn ? seqThen : null;
+      playIds([P.clip], () => { if (c.look === "glow") drawCarSign(c, "normal"); if (after) after(); }); state.nagAt = gameMs; });
     $("carSpks").append(b); return b;
   });
   function placeSpks() {
@@ -2148,7 +2154,7 @@
     if (dt > 0) state.bVel = (state.bVel || 0) + (((state.bx - (state.bxPrev ?? state.bx)) / dt) - (state.bVel || 0)) * Math.min(1, dt * 20);
     state.bxPrev = state.bx;
     // Golan 18.10: after a right drop the balloon rises up and out of the screen (and comes back only with the next train)
-    if (state.flyUp != null) { state.flyUp += dt; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
+    if (state.flyUp != null) { state.flyUp += dt * BAL_OUT_K; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
     let lift = state.lift;
     if (state.bounce) {   // wrong car: the balloon jumps up a little and settles (like the car backing off)
       state.bounce.t += dt; const k = Math.min(1, state.bounce.t / 0.7);
@@ -2160,12 +2166,12 @@
     if (state.bEnter && !autoFly) {
       if (state.flyUp != null) bOff = 0;   // still rising out of sight after a right drop
       else if (state.phase === "ready" || state.holdBalloon) bOff = -26;   // 18.10: at the start it waits until the train has stopped, then flies in
-      else if ((state.bOffNow || 0) < -0.01) bOff = Math.min(0, state.bOffNow + dt * Math.max(3, -state.bOffNow * 2.2));
+      else if ((state.bOffNow || 0) < -0.01) bOff = Math.min(0, state.bOffNow + dt * Math.max(BAL_IN_MIN, -state.bOffNow * BAL_IN_K));   // Golan 29.10: slower, one shared speed in both train games
       else state.bEnter = false;
     }
     // the train is full: the balloon has no letter left, so it flies away to the left (and comes back with the next round)
     if (!autoFly && state.flyUp != null && state.lift > LIFT_OUT) { state.flyUp = null; state.lift = lift = 0; bOff = -30; dropStar(); }   // up and out of sight: it waits off the screen on the left
-    else if (!autoFly && state.flyUp == null && ["loco", "docked", "leave", "end"].includes(state.phase)) bOff = Math.max(-30, (state.bOffNow || 0) - dt * Math.min(9, 2 + 12 * Math.abs(state.bOffNow || 0.1)));
+    else if (!autoFly && state.flyUp == null && ["loco", "docked", "leave", "end"].includes(state.phase)) bOff = Math.max(-30, (state.bOffNow || 0) - dt * BAL_OUT_K * Math.min(9, 2 + 12 * Math.abs(state.bOffNow || 0.1)));
     state.bOffNow = bOff;
     // up and down: follows the finger while held, glides back to the normal height when let go
     const ty = drag.active && !autoMove() && (state.phase === "ask" || state.phase === "bounce") ? drag.dy : 0;
@@ -2399,7 +2405,7 @@
     a.currentTime = 0; clipNow = a; a.play().then(() => { heardIntro = true; }).catch(() => { if (clipNow === a) clipNow = null; });   // the handle is set first, so a door can stop a clip that is just starting
   }
   if (!(window.FL && FL.learner)) introT = setTimeout(autoIntro, 1500);   // a moment to look at the screen before Hila speaks (Golan 16.10, all games)
-  $("hear").addEventListener("click", (e) => { e.stopPropagation(); sayIntro(); });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); heardIntro = true; say("שם המשחק", 1); });   // Golan 29.10: the speaker says the game's name
   $("start").addEventListener("pointerdown", (e) => { if (!heardIntro && !e.target.closest("button")) sayIntro(); });   // a tap on any button (door, gear, its icon) never starts the intro
   $("go").addEventListener("click", () => {
     stopVoice();
