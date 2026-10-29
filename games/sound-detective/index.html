@@ -1250,7 +1250,7 @@
     const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(), box = ($("cloudSpks").offsetParent || document.body).getBoundingClientRect();
     const M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(W, H);
     clouds.forEach((c, i) => {
-      const b = spks[i], on = (c.state === "idle" || c.state === "wrong" || (c.state === "in" && c.t > c.dur * 0.8)) && tok.c !== c && !!state.q && !state.resolved && state.mode !== "paused";
+      const b = spks[i], on = (c.state === "idle" || c.state === "wrong" || (c.state === "in" && c.t > c.dur * 0.8)) && tok.c !== c && !!state.q && !state.resolved && state.mode !== "paused" && state.mode !== "demo";
       b.classList.toggle("on", on); if (!on) return;
       const P = (dx, dy) => BABYLON.Vector3.Project(new BABYLON.Vector3(c.root.position.x + dx * c.size, c.root.position.y + dy * c.size, c.root.position.z), BABYLON.Matrix.Identity(), M, vp);
       const p = P(-1.3, -0.8), wPx = Math.abs(P(1, 0).x - P(0, 0).x) * r.width / W;   // one cloud unit on screen
@@ -1818,7 +1818,8 @@
     unlockAudio();
     try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
     if ($("go").classList.contains("pressed")) return;
-    if (state.demoNext) { sfx.tap(); $("start").hidden = true; openPick(); return; }   // "איך משחקים?": straight to the demo, no "יוצאים לדרך" (Golan 28.10 16:33)
+    // "איך משחקים?" (Golan 29.10 06:24): the demo plays at once, no balloon pick, no "יוצאים לדרך"; then back to the start screen
+    if (state.demoNext) { state.demoNext = false; sfx.tap(); demoFromStart(); return; }
     $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
     say("יוצאים לדרך!", 1);
     setTimeout(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
@@ -1908,6 +1909,13 @@
   function backToStart() {
     if (HUB_GAMES) return goHub();
     resetToStart();
+  }
+  function demoFromStart() {
+    $("start").hidden = true; $("hud").hidden = false; document.documentElement.classList.remove("fl-counting");
+    if (settings.balloon == null) useBalloon(0);
+    state.lift = state.liftGoal = 1; state.stars = 0; state.starKinds = []; if (sc) sc.reset(); state.qIndex = 0;
+    renderDots(); layout();
+    runDemo(() => setTimeout(resetToStart, 600));
   }
   // the restart button: the balloon picker again
   function backToPick() { resetToStart(); $("start").hidden = true; clearTags(); state.swap = null; openPick(); }
