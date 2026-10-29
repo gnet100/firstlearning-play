@@ -12,9 +12,9 @@
   const UNLOCK_AT = 15;   // letters recognised with confidence that open island 2 (Golan 20.10)
   // Golan 20.10: every title says "מִשְׂחֲקֵי ..." (the island holds the games of that topic)
   const STOPS = [
-    { name: "מִשְׂחֲקֵי זִהוּי אוֹתִיּוֹת", show: ["א", "ב", "ג", "ד", "ה", "ו", "ז"] },
-    { name: "מִשְׂחֲקֵי זִהוּי צְלִילִים", show: ["מ", "ס", "ש", "ר"], rings: true },
-    { name: "מִשְׂחֲקֵי זִהוּי הֲבָרוֹת", show: ["בָּ", "לִי", "נוּ"] },
+    { name: "מִשְׂחֲקֵי זִיהוּי אוֹתִיּוֹת", show: ["א", "ב", "ג", "ד", "ה", "ו", "ז"] },
+    { name: "מִשְׂחֲקֵי זִיהוּי צְלִילִים", show: ["מ", "ס", "ש", "ר"], rings: true },
+    { name: "מִשְׂחֲקֵי זִיהוּי הֲבָרוֹת", show: ["בָּ", "לִי", "נוּ"] },
     { name: "מִשְׂחֲקֵי קְרִיאַת הֲבָרוֹת עִם נִקּוּד", show: ["מָ", "לֶ", "כִּי", "דוֹ"] },
     { name: "מִשְׂחֲקֵי קְרִיאַת מִלִּים", show: ["אַבָּא", "בַּיִת", "סֵפֶר"] },
     { name: "מִשְׂחֲקֵי כְּתִיבַת אוֹתִיּוֹת וּמִלִּים", show: ["א", "ב"], pencil: true },
@@ -294,12 +294,14 @@
     // Golan 29.10: rebuilt: a soft start and a soft stop over any distance, along the dots; a new target on the way
     // keeps the speed the balloon already has, so it never jerks
     const s0 = s;
-    if (dragging) s += (dragTo - s) * Math.min(1, dt * 5);
+    // Golan 29.10 19:53: while the finger or mouse drags, the balloon glides slowly toward the point of the way under it
+    // (the view holds still meanwhile, so the target does not run away), never faster than half an island a second
+    if (dragging) { const want = (dragTo - s) * Math.min(1, dt * 1.6), cap = 0.5 * dt; s += Math.max(-cap, Math.min(cap, want)); }
     else { if (!tw || tw.to !== sTo) { const d = Math.abs(sTo - s); tw = { from: s, to: sTo, t: 0, v0: vel, dur: Math.min(6, 1.4 + d * 1.1) }; }
       tw.t = Math.min(tw.dur, tw.t + dt); const u = tw.t / tw.dur, m0 = tw.v0 * tw.dur;
       s = tw.from * (2 * u * u * u - 3 * u * u + 1) + m0 * (u * u * u - 2 * u * u + u) + tw.to * (3 * u * u - 2 * u * u * u); }
     vel = dt > 0 ? (s - s0) / dt : 0;
-    const P = along(s), C = along(s - (tall ? BACK_TALL : BACK)), bob = prefersStill ? 0 : Math.sin(T * 1.6) * 0.15;
+    const sc = dragging && dragging.moved ? dragging.cam : s, P = along(s), C = along(sc - (tall ? BACK_TALL : BACK)), bob = prefersStill ? 0 : Math.sin(T * 1.6) * 0.15;
     // Golan 20.10: the balloon never hides an island ahead: on screen it slides sideways (left or right, whichever is
     // nearer and stays on the screen) until it no longer covers any of them
     const nearIsle = Math.max(0, 1 - Math.abs(s - Math.round(s)) * 4);   // between islands it stays right over the dots
@@ -318,7 +320,7 @@
     // the next ones up and to the right, farther and smaller; a focused island brings it closer
     let want, look;
     if (tall) {   // standing phone: the camera stays over the middle of the trail and looks up it; islands zigzag around the middle
-      const M = mid(Math.max(0, s - BACK_TALL)), cx = lerp(M.x, C.x, zoom * 0.6);
+      const M = mid(Math.max(0, sc - BACK_TALL)), cx = lerp(M.x, C.x, zoom * 0.6);
       want = new BABYLON.Vector3(cx, C.y + lerp(11, 6, zoom), C.z - lerp(7.5, 6.5, zoom));
       look = new BABYLON.Vector3(cx + lerp(0.6, 0.2, zoom), C.y + lerp(2.6, 1.2, zoom), C.z + lerp(11, 5, zoom));
     } else {
@@ -375,20 +377,27 @@
     opt.say("map_soon");   // an open topic whose games are still being built
   }
 
+  function nearestOnWay(px, py) {
+    const cv = engine.getRenderingCanvas(), r = cv.getBoundingClientRect(), k = cv.clientWidth / engine.getRenderWidth();
+    const vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()), M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly;
+    const cur = Math.round(s), lo = Math.max(0, cur - 1), hi = Math.min(STOPS.length - 1, cur + 4);
+    let best = s, bd = Infinity;
+    for (let v = lo; v <= hi + 1e-6; v += 0.02) { const q = along(v), p = BABYLON.Vector3.Project(new BABYLON.Vector3(q.x, q.y + BAL.y * 0.6, q.z), I, M, vp);
+      if (p.z < 0 || p.z > 1) continue; const d = Math.hypot(r.left + p.x * k - px, r.top + p.y * k - py); if (d < bd) { bd = d; best = v; } }
+    return best;
+  }
   // ---------- touch: a tap on an island flies there (a tap on the focused one opens it); a drag moves the balloon ----------
   function pointer(canvas) {
-    canvas.addEventListener("pointerdown", (e) => { canvas.setPointerCapture(e.pointerId); dragging = { x: e.clientX, y: e.clientY, s0: Math.round(sTo), moved: false }; dragTo = s; });
+    canvas.addEventListener("pointerdown", (e) => { canvas.setPointerCapture(e.pointerId); dragging = { x: e.clientX, y: e.clientY, s0: Math.round(sTo), moved: false, cam: s }; dragTo = s; });
     canvas.addEventListener("pointermove", (e) => {
       if (!dragging) return; const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
       if (!dragging.moved && Math.hypot(dx, dy) < 10) return; dragging.moved = true;
-      // the balloon follows the finger: to the left = forward along the path
-      // the path goes up and to the right: a finger moving right or up takes the balloon forward
-      const per = Math.max(140, Math.min(innerWidth, innerHeight * 1.6) * 0.36);
-      dragTo = Math.max(-0.2, Math.min(STOPS.length - 0.8, Math.max(dragging.s0 - 1, Math.min(dragging.s0 + 1, dragging.s0 + (dx - dy) / per))));   /* never more than one island away */
+      // the point of the way (over the dots) nearest to the finger on the screen, among the islands in view
+      dragTo = nearestOnWay(e.clientX, e.clientY);
     });
     const up = () => {
       if (!dragging) return; const d = dragging; dragging = null;
-      if (d.moved) { tw = null; vel = 0; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(dragTo))); return; }
+      if (d.moved) { tw = null; sTo = Math.max(0, Math.min(STOPS.length - 1, Math.round(s + Math.max(-0.45, Math.min(0.45, (dragTo - s)))))); return; }   // on to the nearest island, softly, keeping its speed
       const hit = scene.pick(scene.pointerX, scene.pointerY, (m) => m.isEnabled() && m.metadata && (m.metadata.stop != null || m.metadata.balloon || m.metadata.dot != null));
       if (!hit || !hit.hit) return;
       // Golan 20.10: a tap on the balloon past the child's progress flies it back to the last open island
@@ -454,7 +463,7 @@
         return { i, on: it.root.isEnabled() && it.vis > 0.5, x: q.x * k, y: q.y * k, r: Math.abs(e.x - q.x) * k }; }),
       clouds: far.map((g, i) => { const q = BABYLON.Vector3.Project(g.position.add(new BABYLON.Vector3(1.3, 0, 0)), I, M, vp); return { i, x: q.x * k, y: q.y * k, z: q.z }; }) };
   }
-  // text without nikud keeps the full spelling (כתיב מלא): "זִהוּי" -> "זיהוי", not "זהוי" (Golan 28.10 16:32). Used by the hub too.
+  // text without nikud keeps the full spelling (כתיב מלא): "זִיהוּי" -> "זיהוי", not "זהוי" (Golan 28.10 16:32). Used by the hub too.
   const FULL = { "זהוי": "זיהוי", "זכרון": "זיכרון" };
   FL.plainHe = (t) => t.replace(/[\u0591-\u05BD\u05BF-\u05C7]/g, "").replace(/[\u05D0-\u05EA]+/g, (w) => FULL[w] || w);
   FL.loadBabylon = loadBabylon;   // one loader for the hub's 3D sky balloons too

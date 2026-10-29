@@ -146,7 +146,7 @@
 <button class="round-btn gear-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
 <main id="games" aria-live="polite">
   <div class="who"><span class="comp"></span><h1 data-nq="בַּמֶּה נְשַׂחֵק?">בַּמֶּה נְשַׂחֵק?</h1><button class="spk" data-clip="hub_what_play" aria-label="הקשבה">🔊</button></div>
-  <div id="topic"><b data-nq="זִהוּי אוֹתִיּוֹת">זִהוּי אוֹתִיּוֹת</b><button class="spk" data-clip="map_t1" aria-label="הקשבה">🔊</button></div>
+  <div id="topic"><b data-nq="זִיהוּי אוֹתִיּוֹת">זִיהוּי אוֹתִיּוֹת</b><button class="spk" data-clip="map_t1" aria-label="הקשבה">🔊</button></div>
   <div class="grid"></div>
 </main>
 <div class="toast" id="toast"></div>
@@ -260,7 +260,7 @@
     document.querySelector(".who").setAttribute("aria-label", (p ? p.name + ", " : "") + "במה נשחק?");
     const grid = document.querySelector(".grid"); grid.innerHTML = "";
     // the topic label over the cards: the island's topic (map_t1, map_t2 ...)
-    { const t = ["זִהוּי אוֹתִיּוֹת", "זִהוּי צְלִילִים"][isleNow] || "זִהוּי אוֹתִיּוֹת", tb = document.querySelector("#topic b"); tb.dataset.nq = tb.textContent = t; document.querySelector("#topic .spk").dataset.clip = "map_t" + (isleNow + 1); }
+    { const t = ["זִיהוּי אוֹתִיּוֹת", "זִיהוּי צְלִילִים"][isleNow] || "זִיהוּי אוֹתִיּוֹת", tb = document.querySelector("#topic b"); tb.dataset.nq = tb.textContent = t; document.querySelector("#topic .spk").dataset.clip = "map_t" + (isleNow + 1); }
     for (const g of GAMES.filter((x) => isleOf(x) === isleNow)) {
       const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.dataset.id = g.id; b.style.setProperty("--ac", g.ac);
       // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)

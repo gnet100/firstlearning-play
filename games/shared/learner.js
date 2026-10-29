@@ -1717,14 +1717,18 @@ ${items[item]}</svg>`;
         }
         ids[ip0.id] = lp.id; merged.push(lp.name);
         const newer = (ip.lastAt || 0) > (lp.lastAt || 0) ? ip : lp;
+        // Golan 29.10 19:53 (fix): a session is kept whole as it was on its own device ("another session" is what makes a letter
+        // known), so sessions are renumbered by device and order, never merged by time. A practice in both copies keeps the
+        // file's session, so opening an untouched file again repairs a device merged by the first version.
         const seen = new Set(), evs = [];
-        for (const e of [...(lp.events || []), ...(ip.events || [])]) { const k = e.t + "|" + e.l + "|" + e.g + "|" + e.m; if (!seen.has(k)) { seen.add(k); evs.push(e); } }
+        for (const [src, list] of [["i", ip.events || []], ["l", lp.events || []]]) for (const e of list) { const k = e.t + "|" + e.l + "|" + e.g + "|" + e.m; if (!seen.has(k)) { seen.add(k); evs.push(Object.assign({}, e, { _src: src + e.s })); } }
         evs.sort((a, b) => a.t - b.t);
-        let sess = 0, last = 0; for (const e of evs) { if (!last || e.t - last > SESSION_GAP) sess++; last = e.t; e.s = sess; }   // sessions again, by time
+        const num = new Map(); for (const e of evs) { if (!num.has(e._src)) num.set(e._src, num.size + 1); e.s = num.get(e._src); delete e._src; }
+        const sess = num.size;
         const rs = new Set(), rounds = [...(lp.rounds || []), ...(ip.rounds || [])].filter((r) => { const k = r.t + "|" + r.g; return rs.has(k) ? false : (rs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-50);
         const keep = { id: lp.id, name: lp.name, color: lp.color, item: lp.item, created: Math.min(lp.created || Infinity, ip.created || Infinity) };
         Object.assign(lp, newer === lp ? {} : ip, keep, {
-          events: evs.slice(-MAX_EVENTS), rounds, session: sess, lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1,
+          events: evs.slice(-MAX_EVENTS), rounds, session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1,
           motor: [...(lp.motor || []), ...(ip.motor || [])].slice(-12), gameLevels: Object.assign({}, (newer === lp ? ip : lp).gameLevels || {}, newer.gameLevels || {}),
           gender: lp.gender || ip.gender || null, birthYear: lp.birthYear || ip.birthYear || null });
       }
