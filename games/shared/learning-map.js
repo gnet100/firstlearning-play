@@ -297,7 +297,10 @@
     // Golan 29.10 19:53: while the finger or mouse drags, the balloon glides slowly toward the point of the way under it
     // (the view holds still meanwhile, so the target does not run away), never faster than half an island a second
     if (dragging) { const want = (dragTo - s) * Math.min(1, dt * 1.6), cap = 0.5 * dt; s += Math.max(-cap, Math.min(cap, want)); }
-    else { if (!tw || tw.to !== sTo) { const d = Math.abs(sTo - s); tw = { from: s, to: sTo, t: 0, v0: vel, dur: Math.min(6, 1.4 + d * 1.1) }; }
+    else { if (!tw || tw.to !== sTo) { const d = Math.abs(sTo - s); const dur = Math.min(6, 1.4 + d * 1.1), dir = Math.sign(sTo - s);
+        // Golan 29.10 20:01: the speed it already has never carries it past the target (no overshoot after a drag)
+        const v0 = dir && Math.sign(vel) === dir ? dir * Math.min(Math.abs(vel), 1.2 * d / dur) : 0;
+        tw = { from: s, to: sTo, t: 0, v0, dur }; }
       tw.t = Math.min(tw.dur, tw.t + dt); const u = tw.t / tw.dur, m0 = tw.v0 * tw.dur;
       s = tw.from * (2 * u * u * u - 3 * u * u + 1) + m0 * (u * u * u - 2 * u * u + u) + tw.to * (3 * u * u - 2 * u * u * u); }
     vel = dt > 0 ? (s - s0) / dt : 0;
@@ -338,7 +341,7 @@
       const f = i === focus ? 1 : 0; it.grow += (f - it.grow) * Math.min(1, dt * 3);
       // the ring of letters turns the other way and slowly (Golan 20.10)
       const sp = prefersStill ? 0 : (0.16 + it.grow * 0.08);
-      it.spin = (it.spin || 0) - dt * sp; it.show.scaling.setAll((1 + it.grow * 0.35) * (it.open ? Math.min(1, Math.max(0, it.gone)) : 0));   /* the animation grows in as an island opens */
+      it.spin = (it.spin || 0) - dt * sp; it.show.scaling.setAll((1 + it.grow * 0.35) * (it.open ? Math.max(0.8, Math.min(1, Math.max(0, it.gone))) : 0.8));   /* Golan 29.10: a closed island's letters and sounds wait inside its bubble (a bit smaller); opening grows them */
       it.items.forEach((pl) => { const a = pl.metadata.ang + it.spin, r = 1.25 + it.grow * 0.05;   /* Golan 20.10: a little wider */
         pl.position.set(Math.cos(a) * r, (prefersStill ? 0 : Math.sin(T * 2 + pl.metadata.k) * 0.08) + it.grow * 0.1, Math.sin(a) * r); });
       it.extra.forEach((x) => { if (x.metadata.ring != null) { const q = ((T * 0.5 + x.metadata.ring / 3) % 1); x.scaling.setAll(0.4 + q * 2.4); x.material.alpha = 0.7 * (1 - q); x.position.y = 0.3; }
@@ -351,7 +354,6 @@
   function dotsInView() { const cur = Math.round(s); dots.forEach((d) => d.setEnabled(d.metadata.seg >= cur - 1 && d.metadata.seg < cur + 4)); }
     function tint(it, k) {   // k = 0 closed (in its bubble), 1 open; in between the bubble swells and pops
     const b = it.bubble; b.setEnabled(k < 1); if (k < 1) { const e = k * k; b.scaling.setAll(1 + e * 0.35); b.visibility = 1 - e; }
-    it.show.setEnabled(k > 0.02);
   }
   function setFocus(i) {
     focus = i; focusedAt = T; title(); if (i < 0) return;
@@ -393,7 +395,7 @@
       if (!dragging) return; const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
       if (!dragging.moved && Math.hypot(dx, dy) < 10) return; dragging.moved = true;
       // the point of the way (over the dots) nearest to the finger on the screen, among the islands in view
-      dragTo = nearestOnWay(e.clientX, e.clientY);
+      dragTo = nearestOnWay(e.clientX, e.clientY); if (Math.abs(dragTo - Math.round(dragTo)) < 0.15) dragTo = Math.round(dragTo);   // near an island: its middle
     });
     const up = () => {
       if (!dragging) return; const d = dragging; dragging = null;
