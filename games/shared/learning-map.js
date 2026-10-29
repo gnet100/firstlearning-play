@@ -423,5 +423,6 @@
   // text without nikud keeps the full spelling (כתיב מלא): "זִהוּי" -> "זיהוי", not "זהוי" (Golan 28.10 16:32). Used by the hub too.
   const FULL = { "זהוי": "זיהוי", "זכרון": "זיכרון" };
   FL.plainHe = (t) => t.replace(/[\u0591-\u05BD\u05BF-\u05C7]/g, "").replace(/[\u05D0-\u05EA]+/g, (w) => FULL[w] || w);
+  FL.loadBabylon = loadBabylon;   // one loader for the hub's 3D sky balloons too
   FL.map = { show, hide, STOPS, UNLOCK_AT, at: () => Math.round(sTo), probe };
 })();

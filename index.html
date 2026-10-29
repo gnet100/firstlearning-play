@@ -17,6 +17,7 @@
     font-family: "Noto Sans Hebrew", system-ui, sans-serif; }
   #sky { position: fixed; inset: 0; width: 100%; height: 100%; display: block;
     background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
+  #sky3d { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; touch-action: none; outline: none; }
   :root { --btn: max(calc(64 * var(--u, 1px)), var(--tap-s, 54px)); --e-t: var(--edge-t, max(12px, env(safe-area-inset-top)));
     --e-l: var(--edge-l, max(16px, env(safe-area-inset-left))); --e-r: var(--edge-r, max(16px, env(safe-area-inset-right)));
     --e-b: var(--edge-b, max(12px, env(safe-area-inset-bottom))); --g: max(calc(12 * var(--u, 1px)), var(--gap, 8px)); }
@@ -140,6 +141,7 @@
 </head>
 <body>
 <canvas id="sky" aria-hidden="true"></canvas>
+<canvas id="sky3d" aria-hidden="true"></canvas>
 <button class="round-btn door-btn" id="door" aria-label="חזרה" title="חזרה"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
 <button class="round-btn gear-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
 <main id="games" aria-live="polite">
@@ -656,12 +658,89 @@
         const over = x + w > out.l && x < out.r && f.y + h > out.t && f.y < out.b; f.fade = Math.max(0, Math.min(1, (f.fade ?? 1) + (over ? -dt * 4 : dt * 4)));
         alpha *= f.fade; }
       if (alpha <= 0.01) continue;
+      if (sky3) { sky3.place(f, x + w / 2, f.y, h, alpha, dt); continue; }
       sctx.globalAlpha = alpha; sctx.drawImage(sprites[f.i].cv, x, f.y, w, h);
     }
     sctx.globalAlpha = 1;
+    if (sky3) sky3.render(floats);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+
+  // ---------- the balloons in 3D, turning slowly like the balloon of the letter train (Golan 29.10, every island) ----------
+  // The same 9 balloons as the games: a sphere envelope with the game skin, skirt, ropes, striped basket, flag; the heart balloon
+  // is bent by love-balloon.js. An orthographic camera in screen pixels, so the drifting above only moves them; until Babylon
+  // is in (or if it never loads) the flat pictures stay.
+  let sky3 = null;
+  function paintSkin(ctx, W, H, d) {   // the 3D skin (x = around, y = top to bottom), same patterns as paintSkin in the letter train
+    if (d.pat === "love") return paintLove(ctx, W, H, d, true);
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
+    const S = H / 256;
+    if (d.pat === "gores" || d.pat === "rainbow") { const cols = d.pat === "rainbow" ? d.c : [a, b], n = d.pat === "rainbow" ? 12 : 16;
+      for (let i = 0; i < n; i++) { ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(i * W / n, 0, W / n + 1, H); } }
+    else if (d.pat === "dots") grid(W / 14, H / 6, (x, y) => { ctx.beginPath(); ctx.arc(x, y, 11 * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(W / 12, H / 5.5, (x, y) => starPath(ctx, x, y, 16 * S));
+    else if (d.pat === "hearts") grid(W / 12, H / 5.5, (x, y) => heartPath(ctx, x, y, 13 * S));
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
+    else if (d.pat === "zigzag" || d.pat === "waves") { const teeth = 16, amp = 9 * S;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) { ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1, yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S; ctx.lineJoin = "round"; ctx.stroke(); } }
+  }
+  function build3d() {
+    const cv = $("sky3d"), engine = new BABYLON.Engine(cv, true, { preserveDrawingBuffer: false, stencil: false, premultipliedAlpha: false, alpha: true });
+    engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 1.5));
+    const scene = new BABYLON.Scene(engine); scene.clearColor = new BABYLON.Color4(0, 0, 0, 0); scene.autoClear = true;
+    const cam = new BABYLON.FreeCamera("c", new BABYLON.Vector3(0, 0, -200), scene); cam.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA; cam.setTarget(BABYLON.Vector3.Zero()); cam.minZ = 1; cam.maxZ = 600;
+    const fit = () => { const w = innerWidth, h = innerHeight; cam.orthoLeft = 0; cam.orthoRight = w; cam.orthoTop = 0; cam.orthoBottom = -h; engine.resize(); };
+    addEventListener("resize", fit); fit();
+    const hl = new BABYLON.HemisphericLight("h", new BABYLON.Vector3(-0.3, 1, -0.6), scene); hl.intensity = 0.95; hl.groundColor = new BABYLON.Color3(0.55, 0.6, 0.7);
+    const dl = new BABYLON.DirectionalLight("d", new BABYLON.Vector3(0.4, -0.6, 1), scene); dl.intensity = 0.35;
+    const mat = (hex) => { const m = new BABYLON.StandardMaterial("m", scene); m.diffuseColor = BABYLON.Color3.FromHexString(hex); m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05); return m; };
+    // one model per balloon, in units: envelope centre at 0, the basket bottom about 5 units below, the flag top about 3 above
+    const models = BALLOONS.map((d, i) => {
+      const root = new BABYLON.TransformNode("b" + i, scene), spin = new BABYLON.TransformNode("s" + i, scene); spin.parent = root;
+      const [sx, sy0] = SHAPES[d.shape] || SHAPES.round, sy = sy0 / 1.15, heart = d.shape === "heart";
+      const tex = new BABYLON.DynamicTexture("t" + i, { width: 512, height: 256 }, scene, true); paintSkin(tex.getContext(), 512, 256, d); tex.update(true);
+      const em = new BABYLON.StandardMaterial("e" + i, scene); em.diffuseTexture = tex; em.specularColor = new BABYLON.Color3(0.08, 0.08, 0.08); em.emissiveColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+      const env = BABYLON.MeshBuilder.CreateSphere("env" + i, { diameterX: 3.4, diameterY: 3.7, diameterZ: 3.4, segments: 20, updatable: true }, scene);
+      const base = env.getVerticesData(BABYLON.VertexBuffer.PositionKind).slice();
+      env.material = em; env.parent = spin; env.scaling.set(sx, sy, sx); if (heart && window.loveShape) loveShape(env, base, true, 1.7, 1.85, 1.7);
+      env.position.y = 0;
+      const neck = -1.85 * sy + 0.05;   // the envelope's mouth
+      const skirt = BABYLON.MeshBuilder.CreateCylinder("sk" + i, { diameterTop: 2.3, diameterBottom: 0.8, height: 1.15, tessellation: 20 }, scene);
+      skirt.material = mat(d.pat === "love" ? d.c[1] : d.c[0]); skirt.parent = spin; skirt.position.y = neck + 0.05;   // as in the train: its top inside the envelope
+      for (const x of [-0.4, 0.4]) for (const z of [-0.4, 0.4]) { const rp = BABYLON.MeshBuilder.CreateCylinder("r", { diameter: 0.06, height: 0.9, tessellation: 4 }, scene); rp.material = mat("#5B4630"); rp.parent = spin; rp.position.set(x, neck - 0.2, z); }
+      const bt = new BABYLON.DynamicTexture("bt" + i, { width: 256, height: 160 }, scene, true), g = bt.getContext();
+      g.fillStyle = d.basket; g.fillRect(0, 0, 256, 160); g.fillStyle = "#00000022"; for (let y = 6; y < 160; y += 12) g.fillRect(0, y, 256, 3);
+      g.fillStyle = d.c[0]; g.fillRect(0, 44, 256, 16); g.fillRect(0, 108, 256, 16); g.fillStyle = d.c[1] && d.c[1] !== "#ffffff" ? d.c[1] : "#ffffff"; g.fillRect(0, 78, 256, 10);
+      g.fillStyle = "#4a3222"; g.fillRect(0, 0, 256, 14); g.fillRect(0, 152, 256, 8); bt.update(true);
+      const bm = new BABYLON.StandardMaterial("bm" + i, scene); bm.diffuseTexture = bt; bm.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+      const bk = BABYLON.MeshBuilder.CreateBox("bk" + i, { width: 0.95, height: 0.65, depth: 0.95, wrap: true }, scene); bk.material = bm; bk.parent = spin; bk.position.y = neck - 0.95;
+      if (d.flag) { const top = 1.85 * sy * (heart ? 1.1 : 1);
+        const pole = BABYLON.MeshBuilder.CreateCylinder("p", { diameter: 0.07, height: 0.9, tessellation: 6 }, scene); pole.material = mat("#5B4630"); pole.parent = spin; pole.position.y = top + 0.4;
+        const fl = BABYLON.MeshBuilder.CreatePlane("f", { width: 0.7, height: 0.42, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene); fl.material = mat(d.flag); fl.parent = pole; fl.position.set(0.37, 0.22, 0); }
+      root.setEnabled(false);
+      const meshes = spin.getChildMeshes(false);
+      return { root, spin, meshes, top: 1.85 * sy + (d.flag ? 0.9 : 0.1), bottom: -neck + 1.3 };
+    });
+    sky3 = {
+      place(f, cx, y, h, alpha, dt) {
+        const m = models[f.i]; if (!m) return; m.used = true;
+        if (alpha <= 0.01) { m.root.setEnabled(false); return; }
+        m.root.setEnabled(true);
+        const units = m.top + m.bottom, k = (h * 0.92) / units;   // the whole balloon as tall as its flat picture
+        m.root.scaling.setAll(k); m.root.position.set(cx, -(y + h * 0.04 + m.top * k), 50 - f.s * 20);
+        if (f.spinV == null) f.spinV = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.35);
+        if (!still) m.spin.rotation.y += f.spinV * dt;
+        for (const x of m.meshes) x.visibility = alpha;
+      },
+      render(fl) { models.forEach((m, i) => { if (!fl.some((f) => f.i === i)) m.root.setEnabled(false); });
+        if (screen !== "map" && !document.hidden) scene.render(); },
+    };
+  }
+  (window.FL && FL.loadBabylon ? FL.loadBabylon() : Promise.reject()).then(() => { try { build3d(); } catch (e) { sky3 = null; } }).catch(() => {});
 })();
 </script>
 </body>
