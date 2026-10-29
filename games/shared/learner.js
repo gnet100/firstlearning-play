@@ -22,6 +22,22 @@
   // words by their plain spelling; any other word is masculine. Clips: sd_explain, sd_explain_f, sd_explain_p.
   const WORD_F = new Set(["דלת", "סכריה", "מטריה", "רכבת", "שמש", "זברה", "בננה", "נעל", "טבעת", "יד", "כף", "צלחת", "משאית", "כבאית", "חללית", "נדנדה", "מגלשה", "חצוצרה", "מסכה"]);
   const WORD_P = new Set(["גרבים"]);
+  // Draw a picture centred by what is actually drawn in it, not by its frame (Golan 29.10 21:27: "דאג שהתמונות יהיו ממורכזות"):
+  // some drawings sit to one side of their square, so the visible part is measured once and moved to the middle of the box.
+  FL.drawPicCentred = (ctx, im, x, y, w, h) => {
+    let b = im._box;
+    if (!b) {
+      b = { x: 0.5, y: 0.5 };
+      try {
+        const N = 128, cv = document.createElement("canvas"); cv.width = cv.height = N; const g = cv.getContext("2d"); g.drawImage(im, 0, 0, N, N);
+        const d = g.getImageData(0, 0, N, N).data; let x0 = N, y0 = N, x1 = -1, y1 = -1;
+        for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (d[(j * N + i) * 4 + 3] > 20) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+        if (x1 >= 0) b = { x: (x0 + x1 + 1) / 2 / N, y: (y0 + y1 + 1) / 2 / N };
+      } catch (e) {}
+      im._box = b;
+    }
+    ctx.drawImage(im, x + (0.5 - b.x) * w, y + (0.5 - b.y) * h, w, h);
+  };
   FL.explainClip = (word) => { const w = String(word || "").replace(/[\u0591-\u05C7]/g, ""); return WORD_P.has(w) ? "sd_explain_p" : WORD_F.has(w) ? "sd_explain_f" : "sd_explain"; };
   // Golan 29.10 20:30 (all games): "יוצאים לדרך" and "עוד סיבוב" take one tap; more taps right after it (2-3 in a row) are
   // swallowed for 1.5 s, so a round never starts twice. Runs first (capture), before the games' own handlers.

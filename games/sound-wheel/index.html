@@ -960,9 +960,8 @@
       const steps = [];
       q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); if (saySounds()) lit(b, true); else sfx.pop(); },
         saySounds() ? SOUNDS[bl].s : () => {}, () => { lit(box.lastChild, false); }, saySounds() ? ms(350) : 0));
-      // the balls are touchable at once
-      state.mode = "play";
-      playIds(steps, () => { if (state.q === q) { q.audioEnd = performance.now(); idleFrom(); } });
+      // Golan 29.10 21:46: no taps until every ball is in (a tap before stopped the voice, and the other balls never came)
+      playIds(steps, () => { if (state.q === q) { state.mode = "play"; q.audioEnd = performance.now(); idleFrom(); } });
     });
   }
   // no answer: after a while the question is read again; after 2 readings with no answer, the game solves it (spec 5)
@@ -980,10 +979,11 @@
   function judge(b) {
     const q = state.q; if (!q || q.resolved || state.mode !== "play" || b.classList.contains("gone")) return;
     unlockAudio();
-    const now = performance.now(); if (!q.firstTap) q.firstTap = now;
+    const now = performance.now(); if (q.locked || now < (q.tapPause || 0)) return;   // Golan 29.10 21:22: a short rest after a mistake; no taps once the game solves it
+    if (!q.firstTap) q.firstTap = now;
     if (b._l === q.l) return right(b, false);
     // a wrong ball: only the mistake sound, the ball shakes and stays (spec 5)
-    stopVoice(); b._wrong++; q.wrongs++; if (!q.firstWrong) q.firstWrong = b._l;
+    stopVoice(); b._wrong++; q.wrongs++; q.tapPause = now + 900; if (!q.firstWrong) q.firstWrong = b._l;
     if (now - (q.audioEnd || now) < 800) state.roundSlips++;
     state.log.push({ target: q.l, picked: b._l, ok: false });
     sfx.oops(); b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong");
@@ -991,7 +991,7 @@
     // 2 mistakes on the same ball: it flies off; then one more try. 2 mistakes on different balls, or a mistake after a ball
     // flew off: the game solves it (as the sound detective)
     if (b._wrong >= 2 && q.wrongs === 2) { q.dropped++; setTimeout(() => { b.classList.add("gone"); }, 450); return; }
-    if (q.wrongs >= 2) { clearTimeout(idleT); setTimeout(() => autoSolve(), 650); }
+    if (q.wrongs >= 2) { q.locked = true; clearTimeout(idleT); setTimeout(() => autoSolve(), 650); }
   }
   // the right ball flies to the picture; Hila: "בַּ... בַּלּוֹן"; gold on the first try, silver after a mistake (spec 4)
   function right(b, auto) {
@@ -1004,7 +1004,7 @@
     b.classList.add("fly"); b.style.transform = `translate(${(s.left + s.width * 0.82 - (r.left + r.width / 2)).toFixed(0)}px, ${(s.top + s.height * 0.18 - (r.top + r.height / 2)).toFixed(0)}px) scale(.6)`;
     sfx.good();
     setTimeout(() => { if (state.q !== q) return; b.style.opacity = "0"; showOk(q); sparks(); wake(q.k); }, 800);
-    const ids = auto ? [SOUNDS[q.l].s, word(q.k)]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : ["fb_correct", SOUNDS[q.l].s, word(q.k)];   // "יש! נכון!" first (Golan 29.10)
+    const ids = auto ? [SOUNDS[q.l].s, word(q.k)]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : [SOUNDS[q.l].s, word(q.k), "fb_correct"];   /* Golan 29.10 21:27: first the sound and the word, then the praise */   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => later(ms(1200), () => {
       if (state.q !== q) return;
       $("balls").textContent = "";

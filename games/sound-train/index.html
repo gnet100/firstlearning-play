@@ -885,7 +885,7 @@
     ctx.lineWidth = look === "hint" ? 30 : look === "full" || look === "glow" ? 24 : 16;
     ctx.strokeStyle = look === "hint" || look === "glow" ? "#FFC400" : look === "full" ? "#2BB673" : c.color; ctx.stroke();
     const im = c.pic && PIC_IMG[c.pic];
-    if (im && im.complete && im.naturalWidth !== 0) ctx.drawImage(im, 40, 40, W - 80, H - 80);
+    if (im && im.complete && im.naturalWidth !== 0) FL.drawPicCentred(ctx, im, 40, 40, W - 80, H - 80);
     else if (im && !im._wait) { im._wait = true; im.addEventListener("load", () => { if (c.pic && PIC_IMG[c.pic] === im) drawCarSign(c, c.look); }, { once: true }); }
     c.sign.tex.update(true);
   }
@@ -1371,7 +1371,7 @@
   // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = the child moves the balloon / it flies slowly / it flies fast
   const moveMode = () => "hand";   // the child always moves the balloon (the level = the number of wagons, spec)
   const autoMove = () => moveMode() === "slow" || moveMode() === "mid" || moveMode() === "fast";   // 4 motion levels like the other games (17.10): still, slow, medium, fast
-  function requestDrop() { if ((state.phase === "ask" || state.phase === "bounce") && !state.paused) state.wantDrop = true; }
+  function requestDrop() { if ((state.phase === "ask" || state.phase === "bounce") && !state.paused && !(state.auto && !state.autoDrop) && performance.now() >= (state.tapPause || 0)) state.wantDrop = true; }   // Golan 29.10 21:22: a short rest after a mistake; nothing while the game solves it
 
   // The box is let go over a car.
   function doDrop() {
@@ -1455,7 +1455,7 @@
   function carUnder(x) { const i = activeCars().findIndex((c) => Math.abs(x - c.root.getAbsolutePosition().x) < CAR_IN); return i; }
   // The letter missed (another car, a wall, or between cars): no failing. The hint ladder climbs, then a new letter hangs.
   function missed(c) {
-    state.wrongs++; state.roundWrongs++;
+    state.wrongs++; state.roundWrongs++; state.tapPause = performance.now() + 900; state.wantDrop = false;
     // a wrong wagon = a sound mistake (the first one is recorded); a wall or the ground = the game was hard, not the sound
     const wrongCar = !!(c && c.letter && c.letter !== state.letter);
     if (wrongCar) { state.carWrongs++; if (!state.letterWrong) { state.letterWrong = true; state.firstPicked = c.letter; } } else state.roundSkill = (state.roundSkill || 0) + 1;
@@ -1499,7 +1499,7 @@
     state.phase = "cheer"; state.squash = 0; state.autoDrop = false;
     const myTrain = state.train, S = SOUNDS[state.letter], P = PICS[c.pic] || {}, W = P.clip;
     const explain = window.FL && FL.explainClip ? FL.explainClip(P.word) : "sd_explain";
-    const ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : ["fb_correct", S.s, W];   // "יש! נכון!" first, then "רָ... רַעֲשָׁן" (Golan 29.10)
+    const ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : [S.s, W, "fb_correct"];   /* Golan 29.10 21:27: first the sound and the word, then the praise */   // "יש! נכון!" first, then "רָ... רַעֲשָׁן" (Golan 29.10)
     stopSeq();
     after(250, () => playIds(ids, () => after(300, () => {
       if (state.train !== myTrain || state.phase !== "cheer") return;
