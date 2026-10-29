@@ -1114,7 +1114,7 @@
     const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
     if (!m) return;
     if (m.state === "sad") { sfx.oops(); return; }   // the same wrong mole again, on its way down: the mistake sound again, not another mistake
-    const now = performance.now(); if (now - lastTap < 300) return; lastTap = now;   // double-touch filter
+    const now = performance.now(); if (now - lastTap < 300 || now < (q.tapPause || 0)) return; lastTap = now;   // double-touch filter; Golan 29.10 21:22: a short rest after a mistake
     setTimeout(() => { if (state.q === q) answer(m); }, 110);   // the hammer comes down first
   });
   function answer(m) {
@@ -1124,7 +1124,7 @@
     hush();
     if (m.letter === q.letter) return found(m, q);
     // a wrong mole: it is upset and goes down, with only the mistake sound (Golan 28.10: no "זֹאת הָאוֹת ..." and no letter name)
-    q.wrongs++; if (!q.firstWrong) q.firstWrong = m.letter; q.out.add(m.letter);
+    q.wrongs++; if (!q.firstWrong) q.firstWrong = m.letter; q.out.add(m.letter); q.tapPause = performance.now() + 900;
     sfx.oops(); vibrate([40, 60, 40]); guideReact("oops");
     m.state = "sad"; m.t = 0; m.brows.forEach((b) => b.setEnabled(true));
     if (q.wrongs >= 2 && !q.hint) { q.hint = true; const r = moles.find((k) => k.letter === q.letter && k.state !== "off"); if (r) { r.hint = true; drawSign(r, r.letter, true); } }   // after 2 mistakes the right mole sparkles

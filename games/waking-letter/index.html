@@ -1403,6 +1403,7 @@
   }
   function chooseSign(i) {
     if (state.mode !== "find" || state.resolved || !state.q || i >= state.q.order.length || signs[i].removed) return;
+    if (performance.now() < (state.tapPause || 0)) return;   // Golan 29.10 21:22: a short rest after a mistake
     sfx.tap();
     if (!state.tapped) { state.tapped = true; state.firstRt = answerMs(); }
     else if (state.flyTo >= 0 && state.flyTo !== i) { state.changed = true; state.roundChanged++; }
@@ -1453,7 +1454,7 @@
       }));
     } else {
       // no failing: back off a little and climb the hint ladder (as in the car game)
-      state.wrongs++; state.roundWrongs++; state.letterWrongs++;
+      state.wrongs++; state.roundWrongs++; state.letterWrongs++; state.tapPause = performance.now() + 900;
       if (state.wrongs === 1 && state.firstRt != null && state.firstRt < 800) state.roundFast++;   // a quick slip (game skill, not the letter)
       sfx.oops(); vibrate([30, 40, 30]);
       // no "אוּפְּס!" on screen: the child can not read yet, only the sound (Golan, 16.10, all games)

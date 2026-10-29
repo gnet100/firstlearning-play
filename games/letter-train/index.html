@@ -1346,7 +1346,7 @@
   // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = the child moves the balloon / it flies slowly / it flies fast
   const moveMode = () => ["hand", "slow", "fast"][(LRN ? LRN.level() : 1) - 1] || "hand";
   const autoMove = () => moveMode() === "slow" || moveMode() === "mid" || moveMode() === "fast";   // 4 motion levels like the other games (17.10): still, slow, medium, fast
-  function requestDrop() { if (state.phase === "ask" && !state.paused) state.wantDrop = true; }
+  function requestDrop() { if (state.phase === "ask" && !state.paused && performance.now() >= (state.tapPause || 0)) state.wantDrop = true; }   // Golan 29.10 21:22: a short rest after a mistake
 
   // The box is let go over a car.
   function doDrop() {
@@ -1430,7 +1430,7 @@
   function carUnder(x) { const i = activeCars().findIndex((c) => Math.abs(x - c.root.getAbsolutePosition().x) < CAR_IN); return i; }
   // The letter missed (another car, a wall, or between cars): no failing. The hint ladder climbs, then a new letter hangs.
   function missed(c) {
-    state.wrongs++; state.roundWrongs++;
+    state.wrongs++; state.roundWrongs++; state.tapPause = performance.now() + 900; state.wantDrop = false;
     // In a wrong car = a letter mistake (the first one is recorded); a wall or the ground = the game itself was hard, not the letter
     if (c && c.letter) { if (!state.letterWrong) { state.letterWrong = true; state.firstPicked = c.letter; } } else state.roundSkill = (state.roundSkill || 0) + 1;
     sfx.oops(); vibrate([30, 40, 30]);

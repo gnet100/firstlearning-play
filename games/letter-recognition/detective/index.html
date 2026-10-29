@@ -1295,7 +1295,7 @@
   // A letter can be tapped, or dragged with a finger or the mouse up to the balloon (Golan, 15.10).
   // A tap (or a drop on the balloon) is judged; a drag that ends away from the balloon puts the letter back, with no mistake counted.
   let drag = null;
-  const canPlay = () => (state.mode === "play" || state.mode === "blocked") && state.q && !state.resolved;
+  const canPlay = () => (state.mode === "play" || state.mode === "blocked") && state.q && !state.resolved && performance.now() >= (state.tapPause || 0);   // Golan 29.10 21:22: a short rest after a mistake (no auto-solve here: the hint glows)
   canvas.addEventListener("pointerdown", (e) => {
     if (!canPlay() || drag) return;
     const r = canvas.getBoundingClientRect();
@@ -1352,7 +1352,7 @@
       if (now - (state.audioEnd || now) < 800) state.roundSlips = (state.roundSlips || 0) + 1;   // a very fast wrong tap: trouble with the game, not the letter
       state.log.push({ target: q.letter, picked: c.letter, ok: false, ms });
       sfx.oops(); vibrate([30, 40, 30]);   // only the sound: no "אוּפְּס!" word, the children cannot read yet (Golan, 16.10, all games)
-      c.state = "wrong"; c.t = 0;
+      c.state = "wrong"; c.t = 0; state.tapPause = performance.now() + 900;
       state.mode = "blocked"; state.nagAt = state.gameT;
       if (FINAL_OF[q.letter] === c.letter) setTimeout(() => say("סופית במקום " + c.letter, 1), 400);       // touched the final form of the letter
       else if (REG_OF[q.letter] === c.letter) setTimeout(() => say("לבחור סופית " + q.letter, 1), 400);   // touched the regular form of a final letter

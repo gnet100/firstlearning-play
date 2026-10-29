@@ -1070,7 +1070,7 @@
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
     const r = canvas.getBoundingClientRect(), c = cloudAt(e.clientX - r.left, e.clientY - r.top);
     if (!c) return;
-    const now = performance.now(); if (now - lastTap < 300) return; lastTap = now;   // double-touch filter
+    const now = performance.now(); if (now - lastTap < 300 || now < (state.tapPause || 0)) return; lastTap = now;   // double-touch filter; Golan 29.10 21:22: a short rest after a mistake
     // Golan 19.10: any touch on the star's cloud counts, even while "גְּעִי בַּכּוֹכָב" is still being said
     if (!q.armed && q.kind === "warm" && clouds.indexOf(c) === q.ti) { hush(); q.armed = true; q.early = true; return answer(c); }
     if (!q.armed) { if (c.state === "idle") { c.state = "wrong"; c.t = 0; } return; }   // too early: the cloud only wiggles
@@ -1109,7 +1109,7 @@
   // a wrong letter: the wrong sound, the cloud and its letter shake; the letters stay until the right one is touched.
   // The second wrong touch on the same cloud sends its letter off the screen; the cloud stays, empty (Golan 19.10, as in detective)
   function missed(c, q) {
-    sfx.oops(); vibrate([40, 60, 40]);
+    sfx.oops(); vibrate([40, 60, 40]); state.tapPause = performance.now() + 900;
     c.wrongN = (c.wrongN || 0) + 1;
     if (c.wrongN >= 2) { c.state = "empty"; c.t = 0; } else { c.state = "wrong"; c.t = 0; }
     const t = clock(); q.firstEnd = q.lastEnd = t; q.repeats = 0;   // the "no touch" clock starts again
