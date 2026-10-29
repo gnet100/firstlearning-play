@@ -337,10 +337,9 @@
   .topics { display: grid; gap: max(calc(14 * var(--u, 1px)), 10px); margin-top: 8px; }
   .topic { position: relative; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; border: 3px solid #d5dde6; border-radius: 22px;
     background: #eaf6ff; padding: 8px 12px; cursor: pointer; font: 800 max(calc(28 * var(--u, 1px)), 19px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); overflow: hidden; }
-  .topic:active { transform: scale(.98); }
   .topic.locked { opacity: .45; cursor: default; }
   .topic.locked::after { content: "בקרוב"; position: absolute; left: 12px; top: 50%; translate: 0 -50%; font-size: .6em; background: #fff; border-radius: 999px; padding: 2px 12px; color: var(--muted); }
-  .topic.flash { animation: carFlash 1s ease-in-out; }
+  .topic.on { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ffb27a99; }   /* Golan 29.10: a touch only lights the frame while Hila says the name; the row does not grow */
   /* Golan 29.10: the pictures sit fixed on a turning bracelet (a ring seen a little from above), not a sliding belt */
   .topic .strip { position: relative; height: min(max(calc(150 * var(--u, 1px)), 96px), max(calc((100dvh - 170px) / 3), 64px)); overflow: hidden; border-radius: 14px; background: #fff; direction: ltr; perspective: 1600px; }
   .topic .ring { position: absolute; left: 50%; top: 44%; width: 0; height: 0; transform-style: preserve-3d; animation: ring var(--bt, 24s) linear infinite; }
@@ -352,7 +351,7 @@
   .topic .bead .f { background: #fff; box-shadow: 0 0 0 2px #FFC233 inset; }
   .topic .bead .b { background: linear-gradient(#ffe7a8, #f5c95c); transform: rotateY(180deg); }
   .topic .bead svg, .topic .bead img { position: absolute; inset: 8%; width: 84%; height: 84%; display: block; }
-  @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ffb27a; transform: translateY(-2px); } }
+  @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ffb27a; } .topic:hover .ring { animation-play-state: paused; } }   /* the mouse over a row stops its bracelet (Golan 29.10) */
 
   /* the game: one wide wheel of pictures across the screen (spec 2) */
   #wheel { position: fixed; left: 0; right: 0; direction: ltr; touch-action: none; }
@@ -381,11 +380,16 @@
     background: #fff; box-shadow: 0 2px 8px #0003; display: grid; place-items: center; font-size: calc(var(--ss) * .11); cursor: pointer; pointer-events: auto; padding: 0; }
   #starSpk:active { transform: scale(.92); }
   /* the round answer balls: a letter with its nikud, always inside and in the middle (spec 6) */
-  #balls { position: fixed; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: var(--bg); direction: rtl; pointer-events: none; }
+  #balls { position: fixed; left: 0; right: 0; display: flex; justify-content: center; align-items: flex-start; gap: var(--bg); direction: rtl; pointer-events: none; }
   #balls[hidden] { display: none; }
   .ball { position: relative; width: var(--bs); height: var(--bs); border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
     background: radial-gradient(circle at 34% 30%, #ffffffcc 0 9%, transparent 10%), radial-gradient(circle at 50% 55%, var(--c1), var(--c2));
     box-shadow: inset 0 calc(var(--bs) * -.06) calc(var(--bs) * .1) #0003, 0 calc(var(--bs) * .06) calc(var(--bs) * .14) #0003; animation: ballIn .5s cubic-bezier(.3, 1.5, .5, 1) both; }
+  .ball .bspk { position: absolute; left: 50%; top: calc(100% + var(--bs) * .08); translate: -50% 0; width: var(--sk); height: var(--sk); border-radius: 50%; background: #fff;
+    box-shadow: 0 2px 8px #0003; display: grid; place-items: center; font-size: calc(var(--sk) * .5); cursor: pointer; }
+  .ball .bspk:active { scale: .92; }
+  #balls.tight .bspk { top: auto; bottom: -14%; left: -14%; translate: 0 0; width: min(var(--sk), calc(var(--bs) * .4)); height: min(var(--sk), calc(var(--bs) * .4)); font-size: calc(var(--bs) * .19); }
+  .ball.fly .bspk, .ball.gone .bspk { opacity: 0; }
   .ball .face { position: absolute; inset: 17%; border-radius: 50%; background: #fff; display: grid; place-items: center; overflow: hidden; }
   .ball canvas { display: block; }
   .ball.lit { box-shadow: 0 0 0 calc(var(--bs) * .06) #FFC233, 0 0 calc(var(--bs) * .3) #FFD54F; }
@@ -403,8 +407,10 @@
   /* the spin and stop buttons, with drawn signs (the children do not read yet) */
   #spinRow { position: fixed; left: 0; right: 0; display: flex; justify-content: center; gap: var(--bg); pointer-events: none; }
   #spinRow[hidden] { display: none; }
-  #spinRow button { pointer-events: auto; width: var(--sb); height: var(--sb); border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; padding: 0; }
-  #spinRow svg { width: 62%; height: 62%; display: block; }
+  /* Golan 29.10: one word button, "סובב" and then "עצור" in its place */
+  #spinRow { align-items: center; }
+  #spinRow button { pointer-events: auto; min-width: calc(var(--sb) * 1.9); height: calc(var(--sb) * .62); border-radius: 999px; border: 0; cursor: pointer; display: grid; place-items: center;
+    padding: 0 calc(var(--sb) * .3); color: #fff; font: 800 calc(var(--sb) * .3) "Noto Sans Hebrew", system-ui, sans-serif; }
   #spinBtn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
   #stopBtn { background: #ff8a3d; box-shadow: 0 5px 0 #c45f1d; }
   #spinRow button:active { transform: translateY(3px); box-shadow: none; }
@@ -426,8 +432,8 @@
 <div id="balls" hidden></div>
 <div id="okMark" hidden></div>
 <div id="spinRow" hidden>
-  <button id="stopBtn" type="button" aria-label="עצור" hidden><svg viewBox="0 0 64 64"><path d="M26 8c3 0 5 2 5 5v15l1-1c1-4 8-4 8 0v1c1-4 8-4 8 1v2c2-3 7-2 7 2v13c0 9-6 14-15 14h-5c-6 0-9-3-12-7L14 41c-2-3 1-6 4-5l4 3V13c0-3 2-5 4-5z" fill="#fff" stroke="#7a3d12" stroke-width="2.6" stroke-linejoin="round"/></svg></button>
-  <button id="spinBtn" type="button" aria-label="סובב"><svg viewBox="0 0 64 64"><path d="M50 32a18 18 0 1 1-6-13.4" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M38 8l10 11-14 3z" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg></button>
+  <button id="stopBtn" type="button" hidden>עצור</button>
+  <button id="spinBtn" type="button">סובב</button>
 </div>
 <div id="fx"></div>
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
@@ -616,6 +622,7 @@
   function getClip(id) {
     if (!clipCache[id]) {
       const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = a.playbackRate = 0.85; a.preservesPitch = true; }   // the sounds a little slower (Golan 29.10)
       a.addEventListener("canplaythrough", () => { a._ok = true; }, { once: true });
       a.addEventListener("error", () => { a._bad = true; }, { once: true });
       clipCache[id] = a;
@@ -623,8 +630,8 @@
     return clipCache[id];
   }
   // lines of the voice thread (lines.js): sw_start (opening), sw_q (the question), sw_cat_* (topic names), hub_g_wheel; sd_demo and sd_explain shared with the sound detective; silent until recorded
-  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "ins_balloon", "sw_q", "sd_demo", "sd_explain", "day_break", "day_end"];
-  const CHILD_LINES = ["sw_start", "ins_balloon", "day_break"];   // boy / girl versions first, else the plural clip
+  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "ins_balloon", "sw_pick", "sw_q", "sd_demo", "sd_explain", "day_break", "day_end"];
+  const CHILD_LINES = ["sw_start", "ins_balloon", "sw_pick", "day_break"];   // boy / girl versions first, else the plural clip
   LINES.forEach(getClip); Object.values(SOUNDS).forEach((s) => getClip(s.s)); TOPICS.forEach((t) => { getClip(t.clip); t.pics.forEach(([k]) => PICS[k] && getClip(PICS[k].clip)); });
   if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
   function voiceId(id) {
@@ -659,11 +666,12 @@
       if (i >= ids.length) { seqOn = false; return then && then(); }
       const item = ids[i++];
       if (typeof item === "function") { item(); return next(); }
+      if (typeof item === "number") return setTimeout(next, item);   // a rest, in ms
       const a = item && settings.voice === "on" ? getClip(voiceId(vary(item))) : null;
       if (!a || a._bad) return setTimeout(next, settings.voice === "on" ? 0 : 450);
       try { if (clipNow && clipNow !== a) clipNow.pause(); } catch (e) {}
       let done = false; const fin = () => { if (done) return; done = true; setTimeout(next, 140); };
-      a.currentTime = 0; clipNow = a;
+      a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a;
       a.addEventListener("ended", fin, { once: true });
       const pr = a.play(); if (pr && pr.catch) pr.catch(() => { if (!a._ok) a._bad = true; fin(); });
       setTimeout(() => { if (!done && (a.paused || a._bad) && !paused) fin(); }, 6000);   // a clip that never starts does not hold the game
@@ -759,7 +767,7 @@
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
   const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "demo", onEnd: () => timeUp() }) : null;
   const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
-  const N_TILES = 8, SPIN_V = 5.5;   // tiles a second at full spin
+  const N_TILES = 8, SPIN_V = 2.2;   // tiles a second at full spin (Golan 29.10: much slower)
   let geo = { ts: 120, step: 140, cx: 0, cy: 0, w: 0, h: 0 };
   function buildWheel(keys) {
     const fr = $("frame"); fr.textContent = "";
@@ -804,9 +812,11 @@
     // the row under the wheel: the balls of the question, or the spin and stop buttons
     const rowTop = top2 + wh + Math.max(16, ts * 0.32), rowH = Math.max(60, Math.min(H - eb - rowTop, ts * 1.3));
     const nB = Math.max(3, state.q ? state.q.balls.length : ballCount()), gap = Math.max(10, ts * 0.12);
-    const bs = Math.max(Math.min(px("--tap", 60) * 1.15, 90), Math.min(rowH * 0.8, (W - el - er - gap * (nB + 1)) / nB, ts * 0.95));
+    const bs = Math.max(Math.min(px("--tap", 60) * 1.15, 90), Math.min(rowH * 0.66, (W - el - er - gap * (nB + 1)) / nB, ts * 0.95));
+    const sk = Math.max(px("--tap-s", 44) * 0.9, Math.min(bs * 0.34, 64));   // the speaker under each ball
     const sb = Math.max(px("--tap", 60) * 1.1, Math.min(rowH * 0.8, ts * 0.8, 150));
-    for (const id of ["balls", "spinRow"]) { const e = $(id); e.style.top = rowTop + "px"; e.style.height = rowH + "px"; e.style.setProperty("--bs", bs + "px"); e.style.setProperty("--sb", sb + "px"); e.style.setProperty("--bg", gap + "px"); }
+    for (const id of ["balls", "spinRow"]) { const e = $(id); e.style.top = rowTop + "px"; e.style.height = rowH + "px"; e.style.setProperty("--bs", bs + "px"); e.style.setProperty("--sb", sb + "px"); e.style.setProperty("--bg", gap + "px"); e.style.setProperty("--sk", sk + "px"); }
+    $("balls").classList.toggle("tight", bs * 1.08 + sk + 4 > rowH || rowTop + rowH > H - eb + 1);
     drawWheel(); placeStar(); placeOk();
     [...$("balls").children].forEach(drawBall);
   }
@@ -823,7 +833,7 @@
     raf = 0; const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0; lastT = t;
     if (!paused) {
       if (state.spinning) state.pos += state.v * dt * motionK();
-      else if (snap) { snap.t = Math.min(1, snap.t + dt / 0.28); const e = 1 - Math.pow(1 - snap.t, 3); state.pos = snap.from + (snap.to - snap.from) * e; if (snap.t >= 1) { const f = snap.done; snap = null; f && f(); } }
+      else if (snap) { snap.t = Math.min(1, snap.t + dt / 0.5); const e = 1 - Math.pow(1 - snap.t, 3); state.pos = snap.from + (snap.to - snap.from) * e; if (snap.t >= 1) { const f = snap.done; snap = null; f && f(); } }
       else if (drag) { /* the finger holds the wheel */ }
     }
     drawWheel();
@@ -833,7 +843,7 @@
   function spin(v) {
     if (!(state.mode === "ready2spin" || state.mode === "spin")) return;
     unlockAudio(); clearNudge();
-    state.mode = "spin"; state.spinning = true; state.v = Math.max(SPIN_V, Math.min(14, v || SPIN_V)); snap = null;
+    state.mode = "spin"; state.spinning = true; state.v = Math.max(SPIN_V, Math.min(SPIN_V * 2, v || SPIN_V)); snap = null;
     $("spinBtn").hidden = true; $("stopBtn").hidden = false; tone([523, 659], 0.08, "triangle", 0.2);
     run(); nudgeLater("stopBtn", 6000);
   }
@@ -897,16 +907,22 @@
   function makeBall(l, i) {
     const b = document.createElement("button"); b.type = "button"; b.className = "ball"; b._l = l; b._cur = cursiveFor(l); b._wrong = 0;
     const [c1, c2] = BALL_C[i % BALL_C.length]; b.style.setProperty("--c1", c1); b.style.setProperty("--c2", c2);
-    b.setAttribute("aria-label", SOUNDS[l].syl); b.innerHTML = `<span class="face"><canvas></canvas></span>`;
-    b.addEventListener("click", (e) => { e.stopPropagation(); judge(b); });
+    b.setAttribute("aria-label", SOUNDS[l].syl); b.innerHTML = `<span class="face"><canvas></canvas></span><span class="bspk" role="button" aria-label="הצליל">🔊</span>`;
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (e.target.closest(".bspk")) return sayBall(b); judge(b); });
     return b;
   }
   const lit = (b, on) => b && b.classList.toggle("lit", on);
+  // the ball's speaker (Golan 29.10): its sound, with the ball lit; it is not an answer
+  function sayBall(b) {
+    if (!state.q || state.q.resolved || state.mode !== "play" || b.classList.contains("gone")) return;
+    unlockAudio(); const q = state.q;
+    playIds([() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false)], () => { if (state.q === q) idleFrom(); });
+  }
   const word = (k) => (PICS[k] || {}).clip;
   // the question, then the word ("בְּאֵיזֶה צְלִיל מַתְחִילָה הַמִּלָּה" + word, Golan 29.10); levels 1-2: then each ball's sound as it lights (spec 3)
   function readSteps(q, names) {
     const steps = ["sw_q", word(q.k)];
-    if (names && saySounds()) for (const b of [...$("balls").children].filter((x) => !x.classList.contains("gone"))) steps.push(() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false));
+    if (names && saySounds()) for (const b of [...$("balls").children].filter((x) => !x.classList.contains("gone"))) steps.push(() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false), ms(350));
     return steps;
   }
   function ask() {
@@ -924,7 +940,7 @@
       if (state.q !== q) return;
       const steps = [];
       q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); if (saySounds()) lit(b, true); else sfx.pop(); },
-        saySounds() ? SOUNDS[bl].s : () => {}, () => { lit(box.lastChild, false); }));
+        saySounds() ? SOUNDS[bl].s : () => {}, () => { lit(box.lastChild, false); }, saySounds() ? ms(350) : 0));
       // the balls are touchable at once
       state.mode = "play";
       playIds(steps, () => { if (state.q === q) { q.audioEnd = performance.now(); idleFrom(); } });
@@ -1233,22 +1249,29 @@
       if (!t.soon) b.addEventListener("click", () => pickTopic(t, b));
       box.append(b);
     });
-    $("topics").hidden = false;
-    requestAnimationFrame(() => [...box.children].forEach((b, i) => bracelet(b.querySelector(".ring"), TOPICS[i].pics.map(([k]) => k))));
+    $("topics").hidden = false; say("sw_pick");   // "בְּחַר גַּלְגַּל" (Golan 29.10)
+    // every bracelet has the same number of cards: as many as the smallest one would hold (Golan 29.10; which pictures stay out does not matter)
+    requestAnimationFrame(() => {
+      const rows = [...box.children].map((b, i) => ({ ring: b.querySelector(".ring"), keys: TOPICS[i].pics.map(([k]) => k) }));
+      const n = Math.min(...rows.map((r) => braceletFits(r.ring, r.keys.length)));
+      rows.forEach((r) => bracelet(r.ring, r.keys, n));
+    });
   }
-  // the pictures around a ring: as many as fit the row's width (whole rounds of the topic's pictures), each one fixed on the ring
-  function bracelet(ring, keys) {
-    const st = ring.parentNode, W = st.clientWidth, H = st.clientHeight;
-    const gap = 1.1, r0 = Math.max(40, W * 0.46 - H * 0.3);   // the ring fills the row's width; big cards (Golan 29.10)
-    const n = keys.length * Math.max(1, Math.round((2 * Math.PI * r0) / (H * 0.64 * gap) / keys.length));
-    const s = Math.min(H * 0.64, (2 * Math.PI * r0) / (n * gap)), r = (n * s * gap) / (2 * Math.PI);   // the cards close together   // whole rounds of the pictures, each as big as fits
+  // how many cards a row's ring would hold: whole rounds of the topic's pictures, as big as fit
+  const ringSize = (ring) => { const st = ring.parentNode, W = st.clientWidth, H = st.clientHeight; return { H, r0: Math.max(40, W * 0.46 - H * 0.3) }; };
+  function braceletFits(ring, count) { const { H, r0 } = ringSize(ring); return count * Math.max(1, Math.round((2 * Math.PI * r0) / (H * 0.64 * 1.1) / count)); }
+  // the pictures around a ring, each one fixed on it (when there are fewer pictures than cards they come round again)
+  function bracelet(ring, keys, n) {
+    const { H, r0 } = ringSize(ring), gap = 1.1;   // the ring fills the row's width; big cards (Golan 29.10)
+    const s = Math.min(H * 0.64, (2 * Math.PI * r0) / (n * gap)), r = (n * s * gap) / (2 * Math.PI);   // the cards close together
+    keys = shuffle(keys.slice());   // a different choice of pictures each time
     ring.style.setProperty("--s", s + "px");
     ring.innerHTML = Array.from({ length: n }, (_, j) => `<span class="bead" style="transform: rotateY(${(j * 360) / n}deg) translateZ(${r}px)"><i class="f">${picHtml(keys[j % keys.length])}</i><i class="b"></i></span>`).join("");
   }
   let topicBusy = false;
   function pickTopic(t, b) {
     if (topicBusy) return; topicBusy = true; unlockAudio();
-    settings.topic = t.id; saveSettings(); b.classList.add("flash");
+    settings.topic = t.id; saveSettings(); b.classList.add("on");
     playIds([t.clip], () => setTimeout(() => { topicBusy = false; if ($("topics").hidden) return; $("topics").hidden = true; starCount.reset(); $("hud").hidden = false; countdown(); }, 500));
   }
 
