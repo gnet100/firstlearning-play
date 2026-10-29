@@ -461,6 +461,7 @@
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/love-balloon.js"></script>
 <script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" (spec sec 6) -->
+<script src="sound-pictures.js"></script>   <!-- the new pictures of this game (Golan 29.10) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>if (!(window.FL && window.FL.learner)) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js" data-fl-hub="../../index.html"><\/script>');</script>
 <script>
@@ -507,7 +508,10 @@
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
     "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
-  const PICS_OF = { "ב": ["ב", "ן"], "י": ["י", "ם"] };
+  // Golan 29.10: 3 pictures for every sound (the new ones in sound-pictures.js); the generic camel replaces the waking game's ג here
+  const PICS_OF = { "ב": ["ב", "ן", "banana"], "ג": ["camel", "socks", "gnome"], "נ": ["נ", "shoe", "tiger"], "ט": ["ט", "ring", "chef"],
+    "י": ["י", "ם", "hand"], "כ": ["כ", "teaspoon", "firefighter"], "א": ["א", "rabbit", "watermelon"], "ח": ["ח", "donkey", "window"],
+    "צ": ["צ", "plate", "painter"], "ר": ["ר", "rattle", "trafficLight"], "ת": ["ת", "rooster", "crocodile"] };
   const picsOf = (l) => PICS_OF[l] || [l];
   // sounds that sound alike never meet in one sky (spec sec 6): ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
   const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];

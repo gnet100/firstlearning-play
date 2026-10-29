@@ -1291,12 +1291,43 @@ ${items[item]}</svg>`;
 .fl-end-btn:not(.ghost){background:#34b36b;color:#fff;box-shadow:0 5px 0 #1f8048}
 .fl-end-btn:not(.ghost):active{box-shadow:0 2px 0 #1f8048}
 .fl-end-btn{display:inline-flex;align-items:center;justify-content:center;gap:calc(12 * var(--u,1px) * var(--k));white-space:nowrap;padding:0 calc(22 * var(--u,1px))}
+.fl-end-btn .fl-end-2l{display:flex;flex-direction:column;align-items:center;line-height:1.02;font-size:.82em}
 .fl-end-btn .fl-end-door{width:1.1em;height:1.1em;flex:none}
 .fl-end-spk{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:#ffffff33;font-size:.8em;flex:none}
 .fl-end [hidden]{display:none!important}`;
     document.head.append(st);
   }
   // how many times each letter was asked since the previous end panel (or page load): one count per question
+  // ---------- the next game, chosen by the system (Golan 29.10) ----------
+  // "המשך למשחק הבא" at the end of every game and "התחל משחק" on the map use the same rule: up to 8 letters recognised with
+  // confidence: a letter game with a low game challenge; more than 8: one with a higher game challenge; 15 or more: a game
+  // of the next island. Never the song, never a game that needs an adult, never the game just played (when there is another).
+  const NEXT_GAMES = [
+    { id: "waking", g: "wake", path: "games/waking-letter/index.html", tier: "easy" },
+    { id: "detective", g: "detective", path: "games/letter-recognition/detective/index.html", tier: "easy" },
+    { id: "circle", g: "circle", path: "games/letter-circle/index.html", tier: "easy" },
+    { id: "memory", g: "memory", path: "games/memory/index.html", tier: "hard" },
+    { id: "race", g: "race", path: "voice/race-gates-voice/index.html", tier: "hard" },
+    { id: "train", g: "train", path: "games/letter-train/index.html", tier: "hard" },
+    { id: "mole", g: "mole", path: "games/mole/index.html", tier: "hard" },
+    { id: "sound", g: "sound", path: "games/sound-detective/index.html", tier: "isle2" },
+  ];
+  function confidentCount() { const p = cur(); if (!p) return 0; const c = cardsFor(p);
+    return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; }
+  function nextTier() { const n = confidentCount(); return n >= 15 ? "isle2" : n > 8 ? "hard" : "easy"; }
+  function nextGame(justPlayed) {
+    const now = justPlayed === undefined ? gameCfg.game : justPlayed;
+    let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
+    const tier = nextTier(), all = NEXT_GAMES.filter((x) => x.tier === tier);
+    let pool = all.filter((x) => x.g !== now && x.id !== last);
+    if (!pool.length) pool = all.filter((x) => x.g !== now);
+    if (!pool.length) pool = all;
+    const g = pool[Math.floor(Math.random() * pool.length)];
+    try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
+    return g;
+  }
+  function nextGameUrl(g) { if (!HUB_URL || !g) return null; try { return new URL(g.path, HUB_URL).href + "?hub=" + encodeURIComponent(HUB_URL); } catch (e) { return null; } }
+  function goNextGame() { const u = nextGameUrl(nextGame()); if (u) location.href = u; }
   let endShownAt = Date.now(), lastPractice = {};
   function practicedThisRound() {
     const p = cur(); if (!p) return {};
@@ -1345,18 +1376,22 @@ ${items[item]}</svg>`;
       }
       if (o.note) { const n = document.createElement("p"); n.className = "fl-end-note"; n.textContent = o.note; el.append(n); }
       for (const x of [].concat(o.extra || [])) if (x) el.append(x);
-      const bs = o.buttons || [{ text: "עוד סיבוב", primary: true }];
+      const bs = [...(o.buttons || [{ text: "עוד סיבוב", primary: true }])];
+      // "המשך למשחק הבא" (Golan 29.10, every game): the system picks the next game; o.next === false hides it
+      if (o.next !== false && HUB_URL && cur()) bs.push({ id: "flNext", text: "המשך למשחק הבא", primary: true, next: true, onClick: () => { try { if (clipNow) clipNow.pause(); } catch (e) {} goNextGame(); } });
       if (bs.length) { const row = document.createElement("div"); row.className = "fl-end-btns";
         // Golan 22.10 (all games): "חזור" with a door on the right, "עוד סיבוב" green with a speaker on the left, both the same size and shape
         // (was 17.10: "עוד סיבוב" right, "לסיים" left). Games still pass "לסיים": it shows as "חזור".
         // the same button elements survive every set() (Golan 17.10: a game that added its own listener to #again lost it on redraw)
-        for (const b of [...bs].sort((x, y) => (x.primary ? 1 : 0) - (y.primary ? 1 : 0))) { const key = b.id || b.text;
+        for (const b of [...bs].sort((x, y) => (x.primary ? 1 : 0) + (x.next ? 1 : 0) - (y.primary ? 1 : 0) - (y.next ? 1 : 0))) { const key = b.id || b.text;
           const ghost = b.ghost || b.primary === false, label = b.text === "לסיים" ? "חזור" : b.text;
           const btn = btnEls.get(key) || document.createElement("button"); btnEls.set(key, btn); btn.type = "button"; btn.className = "fl-end-btn" + (ghost ? " ghost" : ""); btn.textContent = "";
           if (ghost && label === "חזור") btn.insertAdjacentHTML("beforeend", END_DOOR);
-          btn.append(label);
+          if (b.next) { const t = document.createElement("span"); t.className = "fl-end-2l"; t.innerHTML = "<span>הַמְשֵׁךְ</span><span>לַמִּשְׂחָק הַבָּא</span>".replace(/[\u0591-\u05C7]/g, ""); btn.append(t); } else btn.append(label);
           if (!ghost && label === "עוד סיבוב") { const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
             sp.onclick = (e) => { e.stopPropagation(); sayClip("btn_again"); }; btn.append(sp); }   // Hila reads "עוֹד סִבוּב" (btn_again; silent until the clip exists)
+          if (b.next) { btn.classList.add("fl-end-next"); const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
+            sp.onclick = (e) => { e.stopPropagation(); sayClip("btn_next"); }; btn.append(sp); }   // "הַמְשֵׁךְ לַמִּשְׂחָק הַבָּא" (btn_next; silent until the clip exists)
           if (b.id) btn.id = b.id; btn.hidden = !!b.hidden || label === "חזור"; btn.onclick = b.onClick || null; row.append(btn); }   // no "חזור" (Golan 23.10, all games): the door at the top leaves
         el.append(row); }
       fit();
@@ -1513,7 +1548,7 @@ ${items[item]}</svg>`;
     return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
   }
   FL.learner = {
-    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL,
+    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,

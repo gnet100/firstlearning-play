@@ -272,10 +272,8 @@
   // Golan 29.10: the system never picks the song or a game that needs an adult (adult: true, "משחקים ביחד" and the shared games to come)
   // "בחירת משחק על ידי המערכת על פי התקדמות" (Golan 20.10): for now one of the letter games, never the same one twice
   // in a row; each game's own system choice already puts the letters not yet recognised first.
-  function systemPick() {
-    let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const pool = GAMES.filter((g) => g.id !== last && !g.noSystem && !g.adult && !isleOf(g)), g = pool[Math.floor(Math.random() * pool.length)];
-    try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
+  function systemPick() {   // the shared rule in learner.js (Golan 29.10): by the letters recognised with confidence (8 / 15)
+    const n = LRN && LRN.nextGame ? LRN.nextGame(null) : null, g = (n && GAMES.find((x) => x.id === n.id)) || GAMES.find((x) => x.id === "detective");
     openGame(g, document.createElement("div"));
   }
   // nikud is all or nothing, and only at 28px or more (literacy ruling 16.10): below that the same words without nikud
