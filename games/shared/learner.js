@@ -1427,6 +1427,7 @@ ${items[item]}</svg>`;
     { id: "sound", g: "sound", path: "games/sound-detective/index.html", tier: "isle2" },
     { id: "wheel", g: "wheel", path: "games/sound-wheel/index.html", tier: "isle2" },
     { id: "soundtrain", g: "soundtrain", path: "games/sound-train/index.html", tier: "isle2" },   // Golan 29.10
+    { id: "soundmemory", g: "soundmemory", path: "games/sound-memory/index.html", tier: "isle2" },   // Golan 30.10
   ];
   function confidentCount() { const p = cur(); if (!p) return 0; const c = cardsFor(p);
     return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; }

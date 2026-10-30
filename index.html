@@ -181,6 +181,7 @@
     { id: "sound", ac: "#15aabf", name: "בַּלַּשׁ הַצְּלִילִים", path: "games/sound-detective/index.html", bg: "#e4f6ff", pic: "sound", isle: 1, noSystem: true },
     { id: "wheel", ac: "#f08c00", name: "גַּלְגַּל הַצְּלִילִים", path: "games/sound-wheel/index.html", bg: "#fff4dc", pic: "wheel", isle: 1, noSystem: true },   // Golan 29.10, summaries/sound-wheel-spec.md
     { id: "soundtrain", ac: "#2bb673", name: "רַכֶּבֶת הַצְּלִילִים", path: "games/sound-train/index.html", bg: "#e3f8ea", pic: "soundtrain", isle: 1, noSystem: true },   // Golan 29.10, summaries/sound-train-spec.md
+    { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
   ];
   const isleOf = (g) => g.isle || 0;
   let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
@@ -208,6 +209,16 @@
       ${wag(82, "#7c5cff", "ר")}${wag(46, "#ff8a3d", "צ")}${wag(10, "#2bb673", "ב")}
       <ellipse cx="62" cy="14" rx="11" ry="12" fill="#ff5a4e"/><path d="M53 18 L71 18 L66 26 L58 26 Z" fill="#ff5a4e"/><rect x="58" y="26" width="8" height="5" fill="#a0703f"/><line x1="62" y1="31" x2="62" y2="35" stroke="#555" stroke-width="1"/>
       <rect x="55" y="34" width="14" height="12" rx="2" fill="#fff" stroke="#f2b84b" stroke-width="1.5"/><text x="62" y="40" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">צָ</text></svg>`;
+  }
+  // זיכרון הצלילים: the memory card picture with a sound card (בַּ) and the picture that opens with it (בַּיִת), between night cards
+  function soundMemoryPic() {
+    const P = window.PICTURES || {}, pic = (l, x, y, s) => P[l] ? `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 1000})">${P[l].svg}</g>` : "";
+    const night = (x, y) => `<g transform="translate(${x} ${y})"><rect width="34" height="34" rx="5" fill="#2b3a8a"/><circle cx="22" cy="12" r="6" fill="#FFF0A8"/><circle cx="25" cy="10" r="5" fill="#2b3a8a"/><circle cx="9" cy="24" r="1.2" fill="#FFF6C8"/></g>`;
+    return `<svg viewBox="0 0 160 100">${night(8, 14)}${night(8, 54)}${night(118, 54)}
+      <g transform="translate(50 20) rotate(-8 20 22)"><rect width="40" height="44" rx="6" fill="#FFF3C9" stroke="#ff8fb3" stroke-width="2.5"/><text x="20" y="21" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">בַּ</text></g>
+      <g transform="translate(82 20) rotate(8 20 22)"><rect width="40" height="44" rx="6" fill="#fff" stroke="#ff8fb3" stroke-width="2.5"/>${pic("ב", 20, 22, 36)}</g>
+      <path d="M86 12c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="#ff5a8a"/>
+      <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/></svg>`;
   }
   const L = (x, y, ch, size, fill = "#1d2a3a") => `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${fill}" font-family="Noto Sans Hebrew, sans-serif">${ch}</text>`;
   const PICS = {
@@ -267,7 +278,7 @@
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
       const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)

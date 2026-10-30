@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>זיכרון הצלילים</title>
+<link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
+<style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
+  /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
+  :root {
+    --sky: #bfe6ff;
+    --ink: #1d2a3a;
+    --card: #ffffffee;
+    --accent: #ff8a3d;
+    --accent-ink: #ffffff;
+    --good: #2bb673;
+    --muted: #5b6b7f;
+  }
+  /* single deliberate look (daylight world): same colours in light and dark */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .hud[hidden] { display: none; }
+
+  .prompt {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 20px;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002;
+  }
+  .prompt .label { display: none; }   /* no instruction text, only the letter, centred in a longer bar (as in the car and train games, Golan 15.10) */
+  .prompt { min-width: 250px; min-height: 64px; }
+  .prompt #replay { margin-inline-start: auto; position: relative; z-index: 1; }   /* the speaker stays at the end of the bar */
+  .prompt .target { font-size: 56px; font-weight: 800; line-height: 1; text-align: center;
+    position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+  .prompt .target:empty { display: none; }
+  .round-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
+  }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
+
+  .stars {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
+    background: var(--card); border-radius: 999px; padding: 8px 18px; font-size: 26px; font-weight: 800;
+    box-shadow: 0 4px 16px #0002;
+  }
+  .dots { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #0002; }
+  .dots span.done { background: var(--good); }
+  .dots-wrap {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 88px); left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .gear {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink);
+    box-shadow: 0 4px 16px #0002;
+  }
+  /* buttons in a column at the top left: door, settings (as in the car game; no pause button, Golan 16.10) */
+  .hud .gear, .overlay-gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+  /* settings gear on every screen, a bigger, darker grey icon (Golan, 15.10) */
+  .gear-ico { width: 1.45em; height: 1.45em; display: block; color: #5b6573; }
+  .overlay-gear { position: absolute; left: 16px; z-index: 30; }
+  .start-gear { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; }
+  /* exit door, ajar, opening toward the left edge; "יציאה" tip on mouse hover (as in the car game, Golan 15.10) */
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { z-index: 30; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  .door-btn { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; font-size: 40px; }
+  /* balloon picker (instead of the car picker) */
+  .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 4px; cursor: pointer; aspect-ratio: 1; }
+  .cars button svg { width: 100%; height: 100%; display: block; }
+  .cars button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .cars button:active { transform: scale(.96); }
+  .cars button.flash { animation: carFlash 1s ease-in-out; }   /* slower highlight (Golan, 16.10) */
+  /* the chosen balloon grows at once, slowly, while the praise plays (as in the car game, Golan 15.10; slower 16.10) */
+  #balloons button.chosen { position: relative; z-index: 2; transform: scale(1.3); border-color: var(--accent); background: #fff3ea;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  /* green continue button with space before the arrow (as in the car game, Golan 15.10) */
+
+  .perf {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
+    direction: ltr; text-align: left; font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none;
+  }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20; padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+  /* X in the top-right corner of settings (Golan 16.10, all games): stays in view while the panel scrolls; the scroll bar is on the left (RTL) */
+  .settings { --xs: max(var(--tap-s, 48px), calc(56 * var(--u, 1px))); }
+  .x-close { position: sticky; top: 0; z-index: 3; display: block; margin: 0 0 calc(-1 * var(--xs)) auto; margin-inline: 0 auto;
+    width: var(--xs); height: var(--xs); border: 0; border-radius: 50%; background: #eef2f7; color: #2b2f3a;
+    font: 800 calc(var(--xs) * .5) system-ui, sans-serif; line-height: 1; cursor: pointer; box-shadow: 0 2px 6px #0002; }
+  .x-close:active { transform: scale(.94); }
+  .panel {
+    background: #fff; border-radius: 28px; padding: 28px 24px; max-width: 520px; width: 100%;
+    text-align: center; box-shadow: 0 10px 40px #0003;
+  }
+  .panel h1 { margin: 0 0 8px; font-size: 34px; }
+  .panel p { margin: 6px 0 18px; font-size: 19px; color: var(--muted); }
+  .swap-ask { background: #fff3ea; border-radius: 20px; padding: 10px 12px 14px; margin: 0 0 16px; }
+  .swap-ask p { color: var(--ink); font-weight: 800; font-size: 24px; margin: 4px 0 10px; }
+  .big-btn.small { font-size: 22px; padding: 10px 26px; min-height: 56px; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+  .big-btn {
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
+    box-shadow: 0 5px 0 #c45f1d;
+  }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
+  #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .cars button, .seg button, .letters:not(.shared) button { transition: transform .15s ease, filter .15s ease; }
+    .big-btn:hover, .round-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .cars button:hover, .seg button:hover, .letters:not(.shared) button:hover:not(:disabled) { transform: translateY(-2px); border-color: #ffb27a; }
+    #magic svg { cursor: pointer; }
+  }
+
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: 26px; text-align: center; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+  .seg { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; max-width: 100%; }
+  .row { flex-wrap: wrap; row-gap: 8px; justify-content: flex-start; }
+  .row > span:first-child { flex-basis: 100%; font-weight: 700; }   /* Golan 16.10: title on its own first line, then the options, then the explanation */
+  /* settings rows (Golan 16.10, all games): title on the right of the buttons (or above them if they do not fit), the explanation on its own full line below */
+  .row-note { flex-basis: 100%; display: block; font-size: 14px; line-height: 1.45; color: var(--muted); font-weight: 400; }
+  .row.stack { flex-wrap: wrap; }
+  .row.stack .seg { flex-shrink: 1; flex-wrap: wrap; }
+  /* settings = a fixed header (X + title) over a scrolling body, as in the detective game (screens standard 4א) */
+  .settings { max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+  .set-head { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .set-head .x-close { position: static; margin: 0; flex: 0 0 auto; }
+  .settings .set-head h2 { flex: 1 1 auto; margin: 0; padding-inline: 0 calc(var(--xs) + 6px); }   /* the title stays centred on the window */
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  html[data-screen~="phone"] .settings .set-head h2 { padding-inline-end: 0; font-size: 22px; }   /* a narrow phone: the title keeps one line */
+  .seg button {
+    min-width: 76px; min-height: 52px; border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 17px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters-row { align-items: flex-start; }
+  .letters-row > span { display: flex; flex-direction: column; gap: 4px; }
+  .letters-row small { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .letters.shared, #parentTable { display: block; max-width: none; width: 100%; }   /* both tables the same width, so they look the same */
+  .letters { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; width: 100%; max-width: 372px; margin: 0; }   /* Golan 16.10: 3 rows of 8 (tiles the size of the parent table) on every screen, like the parent table */
+  .letters:not(.shared) button { width: auto; height: auto; aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 8px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 800 clamp(16px,3.2vw,24px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .letters:not(.shared) button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters:not(.shared) button:disabled { opacity: .3; cursor: default; }
+  #parentTable { margin: 6px 0 8px; }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+  /* 3-2-1 countdown, as in the car game */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; z-index: 40; }
+  .count span { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 110px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+  .toast {
+    position: absolute; top: 20%; left: 80%; transform: translate(-50%, -50%) scale(.6); opacity: 0;
+    font-size: 64px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0004, 0 0 24px #0003;
+    transition: transform .25s ease, opacity .25s ease; pointer-events: none; white-space: nowrap; z-index: 3;
+  }
+  .fin-mark { color: #E8435A; }   /* the final letter at the end of the word */
+  .prompt .target.pulse { animation: pulse .6s ease-in-out 2; }
+  @keyframes pulse { 50% { transform: scale(1.35); color: var(--accent); } }
+  .toast.good { font-size: 52px; color: #10b947; text-shadow: 0 0 6px #fff, 0 0 18px #3dff7f, 0 0 36px #00e05a, 0 3px 0 #0a7a35; }
+  .toast .chk { display: inline-block; font-size: 80px; line-height: 1; vertical-align: -0.12em; filter: drop-shadow(0 0 8px #3dff7f) drop-shadow(0 3px 0 #0a7a35); }
+  @keyframes starPop { to { transform: scale(1); } }
+  .toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  /* "יש נכון" sits centred just above the winning letter, follows it, and is a little smaller (as in the car game, Golan 15.10) */
+  .toast.pinned { transform: translate(-50%, -100%) scale(.6); transform-origin: 50% 100%; }
+  .toast.pinned.show { transform: translate(-50%, -100%) scale(1); }
+  .toast.good.pinned { font-size: 40px; }
+  .toast.pinned .chk { font-size: 60px; }
+  /* Golan 18.10 (all games, as in the car game): no "יש נכון" on screen, only the earned star (gold or silver), centred on the
+     top-left corner of the right letter's sign, half on it and half outside; its size follows the sign (set in placeToast) */
+  .toast.corner { transform: translate(-50%, -50%) scale(.6); transform-origin: 50% 50%; line-height: 0; }
+  .toast.corner.show { transform: translate(-50%, -50%) scale(1); }
+  .toast.corner .chk { display: block; vertical-align: 0; filter: drop-shadow(0 3px 4px #0005); }
+
+  /* The magic picture: the object the letter wakes up from (first and last step of every round) */
+  #magic { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); width: min(72vw, 54vh, 520px); aspect-ratio: 1; pointer-events: auto; }
+  #magic[hidden] { display: none; }
+  #magic .cloud { position: absolute; inset: -6%; border-radius: 46% 54% 48% 52% / 52% 46% 54% 48%; background: radial-gradient(circle at 50% 40%, #ffffff 0%, #ffffffee 55%, #ffffff00 72%); }
+  #magic svg { position: relative; width: 100%; height: 100%; display: block; overflow: visible; }
+  /* the letter beside the picture (Golan 18.10): a white sign like the ones on the clouds; on the right (the balloon waits on the left) */
+  #mCard { position: absolute; left: 103%; top: 50%; width: 50%; aspect-ratio: 3 / 2; transform: translateY(-50%); container-type: inline-size; cursor: pointer; pointer-events: auto;
+    transition: left .7s ease-in-out, bottom .7s ease-in-out, width .7s ease-in-out; }
+  /* Golan 19.10: first the letter alone, big, in the middle of the white circle; after the touch it moves aside for the picture */
+  #magic.solo #mCard { left: 20%; width: 60%; }
+  #mCard[hidden] { display: none; }
+  /* Golan 20.10: on "גְּעוּ בָּאוֹת" the letter sleeps (breathing) and wakes up when touched (letters-animated/, its own thread) */
+  #mAnim { position: absolute; left: 14%; top: 50%; width: 72%; aspect-ratio: 1; translate: 0 -50%;   /* translate, not transform: cardIn animates transform (Golan 20.10: centred in the white circle) */
+    cursor: pointer; pointer-events: auto; box-sizing: border-box;
+    background: #fff; border: 2.6cqw solid #7C5CFF; border-radius: 9cqw; box-shadow: 0 1.5cqw 4cqw #0003; overflow: hidden; animation: cardIn .6s ease-out both; }
+  #mAnim[hidden] { display: none; }
+  #mAnim svg { width: 100%; height: 100%; display: block; }
+  #mFace { position: absolute; inset: 0; box-sizing: border-box; background: #fff; border: 4.5cqw solid #7C5CFF; border-radius: 11cqw; display: grid; place-items: center; box-shadow: 0 1.5cqw 4cqw #0003; }
+  #mCardL { font: 800 52cqw/1 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: #1d2a3a; transform: translateY(-6%); }
+  /* the writing line under the letter, as on the other games' signs (Golan 19.10) */
+  #mFace::after { content: ""; position: absolute; left: 18%; right: 18%; top: 80%; height: max(2px, 1.1cqw); border-radius: 1cqw; background: rgba(120, 160, 205, .55); }
+  /* the picture's word under it, the letter in it strongly marked; it grows a few times (Golan 19.10) */
+  #magic { container-type: inline-size; }
+  #mWord { position: absolute; left: 50%; top: 88%; translate: -50% 0; white-space: nowrap; direction: rtl; font: 800 max(28px, 13.5cqw)/1.25 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: #1d2a3a;
+    background: #ffffffd9; border-radius: 0.4em; padding: 0.02em 0.35em 0.08em; box-shadow: 0 2px 10px #0002; animation: cardIn .45s ease-out both; }
+  #mWord[hidden] { display: none; }
+  #mWord .hit { display: inline-block; color: #FF5A1F; text-shadow: 0 0 0.12em #FFD54F; }
+  #mWord .hit.grow { animation: hitGrow 4s ease-in-out both;   /* Golan 19.10: slower */ transform-origin: 50% 70%; }
+  @keyframes hitGrow { 0%, 100% { transform: scale(1); } 15%, 48%, 81% { transform: scale(1.55); } 31%, 64% { transform: scale(1.1); } }
+  #magicSvg.in { animation: cardIn .55s cubic-bezier(.3, 1.4, .5, 1) both; }
+  #mFace.in { animation: cardIn .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+  @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* touching the letter: it flashes and grows for a moment; then the picture flashes and grows a little (Golan 18.10) */
+  #mFace.flash { animation: cardFlash 2.4s ease-in-out both; }   /* Golan 19.10: slower */
+  @keyframes cardFlash { 0%, 100% { transform: scale(1); border-color: #7C5CFF; }
+    15%, 45%, 75% { border-color: #FFC400; box-shadow: 0 0 0 3cqw #FFC40088, 0 1.5cqw 4cqw #0003; }
+    30%, 60% { border-color: #7C5CFF; box-shadow: 0 1.5cqw 4cqw #0003; } 40% { transform: scale(1.32); } }
+  #magicSvg.tap { animation: picTap .35s ease-out; }
+  @keyframes picTap { 50% { transform: scale(.95); } }
+  #magicSvg.flash { animation: picFlash 1.4s ease-in-out both; }
+  @keyframes picFlash { 0%, 100% { transform: scale(1); filter: none; } 15%, 50%, 85% { filter: brightness(1.22) drop-shadow(0 0 18px #FFD54F); } 32%, 68% { filter: none; } 45% { transform: scale(1.13); } }
+
+  /* ===== screens standard (screens/screens-standard.md): every size and place from FL.screen variables =====
+     --u = one pixel of a 1280x720 board (720x1280 standing); --tap-s / --tap / --tap-play / --gap = finger floors in mm;
+     --edge-* = safe area or 12 design px. No width breakpoints: only standing (portrait) or lying (landscape). */
+  html[data-screen] {
+    --s: max(calc(72 * var(--u)), var(--tap-s));      /* door, settings */
+    --b: max(calc(84 * var(--u)), var(--tap));        /* the child's main buttons: the speakers */
+    --g: max(calc(14 * var(--u)), var(--gap));        /* space between buttons */
+  }
+  html[data-screen] .round-btn { width: var(--s); height: var(--s); font-size: calc(var(--s) * .45); }
+  html[data-screen] .door-btn { font-size: calc(var(--s) * .6); }
+  html[data-screen] .door-btn, html[data-screen] .start-gear { top: var(--edge-t); left: var(--edge-l); }
+  html[data-screen] .hud .gear, html[data-screen] .overlay-gear { top: calc(var(--edge-t) + var(--s) + var(--g)); left: var(--edge-l); }
+  /* top letter pill = the detective standard (Golan 16.10, all games; detective/letter-pill-spec.md "FIXED SIZE"): white pill, letter on the right,
+     orange round speaker on the left (emoji 0.7 x), one fixed size from the first frame to the end, the dots at a fixed gap under it */
+  html[data-screen] { --spk: max(calc(46 * var(--u)), var(--tap-s, 44px)); --pill-t: max(calc(56 * var(--u)), 40px); --pill-lw: max(calc(64 * var(--u)), 48px);
+    --pill-h: calc(max(var(--pill-t), var(--spk)) + 16 * var(--u)); --pill-w: calc(var(--pill-lw) + var(--spk) + 46 * var(--u));
+    --pill-top: var(--edge-t); --dots-gap: max(calc(8 * var(--u)), 6px); --dot: max(calc(12 * var(--u)), 9px); }
+  html[data-screen~="portrait"] { --pill-top: calc(var(--edge-t) + var(--s) + 10 * var(--u)); }   /* standing: one row down, under the door */
+  html[data-screen] .prompt { box-sizing: border-box; top: var(--pill-top); left: 50%; right: auto; transform: translateX(-50%); height: var(--pill-h); width: var(--pill-w);
+    min-width: 0; min-height: 0; gap: calc(14 * var(--u)); padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); justify-content: space-between; }
+  html[data-screen] .prompt .target, html[data-screen] .prompt .target:empty { position: static; inset: auto; display: block; width: var(--pill-lw); height: var(--pill-t);
+    font-size: var(--pill-t); line-height: 1; text-align: center; overflow: visible; }
+  html[data-screen] .prompt #replay { margin: 0; width: var(--spk); height: var(--spk); font-size: calc(var(--spk) * .7); padding: 0; line-height: 1; overflow: hidden; display: grid; place-items: center; }
+  html[data-screen] .dots-wrap { top: calc(var(--pill-top) + var(--pill-h) + var(--dots-gap)); left: 50%; transform: translateX(-50%); }
+  html[data-screen] .prompt.listen { justify-content: center; padding: 0; }   /* listening round: the same pill, only the speaker, centred */
+  html[data-screen] .prompt.listen .target { display: none; }
+  html[data-screen] .dots { margin-top: 0; gap: max(calc(6 * var(--u)), 4px); }
+  html[data-screen] .dots span { width: var(--dot); height: var(--dot); }
+  html[data-screen] .stars { top: var(--edge-t); right: var(--edge-r); font-size: max(calc(32 * var(--u)), 20px); padding: calc(8 * var(--u)) calc(18 * var(--u)); }
+  html[data-screen] .perf { top: var(--edge-t); left: calc(var(--edge-l) + var(--s) + var(--g)); }
+  html[data-screen] .overlay { padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+  html[data-screen] .panel { max-width: max(calc(640 * var(--u)), min(520px, 100%)); max-height: 100%; overflow-y: auto; padding: max(calc(28 * var(--u)), 14px) max(calc(24 * var(--u)), 14px); }
+  html[data-screen] .panel h1 { font-size: max(calc(44 * var(--u)), 24px); }
+  html[data-screen] .panel p { font-size: max(calc(24 * var(--u)), 17px); }
+  html[data-screen] .big-btn { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--tap); padding: calc(16 * var(--u)) calc(44 * var(--u)); }
+  html[data-screen] .big-btn.small { font-size: max(calc(26 * var(--u)), 18px); min-height: var(--tap-s); padding: calc(10 * var(--u)) calc(26 * var(--u)); }
+  html[data-screen] #start .start-row { gap: calc(24 * var(--u)); }
+  /* start speaker: a circle as tall as the start button, the icon centred inside it (as in detective, Golan 16.10, all games) */
+  html[data-screen] #start { --h: max(calc(76 * var(--u)), var(--tap)); }
+  html[data-screen] #start #go { min-height: var(--h); height: var(--h); padding-block: 0; }
+  html[data-screen] #start #hear { width: var(--h); min-width: var(--h); height: var(--h); min-height: 0; padding: 0;
+    border-radius: 50%; display: grid; place-items: center; line-height: 1; overflow: hidden; font-size: calc(var(--h) * .47); }
+  html[data-screen] .count span { width: calc(220 * var(--u)); height: calc(220 * var(--u)); left: calc(-110 * var(--u)); top: calc(-110 * var(--u)); font-size: calc(130 * var(--u)); }
+  html[data-screen] .toast, html[data-screen] .toast.good { font-size: max(calc(64 * var(--u)), 36px); }
+  html[data-screen] .toast .chk { font-size: max(calc(80 * var(--u)), 48px); }
+  html[data-screen] .toast.good.pinned { font-size: max(calc(48 * var(--u)), 28px); }
+  html[data-screen] .toast.pinned .chk { font-size: max(calc(64 * var(--u)), 40px); }
+  /* the picture: the same share of the screen on every size (no 520px cap, screens audit) */
+  html[data-screen] #magic { width: min(72vw, 54vh, calc(560 * var(--u))); }
+  /* settings are for the parent: may go down to 9 mm buttons and 14px text (standard sec. 3) */
+  html[data-screen] .seg button { min-width: max(calc(76 * var(--u)), 50px); min-height: max(calc(52 * var(--u)), calc(var(--tap-s) * .9)); font-size: max(calc(17 * var(--u)), 15px); padding: 0 calc(8 * var(--u)); }
+  html[data-screen] .seg { gap: max(calc(6 * var(--u)), 5px); }
+  /* standing up: the letter pill sits one row down, under the door (see the pill block above) */
+  html[data-screen~="portrait"] .perf { display: none; }
+  /* standing: the picture moves right so the balloon waits on its left (Golan 16.10), and it fills more of the empty lower part (screens audit) */
+  html[data-screen~="portrait"] #magic { left: 60%; top: 49%; width: min(70vw, 52vh); }
+  html[data-screen~="portrait"] #mCard { left: 50%; top: auto; bottom: 103%; width: 44%; transform: translateX(-50%); }
+  html[data-screen~="portrait"] #magic.solo #mCard { left: 50%; bottom: 30%; width: 60%; }
+  /* lying: the picker shows 5 balloons in a row, so it fits a low phone screen */
+  /* balloon picker = the detective layout in every game (Golan 16.10, detective/balloon-picker-spec.md): a white card, 3 x 3 equal tiles on every screen */
+  html[data-screen] #pick .panel { width: min(100%, max(calc(520 * var(--u)), 340px)); max-width: none; border-radius: max(calc(28 * var(--u)), 18px); }
+  html[data-screen] .cars { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-inline: auto;   /* never taller than the window: on a short PC window the tiles shrink */
+    width: min(100%, calc(100dvh - var(--edge-t) - var(--edge-b) - 2 * max(calc(28 * var(--u)), 14px) - 1.4 * max(calc(34 * var(--u)), 24px) - 40px)); }
+  html[data-screen] .cars button { padding: 6px; display: grid; place-items: center; }
+  html[data-screen] .cars button svg { width: 94%; height: 94%; }
+  /* end window = the shared FL.learner.endPanel (screens-standard 4א, all games); only the swap question is ours */
+  #end .swap-ask { width: 100%; box-sizing: border-box; margin: 0; }
+  @media (max-height: 520px) {
+    #end .fl-end:has(#swapAsk:not([hidden])) .fl-end-note { display: none; }   /* a low screen: the swap question (it needs an answer) hides the day note */
+    #end .swap-ask { padding: 6px 12px 8px; }
+    #end .swap-ask p { font-size: 20px; margin: 2px 0 6px; }
+  }
+  html[data-screen~="landscape"] #pick { padding-inline: calc(max(var(--edge-l), var(--edge-r)) + var(--s) + 8 * var(--u)); }
+  /* without screen.js (very old copy), the old phone fallback */
+  /* phone lying down: the picture starts a gap below the progress dots, so the dots never touch it (screens lab 16.10) */
+  html[data-screen~="phone"][data-screen~="landscape"] #magic { --mt: calc(var(--pill-top) + var(--pill-h) + var(--dots-gap) + var(--dot) + var(--gap));
+    top: var(--mt); transform: translate(-50%, 0); width: min(72vw, calc(100vh - var(--mt) - var(--edge-b) - var(--gap))); }
+  html:not([data-screen]) #magic { width: min(72vw, 54vh, 520px); }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+  /* ===== משחק זיכרון (Golan 21.10, summaries/station1-new-games-spec.md) ===== */
+  html, body { background: linear-gradient(#bfe6ff, #e6f6ff); }
+  #board { position: fixed; pointer-events: auto; }
+  #board[hidden] { display: none; }
+  .card { position: absolute; padding: 0; border: 0; background: none; cursor: pointer; perspective: 900px; width: var(--cs); height: var(--cs); -webkit-tap-highlight-color: transparent; }
+  .card .inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform var(--flip, .45s) ease-in-out; }
+  .card.open .inner, .card.peek .inner, .card.done .inner { transform: rotateY(180deg); }
+  .card .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 14%; overflow: hidden; }
+  .card .back { box-shadow: 0 calc(var(--cs) * .04) calc(var(--cs) * .1) #0003; }
+  .card .back svg, .card .front svg { width: 100%; height: 100%; display: block; }
+  .card .front { transform: rotateY(180deg); background: #fff; box-shadow: 0 calc(var(--cs) * .04) calc(var(--cs) * .1) #0003; }
+  .card .hintback .hb { position: absolute; inset: 14% 22% 10%; filter: drop-shadow(0 0 calc(var(--cs) * .05) #ffe082); animation: memHint 2.4s ease-in-out infinite; }
+  .card .hintback .hb svg { width: 100%; height: 100%; }
+  .card .hintback > svg > g { display: none; }   /* no moon behind the balloon */
+  @keyframes memHint { 50% { transform: translateY(-5%); } }
+  .card .front.balloon { background: linear-gradient(#8fd0ff, #e6f6ff); display: grid; place-items: center; }
+  /* Golan 30.10 (זיכרון הצלילים): a sound card = the syllable on the cream card; a picture card = the picture on white */
+  .card .front.snd { background: #FFF3C9; }
+  .card .front.pic { background: #fff; }
+  .card .front.pic svg { width: 88%; height: 88%; margin: 6%; }
+  .card .front.balloon svg { width: 78%; height: 78%; }
+  @media (hover: hover) and (pointer: fine) { .card:not(.open):not(.done):hover .inner { transform: translateY(-3%) rotate(-1deg); } }
+  .card:not(.open):not(.done):active .inner { transform: scale(.96); }
+  /* a matching pair: love (they bounce toward each other, pink glow, hearts float up) */
+  .card.love .face.front { animation: memLove 1.3s ease-in-out both; }
+  @keyframes memLove { 0%, 100% { transform: rotateY(180deg) scale(1); box-shadow: 0 0 0 0 #ff5a8a00; }
+    25%, 65% { transform: rotateY(180deg) scale(1.1); box-shadow: 0 0 0 calc(var(--cs) * .05) #ff5a8a88, 0 0 calc(var(--cs) * .25) #ff8fb3; }
+    45% { transform: rotateY(180deg) scale(1.02); } }
+  .card.done .face.front { box-shadow: 0 0 0 calc(var(--cs) * .03) #ff8fb3aa, 0 calc(var(--cs) * .04) calc(var(--cs) * .1) #0003; }
+  /* a used hint card is gone (Golan 21.10: it works once) */
+  .card.gone { pointer-events: none; animation: memGone .6s ease-in both; }
+  @keyframes memGone { to { opacity: 0; transform: scale(.4); } }
+  .card.gone .inner { transform: rotateY(180deg); }
+  /* not a pair: upset (shake, colours fade, a small rain cloud) */
+  .card.upset .face.front { animation: memUpset .9s ease-in-out both; filter: saturate(.35) brightness(.92); transition: filter .4s; }
+  @keyframes memUpset { 0%, 100% { transform: rotateY(180deg) translateX(0); } 15%, 55% { transform: rotateY(180deg) translateX(-5%) rotate(-3deg); } 35%, 75% { transform: rotateY(180deg) translateX(5%) rotate(3deg); } }
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .heart { position: absolute; width: var(--hs, 28px); height: var(--hs, 28px); translate: -50% -50%; animation: memHeart 1.6s ease-out both; }
+  @keyframes memHeart { 0% { transform: translate(0, 0) scale(.3); opacity: 0; } 20% { opacity: 1; transform: translate(var(--dx), -20%) scale(1); }
+    100% { transform: translate(calc(var(--dx) * 2), -260%) scale(.8); opacity: 0; } }
+  .rain { position: absolute; width: var(--rs, 60px); translate: -50% -100%; animation: memRain 1.7s ease-in-out both; }
+  @keyframes memRain { 0% { opacity: 0; transform: translateY(20%) scale(.6); } 20%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-10%); } }
+  .rain .drop { animation: memDrop .6s linear infinite; }
+  .rain .drop:nth-child(3) { animation-delay: .2s; } .rain .drop:nth-child(4) { animation-delay: .4s; }
+  @keyframes memDrop { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(18px); opacity: 0; } }
+  .mstar { position: absolute; left: 0; top: 0; translate: -38% -38%; line-height: 0; z-index: 2; pointer-events: none; animation: cardIn .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+  /* the surprise card: every closed card peeks for a moment */
+  .card.surprise-pop .face.front { animation: memPop .8s ease-out both; }
+  /* the balloon rises inside its card and is gone as it leaves the card's edge, not the screen (Golan 23.10) */
+  .card.flown .face.front { overflow: hidden; }
+  .card.flown .face.front svg { animation: memRise var(--fd, 1.1s) cubic-bezier(.45, 0, .75, .5) forwards; }
+  @keyframes memRise { 0% { transform: translateY(0); } 35% { transform: translateY(-14%) rotate(-4deg); } 100% { transform: translateY(-125%) rotate(3deg); } }
+  @keyframes memPop { 0% { transform: rotateY(180deg) scale(1); } 40% { transform: rotateY(180deg) scale(1.18); filter: brightness(1.2) drop-shadow(0 0 12px #ffd54f); } 100% { transform: rotateY(180deg) scale(1); } }
+  @keyframes cardIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* the level question: two drawn boards, the child touches one */
+  #levelAsk .panel { width: 100%; }
+  .boards button svg { width: 0; height: 0; }
+  .boards .bcount { font-weight: 800; font-size: max(calc(26 * var(--u, 1px)), 17px); color: #25307a; line-height: 1.1; }
+  #levelAsk .panel h1 { font-size: max(calc(40 * var(--u, 1px)), 24px); }
+  .boards { display: flex; gap: max(calc(30 * var(--u, 1px)), 16px); justify-content: center; align-items: flex-end; margin-top: 10px; }
+  .boards button { border: 3px solid #d5dde6; background: #eaf6ff; border-radius: 22px; padding: 10px; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
+  .boards button svg { display: block; }
+  .boards button.flash { animation: boardFlash 1s ease-in-out; }   /* Golan 30.10: the boards never grow (no scale); only the frame lights up */
+  @keyframes boardFlash { 50% { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ffb27a88; } }
+  @media (hover: hover) and (pointer: fine) { .boards button:hover { border-color: #ffb27a; } }
+  /* the demo hand and the "איך משחקים?" buttons, as in the sound wheel */
+  .demo-hand { position: fixed; z-index: 47; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
+  .demo-hand.show { display: block; }
+  .demo-hand svg { display: block; width: 100%; height: auto; }
+  .demo-btn { margin-top: 12px; }
+</style>
+</head>
+<body>
+<div id="board" aria-label="לוח הקלפים" hidden></div>
+<div id="fx"></div>
+<div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="זִכָּרוֹן הַצְּלִילִים"></div>
+  <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1>זִכָּרוֹן הַצְּלִילִים</h1>
+    <p><span id="startText">הופכים קלפים ומחפשים צליל ותמונה שמתחילה בו</span></p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוען…</button>
+      <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
+    </div>
+    <button class="big-btn small ghost demo-btn" id="demoStart" type="button">▶ איך משחקים?</button>
+  </div>
+</div>
+
+<div class="overlay" id="pick" hidden>
+  <button class="round-btn gear overlay-gear" id="gearPick" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorPick" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="panel">
+    <h1 id="pickTitle">בוחרים כדור פורח</h1>
+    <div class="cars" id="balloons"></div>
+  </div>
+</div>
+
+<div class="overlay" id="levelAsk" hidden>
+  <div class="panel">
+    <h1 id="levelText">רוצים לוח גדול יותר?</h1>
+    <div class="boards" id="boards"></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn gear overlay-gear" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <div class="set-head"><button class="x-close" id="xSettings" aria-label="סגירה" data-tip="סגירה">✕</button>
+      <h2>הגדרות (להורה או למורה)</h2>
+    </div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
+    <div id="flForm"></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ איך משחקים?</button></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="../waking-letter/pictures.js"></script>
+<script src="../sound-detective/sound-pictures.js"></script>
+<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/screen.js"></script>
+<script src="../shared/love-balloon.js"></script>
+<script src="../shared/learner.js"></script>
+<script>
+(() => {
+  "use strict";
+  // זיכרון הצלילים (Golan 30.10): the letter memory game (games/memory) with sound pairs: a SOUND card (the letter with its vowel,
+  // as the sound detective shows it) and a PICTURE card whose word opens with that sound. The shell, the board ladder, the hint
+  // balloons and the card-count slider are the memory game's; the sounds, pictures, ALIKE rule, "sound" skill and demo are the
+  // sound wheel's / sound detective's.
+  const $ = (id) => document.getElementById(id);
+  const GAME = "soundmemory";
+
+  // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
+  const settings = { voice: "on", letters: [], balloon: null };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-soundmemory-settings") || "{}")); } catch (e) {}
+  settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games)
+  const saveSettings = () => { try { localStorage.setItem("fl-soundmemory-settings", JSON.stringify(settings)); } catch (e) {} };
+
+  const LRN = (window.FL && window.FL.learner) || null;
+  const kid = () => (LRN ? LRN.profile() : null);
+  const gt = (pl, m, f) => { const g = kid() && kid().gender; return g === "m" ? m : g === "f" ? f : pl; };
+  function genderTexts() {
+    // Golan 30.10: one description line, gendered like the other games
+    $("startText").textContent = gt("הופכים קלפים ומחפשים צליל ותמונה שמתחילה בו", "הפוך קלפים וחפש צליל ותמונה שמתחילה בו", "הפכי קלפים וחפשי צליל ותמונה שמתחילה בו");
+    $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
+    $("levelText").textContent = gt("רוצים לוח גדול יותר?", "רוצה לוח גדול יותר?", "רוצה לוח גדול יותר?");
+  }
+  // the child's rung on the card ladder and the wins on it, per child (as the memory game)
+  const progress = { wins: 0, rung: -1, lvlAt: 0 };
+  const progressKey = () => "fl-soundmemory-progress" + (kid() ? "-" + kid().id : "");
+  function loadProgress() { progress.wins = 0; progress.rung = -1; progress.lvlAt = 0; try { Object.assign(progress, JSON.parse(localStorage.getItem(progressKey()) || "{}")); } catch (e) {} }
+  const saveProgress = () => { try { localStorage.setItem(progressKey(), JSON.stringify(progress)); } catch (e) {} };
+  loadProgress();
+
+  // ---------- content: the sound detective's sounds and pictures (3 pictures per sound) ----------
+  const PICS = window.PICTURES || {}, PA = window.PICTURES_ANIMATED || null;
+  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
+    "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
+    "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
+  const PICS_OF = { "ב": ["ב", "ן", "banana"], "ג": ["camel", "socks", "gnome"], "נ": ["נ", "shoe", "tiger"], "ט": ["ט", "ring", "chef"],
+    "י": ["י", "ם", "hand"], "כ": ["כ", "teaspoon", "firefighter"], "א": ["א", "rabbit", "watermelon"], "ח": ["ח", "donkey", "window"],
+    "צ": ["צ", "plate", "painter"], "ר": ["ר", "rattle", "trafficLight"], "ת": ["ת", "rooster", "crocodile"] };
+  const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
+  // sounds that sound alike never meet on one board: ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  const SOUND_L = Object.keys(SOUNDS).filter((l) => picsOf(l).length);
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const cardOf = (l) => { try { return (LRN && LRN.card && LRN.card(l)) || null; } catch (e) { return null; } };
+  const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
+  if (LRN && LRN.setGame) LRN.setGame(GAME, { autoCount: () => SOUND_L.length });
+  // The card ladder, exactly the memory game's (Golan 30.10): 4, 6, 9, 10, 12, 14, 16; "letters" = the sound + picture cards
+  // (pairs x 2), hints = the balloon cards, wide / tall = the cards in each row on a wide or a standing board.
+  const BOARDS = {
+    4: { letters: 4, hints: 1, wide: [2, 1, 2], tall: [2, 1, 2] },
+    6: { letters: 6, hints: 1, wide: [4, 3], tall: [2, 3, 2] },
+    9: { letters: 8, hints: 1, wide: [3, 3, 3], tall: [3, 3, 3] },
+    10: { letters: 10, hints: 2, wide: [4, 4, 4], tall: [3, 3, 3, 3] },
+    12: { letters: 12, hints: 2, wide: [5, 4, 5], tall: [3, 4, 4, 3] },
+    14: { letters: 14, hints: 2, wide: [4, 4, 4, 4], tall: [4, 4, 4, 4] },
+    16: { letters: 16, hints: 2, wide: [6, 6, 6], tall: [3, 3, 3, 3, 3, 3] },
+  };
+  const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
+  const RUNGS = [4, 6, 9, 10, 12, 14, 16], START = [0, 0, 2, 4];
+  const goldMax = (cards) => (cards <= 2 ? 0 : cards <= 6 ? 1 : cards <= 12 ? 2 : 3);
+  const WINS_TO_ASK = 2;
+  function rung() { const L = lvl(); if (progress.rung < 0 || progress.lvlAt !== L) { progress.rung = START[L]; progress.lvlAt = L; progress.wins = 0; saveProgress(); } return progress.rung; }
+  function cellsOf(rows) {
+    const cols = Math.max(...rows), out = [];
+    rows.forEach((n, y) => { for (let x = 0; x < n; x++) out.push({ x: x + (cols - n) / 2, y }); });
+    return { cells: out, cols, rows: rows.length };
+  }
+  function middleCells(rows, k) {
+    const s = cellsOf(rows), cx = (s.cols - 1) / 2, cy = (s.rows - 1) / 2;
+    return s.cells.map((c, i) => ({ i, d: Math.hypot(c.x - cx, (c.y - cy) * 1.01) })).sort((a, b) => a.d - b.d).slice(0, k).map((o) => o.i);
+  }
+  function chosenLetters() { return settings.lettersMode === "auto" ? [] : [...new Set(settings.letters || [])].filter((l) => SOUND_L.includes(l)); }
+  // the sound detective's order: first the sounds of letters the child knows in print ("מזהה בביטחון"), the letters of the child's
+  // name among them; the other sounds join as these become known
+  function soundPool() {
+    const name = (kid() && kid().name) || "";
+    const first = SOUND_L.filter((l) => { const c = cardOf(l); return (c && c.recognize && c.recognize.state === "known") || name.includes(l); });
+    const rest = shuffle(SOUND_L.filter((l) => !first.includes(l)));
+    const extra = Math.max(4 - first.length, first.filter(soundKnown).length);
+    return LRN && LRN.withAutoForce ? LRN.withAutoForce([...first, ...rest.slice(0, extra)]) : [...first, ...rest.slice(0, extra)];
+  }
+  // the board's sounds: the parent's sounds, else the pool (a sound not yet known first), then any other; each sound once,
+  // never two that sound alike on one board
+  function boardSounds(pairs) {
+    const mine = chosenLetters(), out = [];
+    const add = (l) => { if (l && SOUND_L.includes(l) && !out.includes(l) && !out.some((x) => alike(x, l)) && out.length < pairs) out.push(l); };
+    const pool = (mine.length ? mine : soundPool()).filter((l) => SOUND_L.includes(l));
+    shuffle(pool.filter((l) => !soundKnown(l))).forEach(add); shuffle(pool.filter(soundKnown)).forEach(add);
+    shuffle(SOUND_L.slice()).forEach(add);
+    return shuffle(out);
+  }
+  // a picture for every sound, not the one it had on the board before (the pictures vary)
+  const lastPic = {};
+  function picFor(l) { const o = picsOf(l), c = o.length > 1 ? o.filter((k) => k !== lastPic[l]) : o, k = c[Math.floor(Math.random() * c.length)]; lastPic[l] = k; return k; }
+
+  // ---------- audio: Hila's clips from the shared bank (voice/audio); a missing clip stays silent, never a browser voice ----------
+  let actx = null;
+  function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  // card sounds (Golan 21.10): a short paper flick made from noise; soft = the shuffle slide and the flip. Effects, not a voice.
+  let noiseBuf = null;
+  function cardSnd(soft) {
+    if (!actx || paused) return;
+    try {
+      if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.2, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = actx.currentTime, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+      src.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = (soft ? 1800 : 3200) * (0.9 + Math.random() * 0.2); f.Q.value = soft ? 0.6 : 1.1;
+      const len = soft ? 0.12 : 0.045, vol = soft ? 0.18 : 0.45;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + (soft ? 0.03 : 0.004)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      src.connect(f).connect(g).connect(actx.destination); src.start(t); src.stop(t + len + 0.02);
+    } catch (e) {}
+  }
+  // musical card sounds (Golan 21.10): a soft bell / marimba note = a sine with a quiet octave partial and a quick decay
+  function bell(freqs, gap = 0.09, vol = 0.22, dur = 0.5) {
+    if (!actx || paused) return;
+    try {
+      let t = actx.currentTime;
+      for (const f of freqs) {
+        for (const [mul, v] of [[1, 1], [2, 0.25], [3.01, 0.08]]) {
+          const o = actx.createOscillator(), g = actx.createGain(); o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur / mul);
+          o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.05);
+        }
+        t += gap;
+      }
+    } catch (e) {}
+  }
+  const sfx = {
+    reveal: () => bell([659, 988], 0.08, 0.2, 0.45),          // a card opens: a short rising chime
+    hide: () => bell([880, 587], 0.09, 0.14, 0.4),            // a card closes: a short falling chime
+    good: () => bell([784, 988, 1175, 1568, 1976], 0.07, 0.2, 0.7),   // a pair: a small happy sparkle
+    oops: () => tone([300, 220], 0.18, "sine", 0.6),
+    flip: () => sfx.reveal(),
+    magic: () => tone([523, 659, 784, 988, 1175, 1319, 1568], 0.08, "sine", 0.18),
+  };
+  const AUDIO = "../../voice/audio/";   // the shared clip bank, as the sound wheel
+  const clipCache = {}; let clipNow = null;
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = a.playbackRate = 0.85; a.preservesPitch = true; }   // the sounds a little slower (as the sound wheel)
+      a.addEventListener("canplaythrough", () => { a._ok = true; }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  // hub_g_soundmemory (the name) and smem_start2 (the description) are new lines of the voice thread: silent until recorded.
+  // sd_demo ("בואו נראה איך משחקים") is the sound detective's. Golan 30.10: no fb_correct on a pair, the open cards are the feedback.
+  const LINES = ["fb_bravo", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "hub_g_soundmemory", "smem_start2", "ins_balloon", "mem_next", "sd_demo", "day_break", "day_end"];
+  const CHILD_LINES = ["smem_start2", "ins_balloon", "mem_next", "day_break"];   // boy / girl versions first, else the plural clip
+  LINES.forEach(getClip); Object.values(SOUNDS).forEach((o) => getClip(o.s));
+  if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
+  const wordOf = (k) => (PICS[k] || {}).clip;
+  function voiceId(id) {
+    if (!LRN || !CHILD_LINES.includes(id)) return id;
+    for (const x of LRN.lineIds(id)) if (getClip(x)._ok) return x;
+    return id;
+  }
+  // timers that stop while the game is paused (settings open)
+  let paused = false, epoch = 0, heldLine = null;
+  function later(ms, cb) {
+    const my = epoch; let left = ms, last = performance.now();
+    const tick = () => { const now = performance.now(); if (!paused) left -= now - last; last = now;
+      if (my !== epoch) return; if (left <= 0) cb(); else setTimeout(tick, Math.min(50, left)); };
+    setTimeout(tick, Math.min(50, ms));
+  }
+  function say(id) {
+    if (settings.voice !== "on") return;
+    if (paused) { heldLine = id; return; }   // nothing is said while settings is open; said once on return
+    seqTok++; seqOn = false;
+    id = voiceId(vary(id));
+    const a = getClip(id);
+    if (!a || a._bad) return;
+    try { if (clipNow && clipNow !== a) clipNow.pause(); a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+  // clips one after another (the sound wheel's playIds): a function in the list is a step in between, a number a rest in ms
+  let seqTok = 0, seqOn = false;
+  function playIds(ids, then) {
+    const my = ++seqTok; let i = 0; seqOn = true;
+    const next = () => {
+      if (my !== seqTok) return;
+      if (paused) return setTimeout(next, 120);
+      if (i >= ids.length) { seqOn = false; return then && then(); }
+      const item = ids[i++];
+      if (typeof item === "function") { item(); return next(); }
+      if (typeof item === "number") return setTimeout(next, item);
+      const a = item && settings.voice === "on" ? getClip(voiceId(vary(item))) : null;
+      if (!a || a._bad) return setTimeout(next, settings.voice === "on" ? 0 : 450);
+      try { if (clipNow && clipNow !== a) clipNow.pause(); } catch (e) {}
+      let done = false; const fin = () => { if (done) return; done = true; setTimeout(next, 140); };
+      a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a;
+      a.addEventListener("ended", fin, { once: true });
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => { if (!a._ok) a._bad = true; fin(); });
+      setTimeout(() => { if (!done && (a.paused || a._bad) && !paused) fin(); }, 6000);   // a clip that never starts does not hold the game
+    };
+    next();
+  }
+  const voiceBusy = () => seqOn || !!(clipNow && !clipNow.paused && !clipNow.ended);
+  function stopVoice() { seqTok++; seqOn = false; if (clipNow) clipNow.pause(); }
+  function whenQuiet(cb) {
+    let n = 0; const my = epoch;
+    const tick = () => { if (my !== epoch) return; if ((paused || voiceBusy()) && (paused || n++ < 60)) return setTimeout(tick, 100); cb(); };
+    setTimeout(tick, 150);
+  }
+  // the second card of a turn waits for the first one's clip (a short sound is never cut off), at most 3 s
+  let afterTok = 0;
+  function sayAfter(ids, then) {
+    const my = ++afterTok; let n = 0;
+    const go = () => { if (my !== afterTok) return; if ((paused || voiceBusy()) && (paused || n++ < 30)) return setTimeout(go, 100); playIds(ids, then); };
+    go();
+  }
+  // the shared speed slider moves everything that moves (Golan 19.10): flips, the wait before closing, the peek
+  const motionK = () => { try { return LRN && LRN.speed ? LRN.speed(GAME) : 1; } catch (e) { return 1; } };
+  const ms = (t) => t / motionK();
+
+  // ---------- pictures ----------
+  // the back of every card: a night sky with the moon and stars (spec 6)
+  const BACK_SVG = (() => {
+    const st = [[18, 22, 2.2], [78, 16, 1.6], [64, 34, 1.4], [28, 62, 1.5], [82, 70, 2], [46, 82, 1.3], [12, 84, 1.6], [56, 58, 1]];
+    return `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="nightG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#3b2f86"/></linearGradient></defs>
+<rect x="1.5" y="1.5" width="97" height="97" rx="13" fill="url(#nightG)" stroke="#ffffff55" stroke-width="2.5"/>
+<g transform="translate(64 40)"><circle r="16" fill="#FFF0A8"/><circle cx="7" cy="-5" r="14" fill="#25307a"/></g>
+${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M0 -2.4 L.6 -.6 L2.4 0 L.6 .6 L0 2.4 L-.6 .6 L-2.4 0 L-.6 -.6Z" fill="#FFF6C8"/>`).join("")}
+<path d="M10 92 Q30 84 50 92 T90 92" stroke="#ffffff22" stroke-width="3" fill="none"/></svg>`;
+  })();
+  const HEART = `<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.2 4.5 6 4.5c2.3 0 3.6 1.3 4.4 2.5.4.6 1 .6 1.4 0 .8-1.2 2.1-2.5 4.4-2.5 3.8 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z" fill="#ff5a8a" stroke="#fff" stroke-width="1.2"/></svg>`;
+  const RAIN = `<svg viewBox="0 0 60 50"><g fill="#9aa7b8"><ellipse cx="22" cy="18" rx="14" ry="10"/><ellipse cx="38" cy="15" rx="15" ry="12"/><ellipse cx="30" cy="22" rx="20" ry="9"/></g>
+<path class="drop" d="M18 34 l-2 6" stroke="#5fa8ff" stroke-width="3" stroke-linecap="round"/><path class="drop" d="M30 34 l-2 6" stroke="#5fa8ff" stroke-width="3" stroke-linecap="round"/><path class="drop" d="M42 34 l-2 6" stroke="#5fa8ff" stroke-width="3" stroke-linecap="round"/></svg>`;
+
+  // The same 9 balloons as every game (Golan 16.10), from "האות שמתעוררת"; the chosen one is the surprise card (spec 4)
+  const BALLOONS = [
+    { c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
+    { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
+  ];
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
+  function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+  function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
+  // flat: a W x H picture of the balloon front (the caller clips it to the balloon outline). uv: W x H skin, x = around, y = top to bottom.
+  function paintBalloon(ctx, W, H, d, uv) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, uv);   // shared/love-balloon.js
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
+    const S = uv ? H / 256 : W / 100;   // size unit
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = uv ? (d.pat === "rainbow" ? 12 : 16) : (d.pat === "rainbow" ? 6 : 8);
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = cols[i % cols.length];
+        if (uv) { ctx.fillRect(i * W / n, 0, W / n + 1, H); continue; }
+        // flat: curved gores, wide in the middle and meeting at the top and bottom
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill();
+      }
+    } else if (d.pat === "dots") grid(uv ? W / 14 : W / 4, uv ? H / 6 : H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, (uv ? 11 : 7) * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => starPath(ctx, x, y, (uv ? 16 : 10) * S));
+    else if (d.pat === "hearts") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => heartPath(ctx, x, y, (uv ? 13 : 8) * S));
+    else if (d.pat === "checks") { const n = uv ? 16 : 6, m = uv ? 8 : 7; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) if ((i + j) % 2) ctx.fillRect(i * W / n, j * H / m, W / n + 1, H / m + 1); }
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
+    else if (d.pat === "zigzag" || d.pat === "waves") {
+      const teeth = uv ? 16 : 5, amp = 9 * S;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
+        ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
+          const yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S; ctx.lineJoin = "round"; ctx.stroke();
+      }
+    }
+  }
+  let svgN = 0;
+  function balloonSvg(i) {
+    const d = BALLOONS[i] || BALLOONS[0], [sx, sy] = SHAPES[d.shape], id = "bc" + i + "_" + (svgN++);
+    if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
+    const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
+    const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const G = d.flag ? Math.min(1.12, 94 * 1.25 / (84 * sy)) : 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+      `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : Math.min(0, top - 2).toFixed(1)}" width="100" height="${d.shape === "heart" ? 134 : (120 - Math.min(0, top - 2)).toFixed(1)}" preserveAspectRatio="none" clip-path="url(#${id})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;
+  }
+  const balloonIndex = () => (Number.isInteger(settings.balloon) && BALLOONS[settings.balloon] ? settings.balloon : 0);
+  // the faces (Golan 30.10): a sound card = the letter with its vowel, exactly as the sound detective writes it (print only, no
+  // cursive in the sound games); a picture card = the still picture, which wakes up (pictures-animated) when its pair is found
+  const sylSvg = (l) => `<svg viewBox="0 0 1000 1000" aria-hidden="true"><text x="500" y="455" font-size="560" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">${SOUNDS[l].syl}</text></svg>`;
+  const picSvg = (k) => `<svg viewBox="0 0 1000 1000" aria-hidden="true">${(PICS[k] || {}).svg || ""}</svg>`;
+  const awakeSvg = (k) => (PA && PA.svg && PA.svg[k] ? `<svg viewBox="0 0 1000 1000" aria-hidden="true">${PA.svg[k]}</svg>` : null);
+
+  // ---------- the board ----------
+  const state = { mode: "intro", n: 4, cards: [], open: [], busy: false, mistakes: 0, missed: new Set(), pairsLeft: 0, starRow: [], boards: 0, roundWins: 0, letters: [], flips: 0, demo: false };
+  const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.mode === "levelask" || state.demo, onEnd: () => timeUp() }) : null;
+  const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
+
+  function newBoard() {
+    epoch++;
+    const n = RUNGS[manualRung ?? rung()], B = BOARDS[n], pairs = B.letters / 2;
+    state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
+    const letters = boardSounds(pairs); state.letters = letters;
+    dealBoard(B, letters);
+  }
+  function dealBoard(B, letters) {
+    state.shape = wideBoard() ? "wide" : "tall";
+    // the deck in cell order: the hint cards in the middle cells, the pairs around them; a pair = the sound card and a picture
+    // card whose word opens with it (Golan 30.10)
+    const total = B.letters + B.hints, hintAt = new Set(middleCells(B[state.shape], B.hints)),
+      pairsDeck = shuffle([...letters.map((l) => ({ l, snd: true })), ...letters.map((l) => ({ l, k: picFor(l) }))]);
+    const deck = []; for (let i = 0; i < total; i++) deck.push(hintAt.has(i) ? { l: null, surprise: true } : pairsDeck.pop());
+    const box = $("board"); box.innerHTML = "";
+    state.cards = deck.map((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "card"; b.dataset.i = i; b.setAttribute("aria-label", c.surprise ? "קלף רמז" : "קלף");
+      // a hint card shows its balloon on the back, so the child knows it is there (Golan 21.10: hint cards on every board)
+      b.innerHTML = `<div class="inner"><div class="face back${c.surprise ? " hintback" : ""}">${BACK_SVG}${c.surprise ? `<div class="hb">${balloonSvg(balloonIndex())}</div>` : ""}</div><div class="face front${c.surprise ? " balloon" : c.snd ? " snd" : " pic"}"></div></div>`;
+      const front = b.querySelector(".front");
+      if (c.surprise) front.innerHTML = balloonSvg(balloonIndex());
+      else if (c.snd) front.innerHTML = sylSvg(c.l);
+      else front.innerHTML = picSvg(c.k);
+      b.addEventListener("pointerdown", (e) => { e.preventDefault(); flip(i); });
+      box.append(b);
+      return Object.assign(c, { el: b, state: "closed", cell: i });
+    });
+    // the cards are dealt face down one after another, each with a card flick (Golan 21.10), then a shuffle mixes them
+    // into their own cells (spec 13)
+    // the balloon (hint) cards go straight to their own cells and stay there; only the letter cards mix (Golan 23.10)
+    const lettersC = state.cards.filter((c) => !c.surprise), start = shuffle(lettersC.map((c) => c.cell));
+    lettersC.forEach((c, k) => (c.at = start[k])); state.cards.forEach((c) => { if (c.surprise) c.at = c.cell; });
+    box.hidden = false; layout();
+    state.mode = "shuffle";
+    const br = box.getBoundingClientRect();
+    state.cards.forEach((c) => { const x = parseFloat(c.el.style.left), y = parseFloat(c.el.style.top), cs = parseFloat(box.style.getPropertyValue("--cs"));
+      c.el.style.transition = "none"; c.el.style.opacity = "0";
+      c.el.style.transform = `translate(${innerWidth / 2 - br.left - x - cs / 2}px, ${innerHeight - br.top - y + cs * 0.2}px) rotate(${(Math.random() * 40 - 20).toFixed(0)}deg)`; });
+    void box.offsetWidth;
+    const order = state.cards.slice().sort((a, b) => a.at - b.at), step = ms(130), fly = ms(380);
+    order.forEach((c, k) => later(k * step, () => {
+      if (state.mode !== "shuffle") return;
+      c.el.style.transition = `transform ${fly}ms cubic-bezier(.2,.8,.3,1), opacity ${ms(150)}ms`; c.el.style.transform = ""; c.el.style.opacity = "";
+      later(fly * 0.8, () => cardSnd(false));
+    }));
+    later(order.length * step + fly + ms(300), () => { state.cards.forEach((c) => (c.el.style.transition = "")); shuffleAnim(3, () => { state.boardAt = performance.now(); if (state.demo) { state.mode = "demo"; demoPlay(); } else state.mode = "play"; }); });
+  }
+  // the shuffle: every card slides to another cell, three times; the last pass ends with each card in its own cell
+  function shuffleAnim(passes, done) {
+    const pass = (k) => {
+      if (state.mode !== "shuffle") return;
+      const mix = state.cards.filter((c) => !c.surprise), to = k > 1 ? shuffle(mix.map((c) => c.cell)) : mix.map((c) => c.cell);
+      const d = ms(560);
+      mix.forEach((c, j) => { c.at = to[j]; c.el.style.transition = `left ${d}ms cubic-bezier(.5,.05,.3,1), top ${d}ms cubic-bezier(.5,.05,.3,1)`; c.el.style.zIndex = 1 + Math.floor(Math.random() * 5); });
+      layout(); cardSnd(true); later(d * 0.45, () => cardSnd(true));
+      later(d + 60, () => { if (k > 1) pass(k - 1); else { state.cards.forEach((c) => { c.el.style.transition = ""; c.el.style.zIndex = ""; }); done(); } });
+    };
+    pass(passes);
+  }
+  // free room for the board: between the door column, the star pill and the hourglass
+  function rooms() {
+    const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
+    const W = innerWidth, H = innerHeight, et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
+    const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
+    // the hourglass under the star pill (learner.js places it the same way): its width and bottom keep the cards clear of it (Golan 29.10)
+    const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), hgW = hgH * 1.012 + 8, hgBot = pill.bottom + 8 + hgH * 1.725;
+    const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, el + 60) + g;
+    // A: a full-height column between the door column and the stars / hourglass column; B: under the star pill, full width
+    // C: under the door / gear column and the hourglass, the whole width (a standing phone)
+    const gear = $("gear").getBoundingClientRect(), rs = document.getElementById("flRestart"), rsBot = rs && rs.offsetParent ? rs.getBoundingClientRect().bottom : 0;   // the restart button under the gear
+    return [{ x0: left, x1: Math.min(pill.left, pill.right - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: pill.right - hgW - g, y0: pill.bottom + g, y1: H - eb },
+      { x0: el, x1: (cardPick ? pill.right - hgW - g : W - er), y0: Math.max(gear.bottom, rsBot, hgBot) + g, y1: H - eb }];   // the card-count slider stands under the hourglass (Golan 30.10)
+  }
+  const wideBoard = () => { const r = rooms().sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0]; return r.x1 - r.x0 >= r.y1 - r.y0; };
+  // the biggest square cards that fit; each card at its cell (c.at), the row shape centred in the free room
+  function layout() {
+    const box = $("board"); if (box.hidden || !state.cards.length) return;
+    const B = BOARDS[state.n]; if (!B) return;
+    const shape = cellsOf(B[state.shape]);
+    const fit = (r) => { const w = r.x1 - r.x0, h = r.y1 - r.y0, gap = Math.max(6, Math.min(w, h) * 0.025); return { r, gap, cs: Math.floor(Math.min((w - gap * (shape.cols - 1)) / shape.cols, (h - gap * (shape.rows - 1)) / shape.rows)) }; };
+    const best = rooms().map(fit).sort((a, b) => b.cs - a.cs)[0];
+    const c = Math.max(30, Math.min(best.cs, 260)), step = c + best.gap, sw = c * shape.cols + best.gap * (shape.cols - 1), sh = c * shape.rows + best.gap * (shape.rows - 1);
+    box.style.setProperty("--cs", c + "px");
+    box.style.left = Math.round((best.r.x0 + best.r.x1) / 2 - sw / 2) + "px"; box.style.top = Math.round((best.r.y0 + best.r.y1) / 2 - sh / 2) + "px";
+    box.style.width = sw + "px"; box.style.height = sh + "px";
+    for (const card of state.cards) { const p = shape.cells[card.at != null ? card.at : card.cell]; card.el.style.left = Math.round(p.x * step) + "px"; card.el.style.top = Math.round(p.y * step) + "px"; }
+    document.documentElement.style.setProperty("--flip", ms(450) + "ms");
+  }
+  // a turned phone: the board takes the other shape, each card keeps its cell
+  function relayout() { if (!state.cards.length || $("board").hidden) return; const s = wideBoard() ? "wide" : "tall"; if (s !== state.shape && state.mode !== "shuffle") state.shape = s; layout(); }
+  function cardCenter(c) { const r = c.el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; }
+
+  // what a card says when it opens (Golan 30.10): a sound card its sound (syl_*), a picture card its word (word_*)
+  const clipOf = (c) => (c.snd ? SOUNDS[c.l].s : wordOf(c.k));
+  function flip(i, byDemo) {
+    if (paused || state.busy || !(state.mode === "play" || (byDemo && state.mode === "demo"))) return;
+    const c = state.cards[i];
+    if (c && c.state === "open" && state.open.length === 1 && state.open[0] === c && !c.surprise) { stopVoice(); playIds([clipOf(c)]); return; }   // the open card touched again: said again
+    if (!c || c.state !== "closed") return;
+    unlockAudio();
+    if (state.open.length === 0) state.firstAt = performance.now();
+    c.state = "open"; c.el.classList.add("open"); sfx.flip(); state.flips++;
+    if (c.surprise) return surprise(c);
+    state.open.push(c);
+    if (state.open.length < 2) { stopVoice(); afterTok++; playIds([clipOf(c)]); return; }
+    const [a, b] = state.open; state.open = []; state.busy = true;
+    // Golan 30.10: a right pair = only the sound, then the word (no "יש! נכון!"); a wrong pair = the second card's own clip
+    if (a.l === b.l) { const s = a.snd ? a : b, p = a.snd ? b : a; sayAfter([SOUNDS[s.l].s, 250, wordOf(p.k)]); match(a, b); }
+    else { sayAfter([clipOf(b)]); miss(a, b); }
+  }
+  function match(a, b) {
+    const firstTry = !state.missed.has(a.l), demo = state.demo;
+    const kind = state.pairMistakes <= goldMax(state.pairsLeft * 2) ? "gold" : "silver";   // a star for every pair; gold within this pair's limit (as the memory game)
+    if (!demo) { state.pairMistakes = 0; if (kind === "silver") state.boardSilver = true; }
+    const p = a.snd ? b : a;
+    // the shared "sound" skill, as the sound wheel (a memory slip is not a sound mistake: only the found pair is recorded)
+    if (LRN && kid() && !demo) LRN.record({ game: GAME, letter: a.l, picked: a.l, firstTry, solved: true, opts: [a.l], rtMs: Math.round(performance.now() - state.firstAt),
+      changed: false, hint: firstTry ? 0 : 1, mode: "sound", pace: LRN.pace() });
+    later(ms(500), () => {
+      a.state = b.state = "done";
+      [a, b].forEach((c) => { c.el.classList.remove("open"); c.el.classList.add("done", "love"); });
+      // the picture wakes up: its moving drawing in place of the still one (Golan 30.10)
+      const aw = awakeSvg(p.k); if (aw) p.el.querySelector(".front").innerHTML = aw;
+      hearts(a, b); sfx.good();
+      if (!demo) {
+        state.starRow.push(kind); starCount.add(kind);
+        [a, b].forEach((c) => { const s = document.createElement("span"); s.className = "mstar"; s.innerHTML = LRN ? LRN.starSvg(kind, Math.round(cardCenter(c).w * 0.32)) : ""; c.el.append(s); });
+      }
+      later(ms(1300), () => {
+        [a, b].forEach((c) => c.el.classList.remove("love"));
+        state.busy = false; if (demo) return;
+        state.pairsLeft--;
+        if (state.pairsLeft <= 0) boardDone();
+      });
+    });
+  }
+  function miss(a, b) {
+    state.mistakes++; state.pairMistakes++; state.missed.add(a.l); state.missed.add(b.l);
+    later(ms(700), () => {
+      [a, b].forEach((c) => c.el.classList.add("upset")); rain(a); rain(b); sfx.oops();
+      // the cards close by themselves after the disappointment (about 2 s, by the speed slider)
+      later(ms(2000), () => {
+        [a, b].forEach((c) => { c.el.classList.remove("upset", "open"); c.state = "closed"; });
+        sfx.hide();
+        later(ms(450), () => { state.busy = false; });
+      });
+    });
+  }
+  // a hint card (the balloon), as the memory game: the balloon rises and is gone at the card's edge, then the card is gone,
+  // then every closed card peeks for a moment (it works once)
+  function surprise(c) {
+    state.busy = true; c.el.classList.add("surprise-pop"); sfx.magic();
+    later(ms(700), () => {
+      c.el.style.setProperty("--fd", ms(1100) + "ms"); c.el.classList.add("flown");
+      later(ms(1100), () => {
+        c.state = "used"; c.el.classList.remove("surprise-pop"); c.el.classList.add("gone");
+        later(ms(650), () => {
+          const closed = state.cards.filter((x) => x.state === "closed" && !x.surprise);
+          closed.forEach((x) => x.el.classList.add("peek"));
+          const peekK = closed.length <= 6 ? 1 : closed.length <= 10 ? 1.5 : 2;
+          later(ms(1600 * peekK), () => { closed.forEach((x) => x.el.classList.remove("peek")); sfx.hide(); later(ms(450), () => { state.busy = false; }); });
+        });
+      });
+    });
+  }
+  function hearts(a, b) {
+    const fx = $("fx");
+    for (const c of [a, b]) { const p = cardCenter(c);
+      for (let k = 0; k < 5; k++) { const h = document.createElement("div"); h.className = "heart"; h.innerHTML = HEART;
+        h.style.left = (p.x + (k - 2) * p.w * 0.14) + "px"; h.style.top = (p.y - p.w * 0.2) + "px"; h.style.setProperty("--hs", Math.round(p.w * 0.24) + "px");
+        h.style.setProperty("--dx", ((k - 2) * 20) + "%"); h.style.animationDelay = (k * 0.12) + "s"; h.style.animationDuration = ms(1600) + "ms";
+        fx.append(h); setTimeout(() => h.remove(), ms(2400)); } }
+  }
+  function rain(c) {
+    const p = cardCenter(c), r = document.createElement("div"); r.className = "rain"; r.innerHTML = RAIN;
+    r.style.left = p.x + "px"; r.style.top = (p.y - p.w * 0.3) + "px"; r.style.setProperty("--rs", Math.round(p.w * 0.6) + "px"); r.style.animationDuration = ms(1900) + "ms";
+    $("fx").append(r); setTimeout(() => r.remove(), ms(2200));
+  }
+
+  // a board is finished: count the win, then the next board, the level question, or the end of the round
+  function boardDone() {
+    state.mode = "between"; state.boards++;
+    const win = !(HG && HG.done());   // the whole board found before the hourglass ran out (Golan 22.10)
+    if (win) { if (manualRung == null) { rung(); progress.wins++; saveProgress(); } state.roundWins++; }   // a board picked by hand does not move the system's choice (Golan 30.10)
+    later(ms(1200), () => {
+      // the offer of a bigger board comes first, even when the hourglass ran out; the end window after it (Golan 22.10)
+      if (win && manualRung == null && progress.wins >= WINS_TO_ASK && rung() < RUNGS.length - 1) return askLevel();
+      if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
+      newBoard();
+    });
+  }
+  // spec 12/13: after 2 wins on a rung, Hila asks; the child touches the small board (stay) or the bigger board (the next rung)
+  function boardPic(n) {
+    // the picture is cut to the board's own shape, so a wide board is not squeezed into a square (Golan 22.10)
+    const B = BOARDS[n], shape = cellsOf(B.wide), s = 10, g = s * 0.12, hint = new Set(middleCells(B.wide, B.hints)); let r = "";
+    shape.cells.forEach((c, i) => { const x = c.x * s, y = c.y * s;
+      r += `<rect x="${(x + g / 2).toFixed(1)}" y="${(y + g / 2).toFixed(1)}" width="${(s - g).toFixed(1)}" height="${(s - g).toFixed(1)}" rx="${(s * 0.14).toFixed(1)}" fill="${hint.has(i) ? "#3DA5FF" : "#25307a"}"/>` +
+        (hint.has(i) ? "" : `<circle cx="${(x + s * 0.62).toFixed(1)}" cy="${(y + s * 0.38).toFixed(1)}" r="${(s * 0.13).toFixed(1)}" fill="#FFF0A8"/>`); });
+    return `<svg viewBox="0 0 ${shape.cols * s} ${shape.rows * s}" aria-hidden="true">${r}</svg>`;
+  }
+  let askT = [];
+  function askLevel() {
+    state.mode = "levelask";
+    const R = rung(), box = $("boards"); box.innerHTML = "";
+    const pair = [[RUNGS[R], false], [RUNGS[R + 1], true]];
+    for (const [n, up] of pair) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.up = up ? "1" : "0";
+      b.setAttribute("aria-label", up ? "לוח גדול" : "לוח קטן");
+      b.innerHTML = boardPic(n) + `<span class="bcount">${BOARDS[n].letters + BOARDS[n].hints} קלפים</span>`;   // the number of cards under each board (Golan 22.10)
+      b.addEventListener("click", () => answerLevel(up)); box.append(b);
+    }
+    $("levelAsk").hidden = false; genderTexts();
+    // one card size for both pictures, so the bigger board looks bigger, and both fit inside the window side by side (Golan 22.10)
+    const shapes = pair.map(([n]) => cellsOf(BOARDS[n].wide)), btn = box.firstChild, cs = getComputedStyle(btn);
+    const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) * 2;
+    const gap = parseFloat(getComputedStyle(box).columnGap) || 16;
+    const roomW = box.clientWidth - gap - padX * 2, roomH = innerHeight * 0.42 - btn.querySelector(".bcount").offsetHeight;
+    const cell = Math.max(8, Math.min(Math.min(innerWidth, innerHeight) * 0.11, roomW / (shapes[0].cols + shapes[1].cols), roomH / Math.max(shapes[0].rows, shapes[1].rows)));
+    [...box.children].forEach((b, i) => { const sv = b.querySelector("svg"); sv.style.width = Math.floor(cell * shapes[i].cols) + "px"; sv.style.height = Math.floor(cell * shapes[i].rows) + "px"; });
+    say("mem_next");
+    const flash = () => { [...box.children].forEach((b, i) => askT.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 500))); };
+    askT.push(setTimeout(flash, 2500));
+  }
+  function answerLevel(up) {
+    if (state.mode !== "levelask") return;
+    askT.forEach(clearTimeout); askT = [];
+    $("levelAsk").hidden = true; $("board").hidden = true; progress.wins = 0; saveProgress();   // no flash of the old board before the new one (Golan 22.10)
+    if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); }
+    say(up ? "fb_bravo" : Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
+    // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
+    later(800, () => { if (HG && HG.done()) endRound(); else whenQuiet(() => later(150, newBoard)); });
+  }
+
+  // ---------- one round = the golden hourglass (spec 10): board after board ----------
+  // Golan 30.10: the number of cards can be picked by hand on a standing slider under the hourglass; a pick starts the game again
+  // with that board. It lasts while the child stays in the game and never changes the system's own choice (progress.rung).
+  let manualRung = null;
+  const cardPick = LRN && LRN.cardSlider ? LRN.cardSlider({ values: RUNGS.map((n) => BOARDS[n].letters + BOARDS[n].hints), get: () => manualRung ?? rung(),
+    show: () => !state.demo && (["ready", "play", "between", "busy"].includes(state.mode) || (state.mode && !["end", "flying", "levelask", "start", "pick", "intro", "demo"].includes(state.mode))),
+    onPick: (i) => {
+      manualRung = i; epoch++; askT.forEach(clearTimeout); askT = []; $("levelAsk").hidden = true; $("board").hidden = true; stopVoice();
+      countdown();
+    } }) : null;
+  function startRound() {
+    epoch++;
+    state.starRow = []; state.boards = 0; state.roundWins = 0; starCount.reset();
+    const go = () => { if (HG) HG.start(); newBoard(); };
+    // Golan 30.10 (every sound game): the first game of a child starts with the demo; "איך משחקים?" plays it again
+    if (state.demoNext || !demoSeen()) { state.demoNext = false; runDemo(go); } else go();
+  }
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: null, dom: [...$("board").children].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
+  function endRound() {
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
+    state.mode = "end"; if (HG) HG.stop();
+    $("board").hidden = true; $("fx").innerHTML = "";
+    const day = kid() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null;
+    const sug = day && day.suggest;
+    const note = !sug ? "" : sug === "break" ? gt("זמן להתמתח! קומו רגע, ונמשיך.", "זמן להתמתח! קום רגע, ונמשיך.", "זמן להתמתח! קומי רגע, ונמשיך.") : "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.";
+    if (sug === "break") LRN.breakShown();
+    END.set({ stars: state.starRow.slice(), letters: false, sounds: !!kid(), note });   // sounds, not letters (as the sound wheel)
+    $("hud").hidden = true; $("end").hidden = false; END.fit();
+    say("fb_round_done");
+    if (sug) whenQuiet(() => later(300, () => { if (state.mode === "end") say(sug === "break" ? "day_break" : "day_end"); }));
+  }
+
+  // ---------- settings (the one shared form) ----------
+  let form = null, modeBeforeSettings = null;
+  function renderForm() {
+    if (form) return;
+    form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר קלפים על הלוח.",
+      levels: ["מתחילים ב-4 קלפים (2 זוגות של צליל ותמונה).", "מתחילים ב-9 קלפים: 4 זוגות, ובאמצע קלף הפתעה (כדור פורח) שמראה לרגע את כל הקלפים.", "מתחילים ב-12 קלפים (6 זוגות). אחרי 2 לוחות מוצלחים הילד נשאל אם לעלות ללוח הבא: 4, 6, 9, 10, 12, 14, 16."],
+      onLevel: () => { progress.rung = -1; saveProgress(); },
+      // the sounds, as the sound wheel (no "סוג כתב" row: print only in the sound games)
+      picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); } },
+      voice: { get: () => settings.voice, set: (v) => { settings.voice = v; saveSettings(); } } });
+  }
+  function openSettings() {
+    if (!paused) { modeBeforeSettings = "settings"; pauseCore(); }
+    renderForm(); form.refresh(); if (form.closeTech) form.closeTech();
+    $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0));
+  }
+  function closeSettings() {
+    $("settings").hidden = true;
+    if (modeBeforeSettings === "settings") { modeBeforeSettings = null; resumeCore(); }
+    if (!$("start").hidden && !heardIntro) scheduleIntro();
+    if (state.mode === "ready") countdown();
+    relayout();
+  }
+  $("gear").addEventListener("click", openSettings);
+  window.addEventListener("fl:gear", () => openSettings());
+  ["gearStart", "gearPick", "gearEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("xSettings").addEventListener("click", (e) => { e.stopPropagation(); closeSettings(); });
+  let pausedClip = null;
+  function pauseCore() { paused = true; heldLine = null; pausedClip = clipNow && !clipNow.paused && !clipNow.ended ? clipNow : null; if (pausedClip) pausedClip.pause(); }
+  function resumeCore() {
+    paused = false;
+    if (pausedClip) { pausedClip.currentTime = 0; pausedClip.play().catch(() => {}); } else if (heldLine) say(heldLine);
+    pausedClip = null; heldLine = null;
+  }
+
+  // ---------- doors ----------
+  function toHub() {
+    if (!LRN || !LRN.fromHub || !LRN.hubUrl) return false;
+    epoch++; cancelIntro(); stopVoice(); countToken++; paused = true; if (HG) HG.stop();
+    location.href = LRN.hubUrl.split("#")[0] + "#games";
+    return true;
+  }
+  function backToStart() {
+    epoch++; cancelIntro(); stopVoice(); if (HG) HG.stop(); endDemoMarks();
+    if (paused) resumeCore();
+    state.mode = "intro"; countToken++; $("count").innerHTML = ""; $("board").hidden = true; $("fx").innerHTML = "";
+    ["hud", "end", "pick", "settings", "levelAsk"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };   // the restart button: the picker again
+  ["doorGame", "doorPick", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
+  $("doorStart").addEventListener("click", (e) => {
+    e.stopPropagation(); cancelIntro(); stopVoice(); if (!LRN || toHub()) return;
+    choosingKid = true;
+    LRN.chooseChild().then(() => { choosingKid = false; loadProgress(); genderTexts(); if (form) form.refresh(); heardIntro = false; scheduleIntro(); });
+  });
+  function outsideTap(el, inside, close) {
+    let downOut = false;
+    el.addEventListener("pointerdown", (e) => { downOut = !e.target.closest(inside) && !e.target.closest(".round-btn"); });
+    el.addEventListener("click", (e) => { if (downOut && !e.target.closest(inside) && !e.target.closest(".round-btn")) close(); downOut = false; });
+  }
+  outsideTap($("settings"), ".panel", () => closeSettings());
+
+  // ---------- start screen ----------
+  let heardIntro = false, introTok = 0, choosingKid = false;
+  const cancelIntro = () => { introTok++; };
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_soundmemory");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  // Golan 30.10: the game's name (hub_g_soundmemory), then the description (smem_start2, boy / girl); silent until recorded
+  function sayIntro() { heardIntro = true; nameFirst(() => say("smem_start2")); }
+  function scheduleIntro() { const t = ++introTok; setTimeout(() => { if (t !== introTok || choosingKid || heardIntro || $("start").hidden || !$("settings").hidden) return; const a = getClip("hub_g_soundmemory"), b = getClip(voiceId("smem_start2")); if (a._bad && b._bad) { heardIntro = true; return; } sayIntro(); }, 1500); }
+  const fontReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בגד"), new Promise((r) => setTimeout(r, 3000))]).catch(() => {}) : Promise.resolve();
+  fontReady.then(() => { $("go").disabled = false; $("go").textContent = "יוצאים לדרך"; });
+  (LRN ? LRN.chooseChild() : Promise.resolve()).then(() => { loadProgress(); genderTexts(); scheduleIntro(); });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(); });
+  $("go").addEventListener("click", () => {
+    cancelIntro(); stopVoice(); unlockAudio();
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); tone([523, 784], 0.12, "triangle", 0.35);
+    say("fb_go");
+    setTimeout(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
+  });
+
+  // ---------- balloon picker (as in every game) ----------
+  const PICK_STEP = 420;
+  let pickNagT = 0, pickFlashTs = [], picking = false, pickSays = 0;
+  function openPick() {
+    const box = $("balloons"); box.textContent = "";
+    BALLOONS.forEach((d, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "כדור " + (i + 1));
+      b.innerHTML = balloonSvg(i); b.addEventListener("click", () => pickBalloon(i)); box.append(b);
+    });
+    $("pick").hidden = false; clearTimeout(pickNagT); pickSays = 0;
+    setTimeout(() => { if (!$("pick").hidden && !picking) { say("ins_balloon"); pickSays = 1; setTimeout(() => whenQuiet(pickNag), 300); } }, 700);
+  }
+  function stopPickFlash() { clearTimeout(pickNagT); pickFlashTs.forEach(clearTimeout); pickFlashTs = []; [...$("balloons").children].forEach((b) => b.classList.remove("flash")); }
+  function pickNag() {
+    clearTimeout(pickNagT);
+    pickNagT = setTimeout(() => {
+      if ($("pick").hidden || picking) return;
+      if (pickSays < 2) { say("ins_balloon"); pickSays++; }
+      const btns = [...$("balloons").children].sort(() => Math.random() - 0.5);
+      btns.forEach((b, i) => pickFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * PICK_STEP)));
+      pickFlashTs.push(setTimeout(() => whenQuiet(pickNag), btns.length * PICK_STEP + 1000));
+    }, 4000);
+  }
+  function pickBalloon(k) {
+    if (picking) return; picking = true; stopPickFlash();
+    settings.balloon = k; saveSettings();
+    [...$("balloons").children].forEach((b, i) => { b.setAttribute("aria-pressed", String(i === k)); b.classList.toggle("chosen", i === k); });
+    say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");
+    const pickedAt = performance.now();
+    whenQuiet(() => setTimeout(() => { picking = false; if ($("pick").hidden) return; $("pick").hidden = true; starCount.reset(); $("hud").hidden = false; countdown(); }, Math.max(250, 1900 - (performance.now() - pickedAt))));
+  }
+
+  // ---------- the demo (Golan 30.10, every sound game: the first game of each child; "איך משחקים?" plays it again) ----------
+  // A board is dealt as usual; a hand flips a sound card (its sound is said), then the picture card that opens with it (its word
+  // is said); the pair stays open and the picture wakes up. The shared demo look: FL.demoFrame + FL.demoArrow; the hourglass waits.
+  const demoKey = () => { const p = kid(); return "fl-soundmemory-demo-" + (p ? p.id : "guest"); };
+  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
+  const hand = $("demoHand"); let demoRaf = 0, demoAfter = null;
+  function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
+  function moveHand(from, to, dur, then) {
+    const t0 = performance.now();
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      hand.style.left = from.x + (to.x - from.x) * e + "px"; hand.style.top = from.y + (to.y - from.y) * e + "px";
+      if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
+    hand.classList.add("show"); step();
+  }
+  function endDemoMarks() { if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; demoAfter = null; }
+  function runDemo(done) {
+    epoch++; stopVoice(); state.demo = true;
+    if (window.FL && FL.demoFrame) FL.demoFrame(true);
+    demoAfter = () => { endDemoMarks(); markDemo(); $("board").hidden = true; $("fx").innerHTML = ""; if (done) done(); };
+    newBoard();   // dealt as usual; the end of the deal calls demoPlay
+  }
+  function demoPlay() {
+    const my = epoch, alive = () => my === epoch && state.demo;
+    const s = state.cards.find((c) => c.snd && c.state === "closed"), p = s && state.cards.find((c) => !c.snd && !c.surprise && c.l === s.l);
+    if (!s || !p) return demoAfter && demoAfter();
+    const at = (c) => { const r = c.el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; };
+    const arrow = (c) => { if (window.FL && FL.demoArrow) { const q = at(c); FL.demoArrow(q.x, q.top + 6); } };
+    playIds(["sd_demo"], () => {
+      if (!alive()) return;
+      const a = at(s);
+      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
+        if (!alive()) return;
+        flip(state.cards.indexOf(s), true); arrow(s);
+        later(400, () => whenQuiet(() => later(700, () => {
+          if (!alive()) return;
+          if (window.FL && FL.demoArrow) FL.demoArrow(null);
+          moveHand(at(s), at(p), 1200, () => later(300, () => {
+            if (!alive()) return;
+            flip(state.cards.indexOf(p), true); arrow(p);
+            later(600, () => whenQuiet(() => later(1800, () => { if (alive() && demoAfter) { const f = demoAfter; demoAfter = null; f(); } })));
+          }));
+        })));
+      }));
+    });
+  }
+  $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
+  $("demoSettings").addEventListener("click", (e) => {
+    e.stopPropagation(); if (["intro", "end", "flying", "ready", "pick", "levelask"].includes(state.mode) || state.demo) return;
+    closeSettings(); unlockAudio(); $("fx").innerHTML = "";
+    runDemo(() => newBoard());   // then a new board; the hourglass waited during the demo
+  });
+
+  // ---------- 3, 2, 1 ----------
+  let countToken = 0;
+  function countdown() {
+    const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
+    state.mode = "ready"; $("board").hidden = true;
+    const box = $("count");
+    ["3", "2", "1"].forEach((n, i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready" || paused) return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = n; sp.style.background = "#10b947"; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready" || paused) return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      startRound();
+    }, 700 + 3 * 1000);
+  }
+
+  // keyboard (for testing on a computer): 1-9 flips a card
+  document.addEventListener("keydown", (e) => { const k = parseInt(e.key, 10); if (k >= 1 && k <= 9 && state.mode === "play") flip(k - 1); });
+  if (window.FL && FL.screen) FL.screen.onChange(() => relayout());
+  addEventListener("resize", relayout);
+
+  // test hook for automated checks
+  window.__soundmemory = { state, settings, flip, answerLevel, askLevel, endRound, newBoard, runDemo, lvl, layout, rung: () => rung(), setRung: (r) => { progress.rung = r; progress.lvlAt = lvl(); saveProgress(); }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
+})();
+</script>
+</body>
+</html>
