@@ -63,12 +63,13 @@
     if (typeof document === "undefined") return; demoCss();
     if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.body.append(demoFrameEl); }
     if (on) {   // a wavy line all round, drawn for the frame's own size
-      const r = demoFrameEl.getBoundingClientRect(), W = Math.max(100, r.width), H = Math.max(100, r.height), A = 10, step = 34, pts = [];
-      const side = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(L / step)), nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
-        for (let i = 0; i < n; i++) { const t = i / n, w = Math.sin(t * n * Math.PI) * A; pts.push([x0 + (x1 - x0) * t + nx * w, y0 + (y1 - y0) * t + ny * w]); } };
-      side(A, A, W - A, A); side(W - A, A, W - A, H - A); side(W - A, H - A, A, H - A); side(A, H - A, A, A);
+      // Golan 30.10: thicker, and really wavy (the old points all fell on the wave's zero line, so it was drawn straight)
+      const r = demoFrameEl.getBoundingClientRect(), W = Math.max(100, r.width), H = Math.max(100, r.height), A = 9, wave = 46, M = 14, pts = [];
+      const side = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), half = Math.max(2, Math.round(L / (wave / 2))), n = half * 8, nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
+        for (let i = 0; i < n; i++) { const t = i / n, w = Math.sin(t * half * Math.PI) * A; pts.push([x0 + (x1 - x0) * t + nx * w, y0 + (y1 - y0) * t + ny * w]); } };
+      side(M, M, W - M, M); side(W - M, M, W - M, H - M); side(W - M, H - M, M, H - M); side(M, H - M, M, M);
       const d = "M" + pts.map((q) => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L") + " Z";
-      demoFrameEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffffaa" stroke-width="11" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#ffc233" stroke-width="7" stroke-linejoin="round"/></svg>`;
+      demoFrameEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffffcc" stroke-width="20" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#ffb800" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
     }
     demoFrameEl.classList.toggle("on", !!on); if (!on) FL.demoArrow(null);
   };
