@@ -1269,7 +1269,7 @@
     renderDots();
     const T = state.train, go = () => {
       if (state.train !== T || state.letter !== L || !["ask", "bounce"].includes(state.phase) || state.auto) return;   // already answered (a drop while the train rolled in)
-      if (state.arriving && state.trainX > 0.8) return after(120, go);   // the names wait until the train (almost) stands still
+      if (state.arriving && state.trainX > (state.demo ? 1.5 : 4)) return after(120, go);   // Golan 30.10: the question as the train slows down (as the letter train); the demo waits for the stop (its arrows point at the signs)   // the names wait until the train (almost) stands still
       if (state.demo) return runDemo();
       readQuestion(false, true);   // Golan 29.10 20:11: no picture names when a train comes in (the wagon speakers and the replay say them)
     };
@@ -2098,7 +2098,7 @@
     // the train arriving, the engine coming, the train leaving
     let move = 0;
     if (state.arriving) {   // Golan 15.10: slower, and it slows down gently into the station; 17.10: the letter can drop all the while
-      const v = Math.max(0.5, Math.min(p.cruise * 0.55, state.trainX * 0.7));
+      const v = Math.max(0.9, Math.min(p.cruise * 0.55, state.trainX * 1.3));   // Golan 30.10: a shorter slow tail into the station (the wait before the first question was too long)
       const dx = Math.min(state.trainX, v * dt); state.trainX -= dx; move = dx;
       if (state.trainX <= 0.001) { state.trainX = 0; state.arriving = false; sfx.hiss(); }
     }

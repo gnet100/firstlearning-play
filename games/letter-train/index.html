@@ -1989,7 +1989,7 @@
     // the train arriving, the engine coming, the train leaving
     let move = 0;
     if (state.arriving) {   // Golan 15.10: slower, and it slows down gently into the station; 17.10: the letter can drop all the while
-      const v = Math.max(0.5, Math.min(p.cruise * 0.55, state.trainX * 0.7));
+      const v = Math.max(0.9, Math.min(p.cruise * 0.55, state.trainX * 1.3));   // Golan 30.10: a shorter slow tail into the station (the wait before the first question was too long)
       const dx = Math.min(state.trainX, v * dt); state.trainX -= dx; move = dx;
       if (state.trainX <= 0.001) { state.trainX = 0; state.arriving = false; sfx.hiss(); }
     }
