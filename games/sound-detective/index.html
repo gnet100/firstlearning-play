@@ -1075,7 +1075,9 @@
     const m = new BABYLON.StandardMaterial("letterMat" + i, scene);
     m.diffuseTexture = tex; m.emissiveColor = new BABYLON.Color3(1, 1, 1); m.disableLighting = true; m.useAlphaFromDiffuseTexture = true;
     const sign = BABYLON.MeshBuilder.CreatePlane("letter" + i, { size: 2.1 }, scene);
-    sign.material = m; sign.parent = root; sign.position.set(0, 0.05, -0.6); sign.isPickable = false;
+    // Golan 30.10: the picture sits at the cloud's own depth (in front of it it drifted off-centre in perspective, away from the screen middle); drawn over the cloud
+    m.depthFunction = BABYLON.Constants.ALWAYS; m.disableDepthWrite = true;
+    sign.material = m; sign.parent = root; sign.position.set(0, 0.05, 0.3); sign.isPickable = false;
     root.setEnabled(false);
     return { root, body, sign, tex, letter: "", state: "off", home: { x: 0, y: 0 }, size: 1, ph: Math.random() * 6.3, t: 0 };
   });
@@ -1292,7 +1294,7 @@
       const fromX = spots[i].x < 0 ? -view.halfW - 4 : view.halfW + 4;
       c.from = { x: fromX, y: spots[i].y + (Math.random() - 0.5) * 2 };
       c.root.position.set(c.from.x, c.from.y, 0); c.root.scaling.setAll(c.size); c.root.setEnabled(true);
-      c.body.visibility = 1; c.sign.visibility = 1; c.sign.position.set(0, 0.05, -0.6); c.sign.scaling.setAll(spots[i].k || 1);
+      c.body.visibility = 1; c.sign.visibility = 1; c.sign.position.set(0, 0.05, 0.3); c.sign.scaling.setAll(spots[i].k || 1);
       c.state = "in"; c.t = -Math.random() * 0.25; c.dur = p.inDur;
     });
     { const t = $("target"); t.classList.toggle("cur", state.q.cur);
