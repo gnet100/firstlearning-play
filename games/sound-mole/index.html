@@ -1,0 +1,1636 @@
+<meta charset="utf-8">
+<title>חֲפַרְפֶּרֶת הַצְּלִילִים</title>
+<script>document.documentElement.lang = "he"; document.documentElement.dir = "rtl";   /* like the race game's <html lang="he" dir="rtl"> (the artifact adds its own <html>) */</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- the shared self-hosted font (no internet needed) -->
+<link rel="stylesheet" href="../shared/fonts/fonts.css">
+<style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
+/* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
+   1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
+   --tap-play 20 mm, --gap 5 mm), and every distance from an edge is --edge-* (safe area or 12 --u). The variables come from
+   games/shared/screen.js. No breakpoints by width: only standing (portrait) or lying (landscape).
+   Look: same as "מרוץ השערים", one daylight look in light and dark. */
+  :root {
+    --sky: #bfe6ff; --ink: #1d2a3a; --card: #ffffffee; --accent: #ff8a3d; --accent-ink: #ffffff; --good: #2bb673; --muted: #5b6b7f;
+    color-scheme: light;
+    /* fallbacks until screen.js has measured (and on a page without it) */
+    --u: 1px; --tap-s: 59px; --tap: 88px; --tap-play: 118px; --gap: 29px;
+    --edge-t: max(12px, env(safe-area-inset-top)); --edge-r: max(12px, env(safe-area-inset-right));
+    --edge-b: max(12px, env(safe-area-inset-bottom)); --edge-l: max(12px, env(safe-area-inset-left));
+    /* the game's own sizes */
+    --btn-s: max(calc(64 * var(--u)), var(--tap-s));     /* door, settings */
+    --btn: max(calc(96 * var(--u)), var(--tap));          /* the child's speaker */
+    --col-gap: max(calc(14 * var(--u)), var(--gap));      /* space between two buttons in the door column */
+    --pill-h: var(--btn-s);                               /* the star pill is as tall as the door */
+    --t-body: max(calc(26 * var(--u)), 17px);             /* parent text */
+    --t-h1: max(calc(44 * var(--u)), 26px);
+    --t-btn: max(calc(38 * var(--u)), 24px);
+    --panel-w: min(100%, max(calc(640 * var(--u)), 320px));
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    position: fixed; inset: 0; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  /* ---------- buttons ---------- */
+  .round-btn {
+    width: var(--btn-s); height: var(--btn-s); border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: calc(var(--btn-s) * .46); display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d; padding: 0;
+  }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn[hidden] { display: none; }
+  /* the door column at the top left, on every screen: door, then settings under it (Golan 14.10-16.10) */
+  .door-btn, .gear { position: absolute; left: var(--edge-l); background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; }
+  .door-btn { top: var(--edge-t); z-index: 30; font-size: calc(var(--btn-s) * .62); }
+  .gear, .under-door { top: calc(var(--edge-t) + var(--btn-s) + var(--col-gap)); }
+  .gear .gear-ico { width: 1.45em; height: 1.45em; color: #5b6470; }
+  .door-ico { width: 1em; height: 1em; display: block; }
+  /* "יציאה" tip on mouse hover (Golan 15.10) */
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  #pause, .pause-btn { display: none !important; }   /* no pause in this game (Golan 16.10) */
+
+  /* ---------- the game screen ---------- */
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  /* top letter pill = the detective's standard (Golan 16.10, all games), fixed size for the whole game. This game never shows
+     the letter, so it is the detective's "listening sky" pill: same width and height, the speaker centred, emoji 0.7x */
+  :root {
+    --lp-spk: max(calc(46 * var(--u)), var(--tap-s));
+    --lp-t: max(calc(56 * var(--u)), 40px);
+    --lp-lw: max(calc(64 * var(--u)), 48px);
+    --lp-h: calc(max(var(--lp-t), var(--lp-spk)) + 16 * var(--u));
+    --lp-w: calc(var(--lp-lw) + var(--lp-spk) + 46 * var(--u));
+    --lp-top: var(--edge-t);
+    --dots-gap: max(calc(8 * var(--u)), 6px);
+  }
+  html[data-screen~="portrait"] { --lp-top: calc(var(--edge-t) + var(--btn-s) + 10 * var(--u)); }   /* standing phone: one row down, under the door */
+  .prompt { position: absolute; left: 50%; transform: translateX(-50%); top: var(--lp-top); box-sizing: border-box;
+    width: var(--lp-w); height: var(--lp-h); padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002; z-index: 5; }
+  /* the letter pill of every game (Golan 23.10): the letter on the right, the orange speaker on the left; a letter the child
+     already met: the speaker alone, centred */
+  .prompt .pips { display: none !important; }
+  .prompt .target { width: var(--lp-lw); height: var(--lp-t); font-size: var(--lp-t); font-weight: 800; line-height: 1; text-align: center; color: var(--ink); }
+  .prompt.listen { justify-content: center; padding: 0; }
+  .prompt.listen .target { display: none; }
+  .prompt.hint { box-shadow: 0 0 0 4px #ffc233, 0 4px 16px #0002; }
+  .prompt.yay { animation: pJump .55s ease-out 2; }
+  @keyframes pJump { 0%, 100% { transform: translateX(-50%); } 40% { transform: translateX(-50%) translateY(-8px) scale(1.05); } }
+  .prompt.oops { animation: pShake .6s ease-in-out; }
+  @keyframes pShake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 8px)); } 60% { transform: translateX(calc(-50% + 7px)); } }
+  .prompt #replay { width: var(--lp-spk); height: var(--lp-spk); min-width: 0; min-height: 0; font-size: calc(var(--lp-spk) * 0.7); padding: 0; line-height: 1; overflow: hidden; }
+  .stars { position: absolute; top: var(--edge-t); right: var(--edge-r); min-height: var(--pill-h); display: flex; align-items: center;
+    background: var(--card); border-radius: 999px; padding: 0 max(calc(20 * var(--u)), 12px); font-size: max(calc(30 * var(--u)), 20px); font-weight: 800;
+    box-shadow: 0 4px 16px #0002; }
+  .stars.fl-sc-host { max-width: calc(100vw - var(--edge-l) - var(--edge-r) - var(--btn-s) - var(--col-gap)); }
+  .dots-wrap { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; top: calc(var(--lp-top) + var(--lp-h) + var(--dots-gap)); }
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: max(calc(6 * var(--u)), 4px); max-width: 70vw; }
+  .dots span { width: max(calc(12 * var(--u)), 9px); height: max(calc(12 * var(--u)), 9px); border-radius: 50%; background: #0002; }
+  .dots span.done { background: var(--good); }
+
+  .perf { position: absolute; bottom: var(--edge-b); left: var(--edge-l); direction: ltr; text-align: left;
+    font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace; background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none; }
+  .perf[hidden] { display: none; }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  /* 3-2-1 before the round (Golan 14.10): each glowing green circle appears big and fades away */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; --c: max(calc(240 * var(--u)), 150px); }
+  .count span { position: absolute; left: calc(var(--c) / -2); top: calc(var(--c) / -2); width: var(--c); height: var(--c); border-radius: 50%;
+    display: grid; place-items: center; font-size: calc(var(--c) * .6); font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  .toast { display: none; }   /* no "oops" and no text after a touch in this game */
+
+  /* ---------- screens over the game: start, balloon pick, end, settings ---------- */
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20;
+    padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+  .overlay[hidden], .row[hidden] { display: none; }
+  .letters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* a hidden settings row really disappears (.row sets display: flex) */
+  /* a screen with the door column keeps its panel clear of it */
+  .overlay:has(> .door-btn) { padding-left: calc(var(--edge-l) + var(--btn-s) + var(--col-gap)); padding-right: calc(var(--edge-r) + var(--btn-s) + var(--col-gap)); }
+  html[data-screen~="portrait"] .overlay:has(> .door-btn) { padding-left: var(--edge-l); padding-right: var(--edge-r);
+    padding-top: calc(var(--edge-t) + var(--btn-s) * 2 + var(--col-gap) * 2); }
+  .panel { background: #fff; border-radius: max(calc(36 * var(--u)), 20px); padding: max(calc(36 * var(--u)), 16px) max(calc(32 * var(--u)), 16px);
+    width: var(--panel-w); max-height: 100%; overflow-y: auto; text-align: center; box-shadow: 0 10px 40px #0003; }
+  .panel h1 { margin: 0 0 .25em; font-size: var(--t-h1); }
+  .panel p { margin: .3em 0 .9em; font-size: var(--t-body); color: var(--muted); }
+  .big-btn { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 var(--t-btn) "Noto Sans Hebrew", system-ui, sans-serif; padding: 0 1.3em; min-height: var(--tap); box-shadow: 0 5px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  /* start screen: "יוצאים לדרך" in the middle, the speaker at the end of the row (Golan 14.10) */
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: max(calc(20 * var(--u)), 8px); align-items: center; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  /* the start-screen 🔊: a circle as tall as the start button, the icon centred inside it (Golan 16.10, all games, as in detective) */
+  .spk { --spk: max(calc(76 * var(--u)), var(--tap)); width: var(--spk); min-width: var(--spk); height: var(--spk); min-height: 0; padding: 0;
+    border-radius: 50%; display: grid; place-items: center; line-height: 1; font-size: calc(var(--spk) * .47); overflow: hidden; }
+  #start #go { min-height: var(--spk, max(calc(76 * var(--u)), var(--tap))); }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .seg button { transition: transform .15s ease, filter .15s ease; }
+    .big-btn:hover, .round-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .seg button:hover { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+
+  /* balloon pick: 9 balloons, 3 in a row (5 in a row on a low lying screen) */
+  .balloons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  /* same card as the detective picker (Golan 16.10, all games) */
+  #balloonPick .panel { width: min(100%, max(calc(520 * var(--u)), 340px)); padding: max(calc(28 * var(--u)), 14px) max(calc(24 * var(--u)), 16px); border-radius: max(calc(28 * var(--u)), 18px); }
+  #balloonPick .panel h1 { margin: 0 0 8px; }
+  .balloons button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 6px; cursor: pointer; aspect-ratio: 1;
+    display: grid; place-items: center; min-width: var(--tap); }
+  .balloons button svg { width: 94%; height: 94%; display: block; }
+  .balloons button { position: relative; }
+  .balloons button img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+  .balloons button img:not([src]) { visibility: hidden; }
+  .balloons button.sel { border-color: var(--accent); background: #fff3ea; box-shadow: 0 0 0 3px #ff8a3d55; }
+  .pick-n { position: absolute; top: 4px; right: 4px; min-width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+    font: 800 16px/26px "Noto Sans Hebrew", system-ui, sans-serif; text-align: center; }
+  .pick-n:empty { display: none; }
+  .pick-dots { display: flex; gap: 10px; justify-content: center; margin: 0 0 6px; }
+  .pick-dots span { width: 16px; height: 16px; border-radius: 50%; background: #0002; }
+  .pick-dots span.on { background: var(--good); }
+  .balloons button:active { transform: scale(.96); }
+  .balloons button.flash { animation: carFlash 1s ease-in-out; }   /* slower flash and grow (Golan 16.10) */
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  #balloons button.chosen { position: relative; z-index: 2; transform: scale(1.3); border-color: var(--accent); background: #fff3ea;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  @media (hover: hover) and (pointer: fine) { .balloons button { transition: transform .15s ease; } .balloons button:hover { transform: translateY(-2px); border-color: #ffb27a; } }
+  /* phone landscape: one wider card, 5 columns (5 + 4) so it fits the short height */
+  /* 3x3 everywhere (Golan 16.10): the grid is never taller than the window, so on a short PC window the tiles shrink instead of scrolling */
+  #balloonPick .balloons { width: min(100%, calc(100dvh - var(--edge-t, 0px) - var(--edge-b, 0px) - 2 * max(calc(28 * var(--u)), 14px) - 1.4 * var(--t-h1) - 30px)); margin-inline: auto; }
+
+
+  /* pause screen (kept for the code; there is no pause button in this game) */
+  .panel.pause-panel { background: none; box-shadow: none; width: auto; }
+  #resume { background: var(--good); color: #fff; box-shadow: 0 5px 0 #1d8a55; display: inline-flex; align-items: center; gap: 22px; }
+
+  /* age question: only on a page without the shared child card (the age is in the profile now) */
+  .age-pick .ages { display: flex; gap: max(calc(12 * var(--u)), 8px); justify-content: center; margin: 14px 0 6px; }
+  .age-pick .ages button { width: var(--tap); height: var(--tap); border-radius: 22%; border: 3px solid #d5dde6; background: #eaf6ff; cursor: pointer;
+    font: 800 calc(var(--tap) * .45) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+
+  /* ---------- settings (for the parent: may go down to 9 mm buttons and 14px text, standard sec 3) ---------- */
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: max(calc(34 * var(--u)), 22px); text-align: center; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 12px; row-gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid #eee; font-size: max(calc(24 * var(--u)), 17px); }
+  /* every settings row: title on its own line, then the choices, then the explanation (Golan 16.10) */
+  .settings .row > span:first-child { flex: 0 0 100%; font-weight: 700; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { min-width: max(calc(96 * var(--u)), 64px); min-height: max(calc(64 * var(--u)), 53px); border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 max(calc(22 * var(--u)), 16px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer; padding: 0 10px; }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  #ageSeg { flex-wrap: nowrap; }
+  #ageSeg button { min-width: 53px; padding-inline: 0; flex: 0 0 auto; }
+  .row-note { display: block; width: 100%; font-size: max(calc(19 * var(--u)), 14px); color: var(--muted); line-height: 1.4; }
+  .card-title { width: 100%; font-weight: 700; font-size: max(calc(24 * var(--u)), 17px); margin-top: 6px; }
+  .report { text-align: right; font-size: max(calc(23 * var(--u)), 16px); line-height: 1.5; }
+  .report .info { color: var(--muted); font-size: max(calc(20 * var(--u)), 14px); margin-top: 6px; }
+  .child-card { width: 100%; }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+  #closeSettings { margin-top: 4px; }
+  /* X at the top right of settings, closes like "חזרה למשחק" (Golan 16.10, all games); stays in view while the panel scrolls */
+  #settings .panel.settings { display: flex; flex-direction: column; overflow: hidden; max-height: 100%; box-sizing: border-box; }
+  .set-head { position: relative; flex: 0 0 auto; padding-inline: calc(var(--tap-s) + 4px); }   /* room for the X on both sides keeps the title centred */
+  .set-head h2 { min-height: var(--tap-s); display: flex; align-items: center; justify-content: center; }
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  html[data-screen~="phone"] #settings .panel.settings { width: 100%; padding-inline: max(calc(12 * var(--u)), 10px); }
+  .x-btn { position: absolute; top: 0; right: 0; z-index: 2; width: var(--tap-s); height: var(--tap-s); padding: 0;
+    border: 0; border-radius: 50%; background: #eef2f6; color: var(--ink); font: 700 calc(var(--tap-s) * .45) system-ui, sans-serif; cursor: pointer;
+    display: grid; place-items: center; box-shadow: 0 2px 8px #0002; }
+  .x-btn:active { transform: scale(.95); }
+
+  @media (prefers-reduced-motion: reduce) { .go-btn.pressed, .balloons button.flash, .count span { animation-duration: .01s; } }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+
+  /* ---------- the mole game (Golan 21.10, station 1) ---------- */
+  html, body { background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
+  .dots-wrap { display: none !important; }
+  /* the guide: the child's own companion in the chosen balloon, holding the sign with the letter we look for (Golan 21.10).
+     Lying screen: a column on the left under the door and the gear. Standing screen: at the top in the middle. */
+  .guide { position: absolute; display: flex; flex-direction: column; align-items: center; gap: max(calc(6 * var(--u)), 4px); pointer-events: none; }
+  .guide > * { pointer-events: auto; }
+  .guide svg.g-pic { display: block; width: 100%; height: auto; overflow: visible; }
+  .guide #replay { width: var(--btn-s); height: var(--btn-s); background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; font-size: calc(var(--btn-s) * .5); }
+  html[data-screen~="portrait"] .guide { flex-direction: row; align-items: flex-end; }
+  .g-all { transform-box: view-box; transform-origin: 60px 90px; animation: gFloat 3.2s ease-in-out infinite; }
+  @keyframes gFloat { 50% { transform: translateY(-3px); } }
+  .g-comp, .g-sign { transform-box: view-box; }
+  .g-comp { transform-origin: 60px 132px; }
+  .g-sign { transform-origin: 60px 150px; }
+  .guide.yay .g-comp { animation: gJump .55s ease-out 2; }
+  .guide.yay .g-sign { animation: gJump .55s ease-out 2; }
+  @keyframes gJump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px) scale(1.04); } }
+  .guide.oops .g-comp { animation: gShake .7s ease-in-out; }
+  @keyframes gShake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-9deg); } 45% { transform: rotate(8deg); } 70% { transform: rotate(-5deg); } }
+  .guide.timeup .g-comp { animation: gDroop 1.2s ease-in-out; }
+  @keyframes gDroop { 0%, 100% { transform: none; } 30%, 75% { transform: translateY(5px) rotate(-6deg); } }
+  .guide.timeup .g-clock { opacity: 1; animation: gRing .15s linear 6; }
+  .g-clock { opacity: 0; transition: opacity .3s; transform-box: fill-box; transform-origin: center; }
+  @keyframes gRing { 50% { transform: rotate(12deg); } }
+  .g-sign.hint rect.board { stroke: #ffc233; }
+  @media (prefers-reduced-motion: reduce) { .g-all, .guide * { animation: none !important; } }
+  /* the hammer (Golan 28.10): it takes the place of the mouse pointer over the game, follows the finger, and a tap is a light knock */
+  #game.hammering { cursor: none; }
+  #hammer { position: fixed; left: 0; top: 0; width: max(calc(150 * var(--u)), 96px); height: auto; pointer-events: none; z-index: 5;
+    transform-origin: 18% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.2) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.78); display: none; }   /* held from the bottom left (Golan 28.10) */
+  #hammer.show { display: block; }
+  #hammer svg { display: block; width: 100%; height: auto; transform: rotate(18deg); transform-origin: 18% 88%; }
+  #hammer.hit svg { animation: knock .28s ease-in-out; }
+  @keyframes knock { 0% { transform: rotate(18deg); } 25% { transform: rotate(42deg); } 55% { transform: rotate(-14deg); } 100% { transform: rotate(18deg); } }
+
+  /* ===== חֲפַרְפֶּרֶת הַצְּלִילִים (Golan 30.10, summaries/sound-mole-spec.md): the letter mole with pictures on the signs ===== */
+  /* the sign shows the sound with its nikud (בַּ), the small speaker says it (syl_*) */
+  .prompt .target { width: auto; min-width: var(--lp-lw); }
+  /* the small speaker at the bottom left of every picture says its word (as the sound detective's clouds) */
+  #picSpks { position: absolute; inset: 0; pointer-events: none; }
+  .pic-spk { position: absolute; z-index: 6; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 0; padding: 0;
+    background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d, 0 4px 10px #0003; cursor: pointer; display: none; pointer-events: auto;
+    line-height: 44px; font-size: 22px; text-align: center; }
+  .pic-spk.on { display: block; }
+  .pic-spk:active { transform: scale(.92); }
+  /* the right picture wakes up: its moving drawing over the sign for a moment (pictures-animated, as in sound memory) */
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 16%; background: #fffaf0;
+    box-shadow: 0 0 0 5px #ffc233, 0 6px 18px #0003; }
+  #wake.on { display: block; animation: wakeIn .35s cubic-bezier(.3, 1.6, .5, 1) both; }
+  #wake svg { width: 100%; height: 100%; display: block; }
+  @keyframes wakeIn { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* the "?" card bottom left plays the demo again (as in the sound wheel / sound memory) */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
+  .demo-hand { position: fixed; z-index: 47; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
+  .demo-hand.show { display: block; }
+  .demo-hand svg { display: block; width: 100%; height: auto; }
+  .big-btn.small { font-size: max(calc(26 * var(--u)), 18px); min-height: var(--tap-s); padding: 0 1em; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+</style>
+
+<canvas id="game" aria-label="חֲפַרְפֶּרֶת הַצְּלִילִים"></canvas>
+<div id="hammer" aria-hidden="true"><svg viewBox="0 0 100 100"><g transform="matrix(-1 0 0 1 100 0)" stroke="#5a3a1c" stroke-width="2.5" stroke-linejoin="round">
+  <path d="M44 38L86 86" stroke="#7a4a22" stroke-width="11" stroke-linecap="round"/><path d="M44 38L86 86" stroke="#c98b4a" stroke-width="6" stroke-linecap="round"/>
+  <rect x="8" y="14" width="56" height="30" rx="8" transform="rotate(42 36 29)" fill="#e5483d"/>
+  <rect x="8" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/><rect x="54" y="14" width="10" height="30" rx="4" transform="rotate(42 36 29)" fill="#ffd34d"/>
+  <path d="M20 24h28" transform="rotate(42 36 29)" stroke="#ffffff99" stroke-width="3" stroke-linecap="round"/></g></svg></div>
+
+<div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+<div id="wake" aria-hidden="true"></div>
+<div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
+  <div id="picSpks"></div>
+  <!-- the letter pill (Golan 23.10, as in every game): a new letter is written next to the speaker; 🔊 says the question again -->
+  <div class="prompt listen" id="prompt" role="status">
+    <span class="target" id="target"></span>
+    <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
+  </div>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="חֲפַרְפֶּרֶת הַצְּלִילִים"></div>
+  <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn gear pause-btn" id="pause" aria-label="עצירה">⏸</button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="perf" id="perf"></div>
+  <div class="toast" id="toast"></div>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="overlay" id="paused" hidden>
+  <button class="round-btn door-btn" id="doorPause" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearPause" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel pause-panel">
+    <button class="big-btn" id="resume"><span>המשך</span><span aria-hidden="true">▶</span></button>
+  </div>
+</div>
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="חזרה" data-tip="חזרה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1>חֲפַרְפֶּרֶת הַצְּלִילִים</h1>
+    <p><span id="startText">מַכִּים בַּחֲפַרְפָּרוֹת שֶׁהַתְּמוּנָה שֶׁלָּהֶן מַתְחִילָה בַּצְּלִיל</span></p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוען…</button>
+      <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="balloonPick" hidden>
+  <button class="round-btn door-btn" id="doorPick" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearPick" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1 id="pickTitle">בוחרים 4 חפרפרות</h1>
+    <div class="pick-dots" id="pickDots"></div>
+    <div class="balloons" id="balloons"></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <!-- the panel inside is the shared end panel (FL.learner.endPanel, Golan 16.10, all games) -->
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <div class="set-head"><button class="x-btn" id="xSettings" aria-label="סגירה">✕</button>
+      <h2>הגדרות (להורה או למורה)</h2></div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
+    <div id="flForm"></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ איך משחקים?</button></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="../waking-letter/pictures.js"></script>
+<script src="../sound-detective/sound-pictures.js"></script>
+<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>
+<script src="../shared/screen.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/love-balloon.js"></script>
+<script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
+<script>
+(() => {
+  "use strict";
+  // חֲפַרְפֶּרֶת הַצְּלִילִים (Golan 30.10, summaries/sound-mole-spec.md): the letter mole (games/mole) with a PICTURE on every
+  // mole's sign. The big sign shows the sound with its nikud (בַּ) and a small speaker that says it (syl_*); Hila asks
+  // "אֵיזוֹ תְּמוּנָה מַתְחִילָה בַּצְּלִיל... בַּ" and the child knocks the moles whose picture opens with that sound.
+  // The sounds, pictures, ALIKE rule, mistakes and auto-solve are the sound detective's; the demo, the "?" card, the waking
+  // picture and the start window are sound memory's. The island, holes, moles, hammer and levels are the letter mole's.
+  const T0 = performance.now();
+  const $ = (id) => document.getElementById(id);
+  const GAME = "soundmole";
+  const LRN = window.FL && window.FL.learner ? window.FL.learner : null;   // the shared child card (games/shared/learner.js)
+
+  // ---------- content: the sound detective's sounds and pictures (3 pictures per sound) ----------
+  const PICS = window.PICTURES || {}, PA = window.PICTURES_ANIMATED || null;
+  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
+    "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
+    "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
+  const PICS_OF = { "ב": ["ב", "ן", "banana"], "ג": ["camel", "socks", "gnome"], "נ": ["נ", "shoe", "tiger"], "ט": ["ט", "ring", "chef"],
+    "י": ["י", "ם", "hand"], "כ": ["כ", "teaspoon", "firefighter"], "א": ["א", "rabbit", "watermelon"], "ח": ["ח", "donkey", "window"],
+    "צ": ["צ", "plate", "painter"], "ר": ["ר", "rattle", "trafficLight"], "ת": ["ת", "rooster", "crocodile"] };
+  const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
+  // sounds that sound alike never meet on the island at one time: ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו (the other pictures come
+  // only from sounds that are not ALIKE the sound on the sign)
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  const SOUND_L = Object.keys(SOUNDS).filter((l) => picsOf(l).length);
+  const wordOf = (k) => (PICS[k] || {}).clip;
+  if (LRN && LRN.setGame) LRN.setGame(GAME, { autoCount: () => SOUND_L.length });
+
+  // ---------- settings (kept per device) ----------
+  const settings = { quality: "high", perf: "off", letters: [] };
+  let motionMs = 0;
+  const motionK = () => { try { return LRN && LRN.speed ? LRN.speed(GAME) : 1; } catch (e) { return 1; } };   // the shared speed slider moves everything (Golan 19.10)
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-soundmole-settings") || "{}")); } catch (e) {}
+  settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games)
+  const saveSettings = () => { try { localStorage.setItem("fl-soundmole-settings", JSON.stringify(settings)); } catch (e) {} };
+  const prof = () => (LRN ? LRN.profile() : null);
+  const pid = () => (prof() ? prof().id : "anon");
+  // "רמת קושי" 1 / 2 / 3 (Golan 30.10, "easier" than the letter mole): 5 / 7 / 10 holes, 2 / 3 / 4 moles out at once,
+  // out until touched / 6 s / 4 s
+  const lvl = () => (LRN && LRN.level ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
+  const HOLES = [0, 5, 7, 10], MOLES = [0, 2, 3, 4], STAY_MS = [0, Infinity, 6000, 4000];
+  const REPEAT_S = 5;        // easy level, no touch: the question once more after 5 s, then once after 8 s; 3 times in all (Golan 22.10)
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const cardOf = (l) => { try { return (LRN && LRN.card && LRN.card(l)) || null; } catch (e) { return null; } };
+  const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
+  // the sound detective's order: first the sounds of letters the child knows in print, the letters of the child's name among
+  // them; the other sounds join as these become known (as sound memory)
+  function soundPool() {
+    const name = (prof() && prof().name) || "";
+    const first = SOUND_L.filter((l) => { const c = cardOf(l); return (c && c.recognize && c.recognize.state === "known") || name.includes(l); });
+    const rest = shuffle(SOUND_L.filter((l) => !first.includes(l)));
+    const extra = Math.max(4 - first.length, first.filter(soundKnown).length);
+    return LRN && LRN.withAutoForce ? LRN.withAutoForce([...first, ...rest.slice(0, extra)]) : [...first, ...rest.slice(0, extra)];
+  }
+
+  // ---------- audio: Hila's clips from the shared bank (voice/audio). Never the browser voice; a missing clip stays silent ----------
+  let actx = null;
+  function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  const sfx = { bonk: () => tone([659, 880, 1046], 0.1, "triangle", 0.4),   // only the tune: no creaky knock before it (Golan 23.10)
+    tap: () => tone([440], 0.05, "sine", 0.06), oops: () => tone([300, 220], 0.18, "sine", 0.6), pop: () => tone([520 + Math.random() * 120], 0.05, "sine", 0.08),
+    // a little rising "bloop" when a mole peeks out of its hole (Golan 23.10)
+    peek: () => { if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain(), f = 330 + Math.random() * 90;
+      o.type = "sine"; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 2.6, t + 0.16);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.25); } };
+  const AUDIO = "../../voice/audio/";   // the shared clip bank (the sound games)
+  // hub_g_soundmole (the name), smole_start2 (_m / _f: the description) and demo_back are lines of the voice thread: silent until
+  // recorded. sd_q1 / sd_q2 (the question), sd_explain (auto-solve) and sd_demo are the sound detective's.
+  const LINES = { go: "fb_go", done: "fb_round_done", q: "sd_q1", demo: "sd_demo", back: "demo_back", name: "hub_g_soundmole", intro: "smole_start2" };
+  const CHILD_LINES = ["smole_start2", "sd_q2"];   // boy / girl versions first, else the plural clip (sd_q2 has no plural clip: the boy's)
+  // the question has two wordings, said at random, never the same twice in a row (as the sound detective)
+  if (window.FL && FL.VARIANTS && !FL.VARIANTS.some((g) => g.includes("sd_q1"))) FL.VARIANTS.push(["sd_q1", "sd_q2"]);
+  const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = 0.85; a.preservesPitch = true; }   // the sounds a little slower (as the sound wheel)
+      a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  function voiceId(id) {
+    if (!CHILD_LINES.includes(id)) return id;
+    if (LRN) for (const x of LRN.lineIds(id)) if (getClip(x)._ok) return x;
+    return id === "sd_q2" ? "sd_q2_m" : id;
+  }
+  [...Object.values(LINES), ...Object.values(SOUNDS).map((o) => o.s), ...SOUND_L.flatMap(picsOf).map(wordOf), "sd_explain", "sd_explain_f", "sd_explain_p",
+    "sd_q2_m", "sd_q2_f", "smole_start2_m", "smole_start2_f"].forEach(getClip);
+  let seqTok = 0, seqBusy = false;
+  // While settings (or pause) is open no voice plays (Golan 16.10): a line asked for then is held, and plays when the game goes on
+  let voiceHold = () => false, heldSeq = null, curSeq = null;
+  function playSeq(ids, rate = 1, onEnd, onEach) {
+    if (voiceHold()) { heldSeq = [ids, rate, onEnd, onEach]; return; }
+    curSeq = [ids, rate, onEnd, onEach];
+    const my = ++seqTok; if (clipNow) clipNow.pause(); seqBusy = true;
+    const list = ids.slice(); let i = 0; list.forEach((x) => { if (typeof x === "string") getClip(voiceId(x)); });   // all the clips start loading now
+    const finish = () => { if (my !== seqTok) return; seqBusy = false; clipNow = null; curSeq = null; if (onEnd) onEnd(); };
+    const next = () => {
+      if (my !== seqTok) return;
+      if (i >= list.length) return finish();
+      const item = list[i++], last = i >= list.length;
+      if (typeof item === "number") return setTimeout(next, item);   // a rest between two clips
+      if (!item) return next();
+      const id = voiceId(vary(item)), a = getClip(id);
+      if (a._bad) return next();   // a missing clip stays silent (never a browser voice)
+      let gone = false; const done = () => { if (gone || my !== seqTok) return; gone = true; setTimeout(next, 60); };
+      try {
+        a.currentTime = 0; a.playbackRate = (a.defaultPlaybackRate || 1) * rate; clipNow = a;
+        a.onended = done;
+        const p = a.play(); if (p && p.catch) p.catch(() => { if (!a._ok) a._bad = true; done(); });
+        setTimeout(() => { if (!gone && my === seqTok && (a.paused || a._bad) && !voiceHold()) done(); }, 6000);   // a clip that never starts does not hold the game
+        if (onEach) onEach(i - 1, last);
+      } catch (e) { done(); }
+    };
+    next();
+  }
+  const say = (id, then) => playSeq([id], 1, then);
+  function hush() { seqTok++; seqBusy = false; if (clipNow) clipNow.pause(); clipNow = null; }
+  let screenTok = 0;
+  const later = (fn, ms) => { const my = screenTok; return setTimeout(() => { if (my === screenTok) fn(); }, ms); };
+  function leaveScreen() { screenTok++; heldSeq = null; hush(); }
+  const busy = () => seqBusy || (clipNow && !clipNow.paused && !clipNow.ended);
+  function whenQuiet(cb) { let n = 0; const tick = () => { if (busy() && n++ < 60) return setTimeout(tick, 100); cb(); }; setTimeout(tick, 200); }
+  const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+  let pausedTotal = 0, pausedAt = 0;
+  const clock = () => (pausedAt ? pausedAt : performance.now()) - pausedTotal;   // stops while the game waits
+
+  // ---------- engine & scene ----------
+  const canvas = $("game");
+  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false, antialias: true, powerPreference: "high-performance" }, false);
+  const SCR = window.FL && window.FL.screen ? window.FL.screen : null;
+  const applyQuality = SCR ? SCR.attachEngine(engine, () => settings.quality)
+    : () => engine.setHardwareScalingLevel(1 / (settings.quality === "eco" ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)));
+  if (!SCR) applyQuality();
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);   // the page's sky gradient shows through
+  scene.skipPointerMovePicking = true;
+  const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0.2, 1, -0.6), scene);
+  hemi.intensity = 0.9; hemi.groundColor = BABYLON.Color3.FromHexString("#9fc7e8");
+  const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.4, -0.8, 0.6), scene); sun.intensity = 0.5;
+  const mats = {};
+  function mat(hex, emissive = 0) {
+    const k = hex + emissive; if (mats[k]) return mats[k];
+    const m = new BABYLON.StandardMaterial("m" + k, scene);
+    m.diffuseColor = BABYLON.Color3.FromHexString(hex); m.specularColor = new BABYLON.Color3(0.06, 0.06, 0.06);
+    if (emissive) m.emissiveColor = BABYLON.Color3.FromHexString(hex).scale(emissive);
+    return (mats[k] = m);
+  }
+  // camera: fixed, looking down at the island from the front (no camera motion at all); fitted to the free part of the screen
+  const PITCH = 0.66;
+  const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 10, -14), scene);
+  cam.fov = 0.7; cam.minZ = 0.5; cam.maxZ = 300; cam.inputs.clear();
+
+  // ---------- the floating island ----------
+  const R = 5.6;                 // island radius
+  const S = 1.3;                 // mole size (smaller, Golan 22.10)
+  const TOP = 0.32;              // the grass level
+  const island = new BABYLON.TransformNode("island", scene);
+  const grass = BABYLON.MeshBuilder.CreateCylinder("grass", { diameter: 2 * R, height: 0.24, tessellation: 48 }, scene);
+  grass.material = mat("#e0b373", 0.02); grass.position.y = TOP - 0.12; grass.parent = island;   // sand dunes on top (Golan 22.10)
+  const dirt = BABYLON.MeshBuilder.CreateCylinder("dirt", { diameterTop: 2 * R * 0.97, diameterBottom: 2 * R * 0.9, height: 2.9, tessellation: 40 }, scene);
+  dirt.material = mat("#A47148", 0.08); dirt.position.y = TOP - 0.24 - 1.45; dirt.parent = island;
+  const rock = BABYLON.MeshBuilder.CreateCylinder("rock", { diameterTop: 2 * R * 0.9, diameterBottom: 0.4, height: 3.2, tessellation: 24 }, scene);
+  rock.material = mat("#8A6A55", 0.06); rock.position.y = TOP - 0.24 - 2.9 - 1.6; rock.parent = island;
+  // a few rocks hanging under it and grass tufts on the rim (decoration only)
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + 0.3, s = BABYLON.MeshBuilder.CreateSphere("lump", { diameter: 1.4 + (i % 3) * 0.5, segments: 8 }, scene);
+    s.material = mat(i % 2 ? "#8A6A55" : "#7a5c49", 0.06); s.parent = island; s.position.set(Math.cos(a) * R * 0.55, TOP - 4.6 - (i % 3) * 0.5, Math.sin(a) * R * 0.55); s.scaling.y = 1.3;
+  }
+  // rolling sand dunes on top: a round mesh whose height is a few soft waves; flat at the rim and around every hole (Golan 22.10)
+  const DUNE_RINGS = 56, DUNE_SEGS = 120;
+  const dunes = (() => {
+    const pos = [], idx = [], uv = [];
+    pos.push(0, 0, 0); uv.push(0.5, 0.5);
+    for (let i = 1; i <= DUNE_RINGS; i++) for (let j = 0; j < DUNE_SEGS; j++) {
+      const rr = (i / DUNE_RINGS) * R * 0.995, a = (j / DUNE_SEGS) * Math.PI * 2; pos.push(Math.cos(a) * rr, 0, Math.sin(a) * rr); uv.push(0, 0); }
+    for (let j = 0; j < DUNE_SEGS; j++) idx.push(0, 1 + j, 1 + ((j + 1) % DUNE_SEGS));
+    for (let i = 1; i < DUNE_RINGS; i++) for (let j = 0; j < DUNE_SEGS; j++) {
+      const a = 1 + (i - 1) * DUNE_SEGS + j, b = 1 + (i - 1) * DUNE_SEGS + ((j + 1) % DUNE_SEGS), c = a + DUNE_SEGS, d = b + DUNE_SEGS;
+      idx.push(a, d, b, a, c, d); }
+    const m = new BABYLON.Mesh("dunes", scene), vd = new BABYLON.VertexData(); vd.positions = pos; vd.indices = idx; vd.uvs = uv;
+    vd.normals = []; BABYLON.VertexData.ComputeNormals(pos, idx, vd.normals); vd.applyToMesh(m, true);
+    const dm = new BABYLON.StandardMaterial("duneMat", scene); dm.diffuseColor = new BABYLON.Color3(1, 1, 1); dm.specularColor = new BABYLON.Color3(0, 0, 0);
+    m.material = dm; m.parent = island; m.position.y = TOP + 0.004; m.isPickable = false; return m;
+  })();
+  // hills everywhere, and mountains at the back, the sides and in the middle (Golan 23.10: "גבעות והרים", "הרים גם באמצע")
+  const PEAKS = [[-4.1, 3.4, 1.5, 0.95], [-1.4, 4.8, 1.8, 0.95], [1.7, 4.8, 1.6, 0.9], [4.1, 3.3, 1.4, 0.95], [-5.1, 0.9, 1.0, 0.8], [5.1, 0.4, 1.1, 0.8],
+    [-0.3, 0.2, 0.95, 0.75], [2.1, -1.2, 0.8, 0.7], [-2.1, -1.0, 0.75, 0.7]];
+  function baseH(x, z) {   // the ground without the holes
+    const rr = Math.hypot(x, z);
+    let h = 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x * 1.15 + z * 0.4 + 0.6), 2) + 0.35 * Math.pow(0.5 + 0.5 * Math.sin(z * 1.25 - x * 0.55 + 2.1), 2) + 0.06 * Math.sin(x * 3.1 + z * 2.3);
+    for (const [px, pz, ph, sg] of PEAKS) h += ph * Math.exp(-((x - px * 0.86) ** 2 + (z - pz * 0.86) ** 2) / (2 * sg * sg));
+    { const e = Math.min(1, Math.max(0, (R * 0.99 - rr) / (R * 0.2))); h *= e * e * (3 - 2 * e); }   // softly down to the rim
+    return Math.max(0, h);
+  }
+  // round every hole the ground is a small flat ledge at the hole's own height, so a hole can sit on a mountain side (Golan 23.10)
+  function duneH(x, z) {
+    let h = baseH(x, z);
+    for (const o of holes) if (o.on) { const k = Math.min(1, Math.max(0, (Math.hypot(o.x - x, o.z - z) - HOLE_R * 1.08) / (HOLE_R * 0.9))), w = k * k * (3 - 2 * k); h = o.y + (h - o.y) * w; }
+    return Math.max(0, h);
+  }
+  function sculptDunes() {
+    const pos = dunes.getVerticesData(BABYLON.VertexBuffer.PositionKind), idx = dunes.getIndices();
+    const col = [];
+    for (let k = 0; k < pos.length; k += 3) {
+      const h = (pos[k + 1] = duneH(pos[k], pos[k + 2])), t = Math.min(1, h / 1.6);   // darker sand in the hollows, light on the crests
+      col.push(0.86 + 0.14 * t, 0.66 + 0.24 * t, 0.42 + 0.26 * t, 1);
+    }
+    dunes.setVerticesData(BABYLON.VertexBuffer.ColorKind, col, true);
+    dunes.updateVerticesData(BABYLON.VertexBuffer.PositionKind, pos);
+    const nr = []; BABYLON.VertexData.ComputeNormals(pos, idx, nr); dunes.updateVerticesData(BABYLON.VertexBuffer.NormalKind, nr);
+  }
+  const SAND = ["#cfa461", "#dfba7a", "#c4975a"];
+  // a few shells on the sand between the holes
+  const flowers = [];
+  const SHELL_COLS = ["#fff4e6", "#ffd6c9", "#ffffff"];
+  for (let i = 0; i < 8; i++) {
+    const f = BABYLON.MeshBuilder.CreateSphere("shell", { diameter: 0.18, segments: 6 }, scene);
+    f.material = mat(SHELL_COLS[i % 3], 0.35); f.parent = island; f.scaling.y = 0.5; flowers.push(f);
+  }
+  // clouds around the island (decoration), drifting slowly
+  const cloudMat = mat("#ffffff", 0.55);
+  const skyClouds = Array.from({ length: 7 }, (_, i) => {
+    const parts = [[0, 0, 1.3], [-1.2, -0.25, 0.9], [1.2, -0.25, 0.95], [0.5, 0.45, 0.85], [-0.5, 0.4, 0.75]].map(([x, y, r]) => {
+      const s = BABYLON.MeshBuilder.CreateSphere("puff", { diameter: r * 2, segments: 8 }, scene); s.position.set(x, y, 0); s.scaling.z = 0.6; return s; });
+    const m = BABYLON.Mesh.MergeMeshes(parts, true, true); m.material = cloudMat; m.isPickable = false;
+    const back = i < 4;
+    m.position.set(-18 + i * 6.5, back ? 3 + (i % 2) * 2.5 : -3.5 - (i % 2) * 1.5, back ? 16 + (i % 3) * 3 : -2 + (i % 2) * 3);
+    m.scaling.setAll(back ? 1.5 : 1.1); m.speed = 0.25 + (i % 3) * 0.1;
+    return m;
+  });
+
+  // ---------- holes: scattered on the grass, never a grid (Golan 21.10) ----------
+  // Rows from the back (z > 0) to the front; each row shifted, so no mole stands right behind another one.
+  // Golan 23.10: spread over the whole round island, front to back
+  const HOLE_SETS = {
+    5: [[-0.45, 0.62], [0.5, 0.55], [-0.05, 0.02], [-0.6, -0.6], [0.55, -0.55]],
+    7: [[-0.42, 0.72], [0.45, 0.68], [-0.82, 0.05], [0.0, 0.12], [0.82, 0.0], [-0.4, -0.7], [0.45, -0.68]],
+    10: [[-0.55, 0.74], [0.05, 0.82], [0.6, 0.66], [-0.8, 0.2], [-0.12, 0.24], [0.62, 0.16], [-0.52, -0.36], [0.15, -0.3], [0.8, -0.4], [-0.12, -0.86]],   // rows of 3 at most, one at the bottom (Golan 23.10)
+  };
+  const HOLE_R = 0.6 * S;
+  const holes = [];
+  const holeMat = mat("#3b2a20"), rimMat = mat("#8a5a3c", 0.05);
+  for (let i = 0; i < 10; i++) {
+    const disc = BABYLON.MeshBuilder.CreateDisc("hole", { radius: HOLE_R, tessellation: 28 }, scene);
+    disc.material = holeMat; disc.rotation.x = Math.PI / 2; disc.parent = island; disc.isPickable = false;
+    const rim = BABYLON.MeshBuilder.CreateTorus("rim", { diameter: HOLE_R * 2.02, thickness: 0.07, tessellation: 32 }, scene);   // a thin rim (Golan 23.10)
+    rim.material = rimMat; rim.parent = island; rim.scaling.y = 0.45; rim.isPickable = false;
+    holes.push({ disc, rim, x: 0, z: 0, y: 0, on: false });
+  }
+  function layoutHoles() {
+    const set = HOLE_SETS[HOLES[lvl()]], k = R * 0.86;
+    holes.forEach((h, i) => {
+      h.on = i < set.length;
+      h.disc.setEnabled(h.on); h.rim.setEnabled(h.on);
+      if (!h.on) return;
+      h.x = set[i][0] * k; h.z = set[i][1] * k; h.y = Math.min(0.9, baseH(h.x, h.z));   // on a mountain side the hole is cut into the slope
+      h.disc.position.set(h.x, TOP + h.y + 0.012, h.z); h.rim.position.set(h.x, TOP + h.y + 0.03, h.z);
+    });
+    sculptDunes();
+    // shells where there is no hole
+    flowers.forEach((f, i) => {
+      for (let n = 0; n < 30; n++) {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R * 0.9, x = Math.cos(a) * r, z = Math.sin(a) * r;
+        if (holes.every((h) => !h.on || Math.hypot(h.x - x, h.z - z) > HOLE_R * 1.9)) { f.position.set(x, TOP + duneH(x, z) + 0.03, z); break; }
+      }
+    });
+  }
+
+  // ---------- the moles: a round brown body, a pink nose, two paws holding a sign with a letter ----------
+  // ---------- the pictures on the signs: each picture once as an image, drawn onto the sign's texture (as the sound detective) ----------
+  const PIC_IMG = {};
+  for (const k of SOUND_L.flatMap(picsOf)) { const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${PICS[k].svg}</svg>`); PIC_IMG[k] = im; }
+  const picsReady = Promise.race([Promise.all(Object.values(PIC_IMG).map((im) => (im.decode ? im.decode() : new Promise((r) => { im.onload = im.onerror = r; })).catch(() => {}))), new Promise((r) => setTimeout(r, 5000))]);
+  // nine kinds of moles (Golan 23.10): slim / full bodies, small / big eyes, noses of different shapes, three kinds of glasses,
+  // two kinds of helmets, and each kind holds its sign its own way (in front, over the head, on two wooden legs)
+  const KINDS = [
+    { fur: "#7b5a4c", belly: "#d7b9a3", bw: 1, bh: 1, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#ff7f9b", pose: "low" },
+    { fur: "#4f3328", belly: "#c9a185", bw: 1.1, bh: 1, eye: 0.13, eyeY: 1.15, nose: "ball", noseK: 1.3, noseC: "#d9534f", helmet: "miner", pose: "high" },
+    { fur: "#b0703f", belly: "#f0cfa8", bw: 0.92, bh: 1, eye: 0.085, eyeY: 0.7, nose: "ball", noseK: 0.8, noseC: "#7a3b2e", glasses: "round", pose: "low" },
+    { fur: "#8a6248", belly: "#e3c7ad", bw: 0.8, bh: 1.1, eye: 0.09, eyeY: 1, nose: "long", noseC: "#ff8fab", pose: "poles" },
+    { fur: "#6a4a3c", belly: "#e6cdb6", bw: 1.3, bh: 0.95, eye: 0.12, eyeY: 1, nose: "heart", noseC: "#ff5c8a", pose: "low" },
+    { fur: "#9b6b4f", belly: "#ecd2b8", bw: 1.05, bh: 1, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#5a3a30", helmet: "builder", pose: "poles" },
+    { fur: "#5c4436", belly: "#d4b59a", bw: 1, bh: 1, eye: 0.09, eyeY: 1, nose: "button", noseC: "#ff9fb5", glasses: "square", pose: "high" },
+    { fur: "#a57d62", belly: "#f2dcc6", bw: 1.05, bh: 1, eye: 0.16, eyeY: 1.05, nose: "cone", noseC: "#ff6f91", pose: "high" },
+    { fur: "#c28a5c", belly: "#f6dfc2", bw: 0.95, bh: 1.02, eye: 0.1, eyeY: 1, nose: "ball", noseC: "#e0607e", glasses: "big", pose: "low" },
+  ];
+  const snoutMat = mat("#f2c9a8", 0.2), eyeMat = mat("#1d1d1d"), glintMat = mat("#ffffff", 1), pawMat = mat("#f7b3c0", 0.25), browMat = mat("#3b2a20"),
+    lampMat = mat("#fff6c0", 0.9), poleMat = mat("#a0703f", 0.05);
+  const GLASSES = { round: { c: "#2b2b3a", d: 0.25, th: 0.035, tess: 20 }, square: { c: "#2f6fd6", d: 0.27, th: 0.04, tess: 4 }, big: { c: "#e8443a", d: 0.33, th: 0.055, tess: 24 } };
+  const signW = 1.08 * S, signH = 0.84 * S;
+  const SIGN_LOW = { y: 0.5, z: -0.62, paws: [[-0.5, 0.86, -0.64], [0.5, 0.86, -0.64]] };
+  const SIGN_HIGH = { y: 1.95, z: -0.32, paws: [[-0.5, 1.6, -0.36], [0.5, 1.6, -0.36]] };   // held up over the head
+  const SIGN_POLES = { y: 2.25, z: -0.5, paws: [[-0.34, 0.95, -0.62], [0.34, 0.95, -0.62]] };   // on two wooden legs (Golan 23.10)
+  let moleN = 0;
+  function makeMole(K, sc) {
+    const n = moleN++, M = (hex, em) => mat(hex, em);
+    const furMat = M(K.fur, 0.12), bellyMat = M(K.belly, 0.15), noseMat = M(K.noseC, 0.35);
+    const root = new BABYLON.TransformNode("mole" + n, sc); root.parent = island;
+    const body = new BABYLON.TransformNode("moleBody" + n, sc); body.parent = root;   // moves up and down
+    const tilt = new BABYLON.TransformNode("moleTilt" + n, sc); tilt.parent = body;   // wiggles, squashes
+    const part = (mesh, m, x, y, z, sx = 1, sy = 1, sz = 1) => { mesh.material = m; mesh.parent = tilt; mesh.position.set(x * S, y * S, z * S); mesh.scaling.set(sx, sy, sz); mesh.isPickable = false; return mesh; };
+    const sph = (d, seg = 14) => BABYLON.MeshBuilder.CreateSphere("mp", { diameter: d * S, segments: seg }, sc);
+    const bw = K.bw, bh = K.bh;
+    part(sph(1.0, 18), furMat, 0, 0.68 * bh, 0, bw, 1.38 * bh, 0.95 * Math.min(1.15, Math.max(1, bw)));
+    part(sph(0.62), bellyMat, 0, 0.62 * bh, -0.25 - 0.04 * (bw - 1), bw, 1.25 * bh, 0.6);
+    const hy = 1.12 * bh;   // the head line
+    part(sph(0.2, 8), furMat, -0.4 * Math.min(1.1, bw), hy, 0.05, 1, 0.55, 0.5);          // small ears, low on the head
+    part(sph(0.2, 8), furMat, 0.4 * Math.min(1.1, bw), hy, 0.05, 1, 0.55, 0.5);
+    const ey = hy + 0.08, ny = hy - 0.08;
+    part(sph(0.4), snoutMat, 0, hy - 0.12, -0.42, 1.1, 0.75, 1.45);   // a long snout, the mole's nose sticks out
+    const nk = K.noseK || 1;
+    if (K.nose === "ball") part(sph(0.22 * nk, 10), noseMat, 0, ny, -0.7 - 0.03 * (nk - 1), 1.15, 0.85, 1);
+    else if (K.nose === "long") part(sph(0.2, 10), noseMat, 0, ny, -0.76, 0.8, 0.7, 1.9);
+    else if (K.nose === "button") part(sph(0.2, 10), noseMat, 0, ny, -0.7, 1.7, 0.75, 0.6);
+    else if (K.nose === "heart") { part(sph(0.15, 10), noseMat, -0.055, ny + 0.03, -0.7); part(sph(0.15, 10), noseMat, 0.055, ny + 0.03, -0.7); part(sph(0.11, 8), noseMat, 0, ny - 0.04, -0.71, 1, 1.1, 1); }
+    else if (K.nose === "cone") { const c = part(BABYLON.MeshBuilder.CreateCylinder("nose", { diameterTop: 0, diameterBottom: 0.24 * S, height: 0.24 * S, tessellation: 14 }, sc), noseMat, 0, ny, -0.74); c.rotation.x = -Math.PI / 2; }
+    for (const sx of [-1, 1]) {
+      part(sph(K.eye, 8), eyeMat, sx * 0.19, ey, -0.37, 1, K.eyeY, 1);
+      part(sph(0.4 * K.eye, 6), glintMat, sx * 0.19 + 0.02, ey + 0.25 * K.eye, -0.37 - 0.5 * K.eye);
+    }
+    if (K.helmet === "miner") {   // a yellow miner's helmet with a lamp
+      const hm = M("#ffc233", 0.15);
+      part(BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.86 * S, segments: 16, slice: 0.5 }, sc), hm, 0, hy + 0.18, 0.02, bw * 1.02, 0.62, 1);
+      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 0.98 * S, height: 0.04 * S, tessellation: 24 }, sc), hm, 0, hy + 0.18, 0.0, bw, 1, 1);
+      const lamp = part(BABYLON.MeshBuilder.CreateCylinder("lamp", { diameter: 0.16 * S, height: 0.08 * S, tessellation: 16 }, sc), lampMat, 0, hy + 0.35, -0.36);
+      lamp.rotation.x = -Math.PI / 2.6;
+    } else if (K.helmet === "builder") {   // an orange builder's hard hat: a dome, a ridge on top and a wide brim all round
+      const hm = M("#ff8a1f", 0.12);
+      part(BABYLON.MeshBuilder.CreateSphere("helmet", { diameter: 0.84 * S, segments: 16, slice: 0.5 }, sc), hm, 0, hy + 0.2, 0.02, bw, 0.72, 1);
+      part(BABYLON.MeshBuilder.CreateCylinder("brim", { diameter: 1.12 * S, height: 0.035 * S, tessellation: 28 }, sc), hm, 0, hy + 0.2, -0.03, bw, 1, 1);
+      part(BABYLON.MeshBuilder.CreateBox("ridge", { width: 0.1 * S, height: 0.1 * S, depth: 0.7 * S }, sc), hm, 0, hy + 0.48, 0.02);
+    }
+    if (K.glasses) {
+      const G = GLASSES[K.glasses], gm = M(G.c, 0.08);
+      for (const x of [-0.19, 0.19]) { const g = part(BABYLON.MeshBuilder.CreateTorus("glass", { diameter: G.d * S, thickness: G.th * S, tessellation: G.tess }, sc), gm, x, ey, -0.44); g.rotation.x = Math.PI / 2; if (G.tess === 4) g.rotation.y = Math.PI / 4; }
+      part(BABYLON.MeshBuilder.CreateBox("bridge", { width: 0.13 * S, height: 0.03 * S, depth: 0.03 * S }, sc), gm, 0, ey + 0.02, -0.46);
+    }
+    // sad brows, shown only when the mole is upset
+    const by = ey + 0.11 + (K.glasses || K.helmet ? 0.05 : 0), bz = K.glasses || K.helmet ? -0.46 : -0.42;
+    const browL = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, sc), browMat, -0.18, by, bz); browL.rotation.z = -0.45;
+    const browR = part(BABYLON.MeshBuilder.CreateBox("brow", { width: 0.16 * S, height: 0.035 * S, depth: 0.03 * S }, sc), browMat, 0.18, by, bz); browR.rotation.z = 0.45;
+    browL.setEnabled(false); browR.setEnabled(false);
+    // the sign, turned up to the camera
+    const tex = new BABYLON.DynamicTexture("signTex" + n, { width: 512, height: 400 }, sc, true);   // bigger than the letter sign: a picture needs the detail
+    const sm = new BABYLON.StandardMaterial("signMat" + n, sc);
+    tex.hasAlpha = true; sm.useAlphaFromDiffuseTexture = true;
+    sm.diffuseTexture = tex; sm.emissiveColor = new BABYLON.Color3(1, 1, 1); sm.disableLighting = true; sm.backFaceCulling = false;
+    const sign = BABYLON.MeshBuilder.CreatePlane("sign" + n, { width: signW, height: signH }, sc);
+    sign.material = sm; sign.parent = tilt; sign.rotation.x = PITCH * 0.75; sign.isPickable = false;
+    const paws = [part(sph(0.24, 8), pawMat, -0.5, 0.86, -0.64), part(sph(0.24, 8), pawMat, 0.5, 0.86, -0.64)];   // paws on the sign's corners
+    const poles = [-0.34, 0.34].map((x) => part(BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07 * S, height: 1.0 * S, tessellation: 10 }, sc), poleMat, x, 1.38, -0.56));
+    poles.forEach((p) => { p.rotation.x = -0.12; p.setEnabled(false); });
+    root.setEnabled(false);
+    const m = { K, root, body, tilt, sign, sm, paws, poles, tex, brows: [browL, browR], letter: "", pic: null, wrongTaps: 0, hole: -1, state: "off", t: 0, delay: 0, ph: Math.random() * 6.3, hint: false, down: -1.5 * S, high: false };
+    poseSign(m, "low");
+    return m;
+  }
+  function disposeMole(m) { m.tex.dispose(); m.sm.dispose(); m.root.dispose(); }
+  // the moles in the game: the 4 the child picked (the 5th, at the hard level, is the first one again)
+  const moles = [];
+  function buildMoles(kinds) {
+    moles.splice(0).forEach(disposeMole);
+    for (const k of kinds) moles.push(makeMole(KINDS[k], scene));
+  }
+  buildMoles(KINDS.map((K, i) => i));   // all 9 kinds in the game, picked at random each time (Golan 23.10: no picker)
+  // the sign low (in front), "high" (in the paws over the head) or "poles" (on two legs over the head); a mole with the
+  // sign up goes deeper, so the sign hides in the hole too
+  function poseSign(m, pose) {
+    const P = pose === "poles" ? SIGN_POLES : pose === "high" ? SIGN_HIGH : SIGN_LOW;
+    m.high = pose !== "low"; m.sign.position.set(0, P.y * S, P.z * S); m.sign.rotation.x = PITCH * (m.high ? 0.55 : 0.75);
+    m.paws.forEach((p, k) => p.position.set(P.paws[k][0] * S, P.paws[k][1] * S, P.paws[k][2] * S));
+    m.poles.forEach((p) => p.setEnabled(pose === "poles"));
+    m.down = pose === "poles" ? -2.9 * S : m.high ? -2.5 * S : -1.5 * S; m.pose = pose;
+  }
+  // each kind mostly holds its sign its own way, now and then another way
+  function posePick(K) { const r = Math.random(); if (r < 0.65) return K.pose; return ["low", "high", "poles"].filter((p) => p !== K.pose)[r < 0.83 ? 0 : 1]; }
+  // a mole comes up in a hole with a letter
+  // Golan 23.10: no mole or sign may hide behind another one. Before a mole comes up, the place it will take on the screen
+  // (its body and its sign, in the sign pose) is measured, and only a hole and a pose that touch no mole that is out are used.
+  const POSES = { low: SIGN_LOW, high: SIGN_HIGH, poles: SIGN_POLES };
+  // each mole turns a little toward the middle of the screen, not outward (Golan 23.10)
+  const yawOf = (h) => 0.6 * Math.max(-1, Math.min(1, h.x / R));
+  function screenBox(K, hi, pose) {
+    const h = holes[hi], P = POSES[pose], wm = island.getWorldMatrix(), bw = K.bw, top = (1.5 * K.bh + (K.helmet ? 0.35 : 0.05)) * S;
+    cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    const pts = [];
+    for (const sx of [-1, 1]) {
+      pts.push([sx * 0.58 * bw * S, 0, -0.3 * S], [sx * 0.58 * bw * S, top, -0.3 * S]);
+      for (const sy of [-1, 1]) pts.push([sx * (signW / 2 + 0.12 * S), P.y * S + sy * (signH / 2 + 0.1 * S), P.z * S]);
+    }
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    const yw = yawOf(h), cy = Math.cos(yw), sy = Math.sin(yw);
+    for (const [x, y, z] of pts) { const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x * cy + z * sy, TOP + h.y + y, h.z - x * sy + z * cy), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    return { x0, y0, x1, y1 };
+  }
+  const hits = (a, b, g = 4) => a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.y0 < b.y1 + g && b.y0 < a.y1 + g;
+  // a free hole and a sign pose for mole m that hide nothing and are hidden by nothing; null when there is none now
+  function freePlace(m, avoid = []) {
+    const others = moles.filter((k) => k !== m && (k.state === "rise" || k.state === "up")), taken = others.map((k) => k.hole);
+    const boxes = others.map((k) => screenBox(k.K, k.hole, k.pose));
+    const want = posePick(m.K), poses = [want, ...["low", "high", "poles"].filter((p) => p !== want)];
+    const cand = shuffle(holes.map((h, i) => (h.on && !taken.includes(i) && !avoid.includes(i) ? i : -1)).filter((i) => i >= 0));
+    // nothing under the letter strip, the door, the gear or the stars either (Golan 23.10: the speaker hid a sign)
+    const inside = (b) => b.y0 >= region.y0 - 2 && b.x0 >= region.x0 - 2 && b.x1 <= region.x1 + 2;
+    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (inside(b) && !boxes.some((o) => hits(o, b))) return { hi, pose }; }
+    return null;
+  }
+  function placeMole(m, hi, letter, hint, delay, pose) {
+    const h = holes[hi];
+    m.letter = letter; m.pic = picFor(letter, m); m.wrongTaps = 0; m.hole = hi; m.hint = hint; drawSign(m, m.pic, hint);
+    poseSign(m, pose || posePick(m.K));
+    m.root.position.set(h.x, TOP + h.y, h.z); m.root.rotation.y = yawOf(h); m.root.setEnabled(true);
+    m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
+    m.state = "rise"; m.t = 0; m.delay = delay;
+  }
+  // a picture for a sound: one that no other mole holds now, and not the one this sound had last time (the pictures vary)
+  const lastPic = {};
+  function picFor(l, m) {
+    const shown = moles.filter((k) => k !== m && k.state !== "off").map((k) => k.pic), o = picsOf(l);
+    let c = o.filter((k) => !shown.includes(k) && k !== lastPic[l]); if (!c.length) c = o.filter((k) => !shown.includes(k)); if (!c.length) c = o;
+    const k = pick(c); lastPic[l] = k; return k;
+  }
+  // the sign: a light wooden board with the picture on it, centred by what is drawn (FL.drawPicCentred)
+  function drawSign(m, key, glow) {
+    const ctx = m.tex.getContext(), W = ctx.canvas.width, H = ctx.canvas.height, u = W / 256;
+    ctx.clearRect(0, 0, W, H);
+    const r = 26 * u, pad = 8 * u;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(pad, pad, W - 2 * pad, H - 2 * pad, r) : ctx.rect(pad, pad, W - 2 * pad, H - 2 * pad);
+    ctx.fillStyle = glow ? "#fff6c9" : "#fffaf0"; ctx.fill();
+    ctx.lineWidth = (glow ? 16 : 10) * u; ctx.strokeStyle = glow ? "#ffc233" : "#a0703f"; ctx.stroke();
+    const im = key && PIC_IMG[key];
+    if (im && im.complete && im.naturalWidth) {
+      const sz = H - 2 * pad - 10 * u, x = (W - sz) / 2, y = (H - sz) / 2;
+      try { if (window.FL && FL.drawPicCentred) FL.drawPicCentred(ctx, im, x, y, sz, sz); else ctx.drawImage(im, x, y, sz, sz); } catch (e) { ctx.drawImage(im, x, y, sz, sz); }
+    }
+    m.tex.update(true);
+  }
+  // confetti for a right mole, gold sparkles around the right mole after two mistakes (the hint)
+  const dotTex = new BABYLON.DynamicTexture("dot", { width: 32, height: 32 }, scene, false);
+  { const c = dotTex.getContext(); c.fillStyle = "#fff"; c.fillRect(6, 6, 20, 20); dotTex.update(); dotTex.hasAlpha = true; }
+  const confetti = new BABYLON.ParticleSystem("confetti", 200, scene);
+  confetti.particleTexture = dotTex; confetti.emitter = new BABYLON.Vector3(0, 0, 0);
+  confetti.minEmitBox = new BABYLON.Vector3(-0.4, 0, 0); confetti.maxEmitBox = new BABYLON.Vector3(0.4, 0.3, 0);
+  confetti.color1 = new BABYLON.Color4(1, 0.35, 0.4, 1); confetti.color2 = new BABYLON.Color4(0.3, 0.6, 1, 1); confetti.colorDead = new BABYLON.Color4(1, 0.85, 0.2, 0);
+  confetti.minSize = 0.12; confetti.maxSize = 0.24; confetti.minLifeTime = 0.6; confetti.maxLifeTime = 1.1;
+  confetti.emitRate = 0; confetti.manualEmitCount = 0;
+  confetti.direction1 = new BABYLON.Vector3(-3, 6, -1); confetti.direction2 = new BABYLON.Vector3(3, 8, 1);
+  confetti.gravity = new BABYLON.Vector3(0, -10, 0); confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6;
+  confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; confetti.start();
+  const sparkTex = new BABYLON.DynamicTexture("spark", { width: 64, height: 64 }, scene, false);
+  { const c = sparkTex.getContext(); c.fillStyle = "#fff6b0"; c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? 9 : 30; c.lineTo(32 + rr * Math.cos(a), 32 + rr * Math.sin(a)); } c.closePath(); c.fill(); sparkTex.update(); sparkTex.hasAlpha = true; }
+  const sparks = new BABYLON.ParticleSystem("sparks", 120, scene);
+  sparks.particleTexture = sparkTex; sparks.emitter = new BABYLON.Vector3(0, -50, 0);
+  sparks.minEmitBox = new BABYLON.Vector3(-0.75 * S, 0, -0.2); sparks.maxEmitBox = new BABYLON.Vector3(0.75 * S, 1.3 * S, 0.2);
+  sparks.color1 = new BABYLON.Color4(1, 0.95, 0.5, 1); sparks.color2 = new BABYLON.Color4(1, 0.8, 0.2, 1); sparks.colorDead = new BABYLON.Color4(1, 1, 1, 0);
+  sparks.minSize = 0.18; sparks.maxSize = 0.36; sparks.minLifeTime = 0.4; sparks.maxLifeTime = 0.8; sparks.emitRate = 0;
+  sparks.direction1 = new BABYLON.Vector3(-0.5, 1, -0.5); sparks.direction2 = new BABYLON.Vector3(0.5, 2, 0.5); sparks.minEmitPower = 0.3; sparks.maxEmitPower = 0.8;
+  sparks.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; sparks.start();
+
+  // ---------- fitting the island into the free part of the screen ----------
+  // The free part: right of the guide on a lying screen, under it on a standing one; never under the stars or the hourglass.
+  const css = (name) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
+  let region = { x0: 0, y0: 0, x1: 100, y1: 100 };
+  const lying = () => canvas.clientWidth >= canvas.clientHeight * 1.15;
+  function measure(el) { return el && el.offsetParent !== null ? el.getBoundingClientRect() : null; }
+  function placeGuide() {}   // the letter pill sits in the CSS place of every game
+  function measureRegion() {
+    const W = canvas.clientWidth, H = canvas.clientHeight, gr = $("prompt").getBoundingClientRect(), m = Math.max(8, Math.min(W, H) * 0.02);
+    const pill = measure($("stars")), hg = HG && HG.el && !HG.el.hidden ? HG.el.getBoundingClientRect() : null;
+    const gearB = $("gear").getBoundingClientRect().bottom || 150, hgW = hg ? hg.width : 64;
+    const doorR = $("doorGame").getBoundingClientRect().right || 90;
+    if (lying()) region = { x0: doorR + m, y0: Math.max(pill ? pill.bottom : 70, gr.height ? gr.bottom : 70) + m, x1: W - (css("--edge-r") || 12) - hgW - m, y1: H - (css("--edge-b") || 12) };
+    else region = { x0: m, y0: Math.max(gr.height ? gr.bottom : 220, gearB, hg ? hg.bottom : 0) + m, x1: W - m, y1: H - (css("--edge-b") || 12) };
+  }
+  const tmpM = new BABYLON.Matrix();
+  function project(p) {
+    const vp = cam.viewport.toGlobal(canvas.clientWidth, canvas.clientHeight);
+    return BABYLON.Vector3.Project(p, BABYLON.Matrix.IdentityReadOnly, tmpM, vp);
+  }
+  function fitPoints() {
+    const pts = [];
+    for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; pts.push(new BABYLON.Vector3(Math.cos(a) * R * 1.03, TOP, Math.sin(a) * R * 1.03)); }
+    pts.push(new BABYLON.Vector3(0, TOP - 2.2, -R * 0.6));   // part of the underside shows
+    for (const h of holes) if (h.on) { const y = TOP + h.y; pts.push(new BABYLON.Vector3(h.x, y + 1.5 * S, h.z)); pts.push(new BABYLON.Vector3(h.x - signW * 0.6, y + 0.3 * S, h.z - 0.7 * S)); pts.push(new BABYLON.Vector3(h.x + signW * 0.6, y + 0.3 * S, h.z - 0.7 * S)); }
+    return pts;
+  }
+  function boxAt(dist, shift, pts) {
+    const dir = new BABYLON.Vector3(0, Math.sin(PITCH), -Math.cos(PITCH));
+    const target = new BABYLON.Vector3(shift.x, shift.y, shift.z);
+    cam.position.copyFrom(target.add(dir.scale(dist))); cam.setTarget(target);
+    cam.getViewMatrix(true).multiplyToRef(cam.getProjectionMatrix(true), tmpM);
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const p of pts) { const s = project(p); x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x); y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y); }
+    return { x0, y0, x1, y1 };
+  }
+  let fitInfo = null;
+  function fitCamera() {
+    engine.resize(); measureRegion();
+    const pts = fitPoints(), rw = Math.max(50, region.x1 - region.x0), rh = Math.max(50, region.y1 - region.y0);
+    const shift = new BABYLON.Vector3(0, 0, 0);
+    let lo = 4, hi = 200, dist = hi;
+    for (let n = 0; n < 2; n++) {
+      lo = 4; hi = 200;
+      for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2, b = boxAt(mid, shift, pts); if (b.x1 - b.x0 <= rw && b.y1 - b.y0 <= rh) hi = mid; else lo = mid; }
+      dist = hi;
+      const b = boxAt(dist, shift, pts), H = canvas.clientHeight || 1, wpp = (2 * dist * Math.tan(cam.fov / 2)) / H;
+      const dx = (region.x0 + region.x1) / 2 - (b.x0 + b.x1) / 2, dy = (region.y0 + region.y1) / 2 - (b.y0 + b.y1) / 2;
+      const right = new BABYLON.Vector3(1, 0, 0), up = new BABYLON.Vector3(0, Math.cos(PITCH), Math.sin(PITCH));
+      shift.addInPlace(right.scale(-dx * wpp)).addInPlace(up.scale(dy * wpp));
+    }
+    const b = boxAt(dist, shift, pts); fitInfo = { dist, region: { ...region }, box: b };
+  }
+  // where a mole is on the screen (CSS pixels): its sign's middle, and how big the sign looks
+  function screenOf(m) {
+    cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    const c = project(m.sign.getAbsolutePosition()), hw = project(m.sign.getAbsolutePosition().add(new BABYLON.Vector3(signW / 2, 0, 0)));
+    const head = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(0, 1.05 * S, -0.3 * S), m.tilt.getWorldMatrix()));
+    return { x: c.x, y: c.y, r: Math.max(18, Math.abs(hw.x - c.x) * 1.25), hx: head.x, hy: head.y };
+  }
+
+  // ---------- the guide: the child's companion in the chosen balloon, holding the sign (Golan 21.10) ----------
+  const BALLOONS = [
+    { c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
+    { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
+  ];
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
+  function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+  function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
+  // the letter-circle's balloon painter (flat picture), the same 9 balloons as in every game
+  function paintBalloon(ctx, W, H, d) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, false);   // shared/love-balloon.js
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
+    const S0 = W / 100;
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = d.pat === "rainbow" ? 6 : 8;
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = cols[i % cols.length];
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill();
+      }
+    } else if (d.pat === "dots") grid(W / 4, H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, 7 * S0, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(W / 3.6, H / 5, (x, y) => starPath(ctx, x, y, 10 * S0));
+    else if (d.pat === "hearts") grid(W / 3.6, H / 5, (x, y) => heartPath(ctx, x, y, 8 * S0));
+    else if (d.pat === "checks") { const n = 6, m = 7; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) if ((i + j) % 2) ctx.fillRect(i * W / n, j * H / m, W / n + 1, H / m + 1); }
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S0, W, 14 * S0); }
+    else if (d.pat === "zigzag" || d.pat === "waves") {
+      const teeth = 5, amp = 9 * S0;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
+        ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
+          const yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S0; ctx.lineJoin = "round"; ctx.stroke();
+      }
+    }
+  }
+  const balloonPics = {};
+  function balloonSvg(i, idp = "bc") {
+    const d = BALLOONS[i], [sx, sy] = SHAPES[d.shape];
+    if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
+    if (!balloonPics[i]) { const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d); balloonPics[i] = cv.toDataURL(); }
+    const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const G = d.flag ? Math.min(1.12, 94 * 1.25 / (84 * sy)) : 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${idp}${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+      `<image href="${balloonPics[i]}" x="0" y="${d.shape === "heart" ? -14 : Math.min(0, top - 2).toFixed(1)}" width="100" height="${d.shape === "heart" ? 134 : (120 - Math.min(0, top - 2)).toFixed(1)}" preserveAspectRatio="none" clip-path="url(#${idp}${i})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;
+  }
+  // the companion's face for each moment: its own smile, a big smile, a sad mouth, an "oh!"
+  const SMILE = "M42 66 Q50 73 58 66";
+  const MOUTH = { calm: SMILE, yay: "M39 63 Q50 80 61 63", oops: "M42 72 Q50 64 58 72", timeup: "M46 68 Q50 60 54 68 Q50 75 46 68" };
+  const guide = { face: "calm", letter: "?", hint: false, react: null, t: 0 };
+  function compSvg(face) {
+    const p = prof(); if (!LRN || !p) return "";
+    let s = LRN.companionSvg(p, 100);
+    if (face !== "calm") s = s.replace(SMILE, MOUTH[face]);
+    return s.replace(/^<svg /, '<svg x="28" y="52" width="64" height="66" ');
+  }
+  function drawGuide() {
+    const pr = $("prompt"), show = guide.letter && guide.letter !== "?";
+    $("target").textContent = show ? guide.letter : "";
+    pr.classList.toggle("listen", !show); pr.classList.toggle("hint", !!guide.hint);
+  }
+  function guideReact(kind) {
+    const g = $("prompt"); clearTimeout(guide.react);
+    g.classList.remove("yay", "oops", "timeup"); void g.offsetWidth;
+    guide.face = kind; drawGuide(); g.classList.add(kind);
+    guide.react = setTimeout(() => { g.classList.remove(kind); guide.face = "calm"; drawGuide(); }, kind === "timeup" ? 1500 : 1300);
+  }
+  function setSign(letter, hint) { guide.letter = letter; guide.hint = !!hint; drawGuide(); }
+
+  // ---------- the questions ----------
+  const state = { mode: "intro", q: null, stars: 0, starKinds: [], gameT: 0, roundStart: 0, n: 0, lastLetter: null, lastOk: true, demo: false, pool: null };
+  const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null;
+  // the golden hourglass (Golan 18.10): the round goes on until the sand runs out; it waits while the demo plays
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold || state.demo, onEnd: () => { if (!$("hud").hidden) guideReact("timeup"); timeUp(); } }) : null;
+  let form = null;
+  // the parent's sounds ("בחירה ידנית"), else none (the system picks)
+  function chosenLetters() { return settings.lettersMode === "auto" ? [] : [...new Set(settings.letters || [])].filter((l) => SOUND_L.includes(l)); }
+  const basePool = () => { const mine = chosenLetters(); if (mine.length) return mine; if (!state.pool) state.pool = soundPool().filter((l) => SOUND_L.includes(l)); return state.pool.length ? state.pool : SOUND_L.slice(); };
+  // the sound to look for: from the child's sounds, mostly one not yet known, never the same twice in a row
+  function pickSound(from) {
+    const pool = (from || basePool()).filter((l) => l !== state.lastLetter), src = pool.length ? pool : from || basePool();
+    const fresh = src.filter((l) => !soundKnown(l));
+    return pick(fresh.length && Math.random() < 0.7 ? fresh : src);
+  }
+  // may sound l come up now? never twice at once, never next to a sound that sounds like it (ALIKE), never one that went down
+  // after 2 mistakes in this question
+  const fits = (l, shownL, q) => !shownL.includes(l) && !shownL.some((x) => alike(x, l)) && !(q && q.out.has(l)) && !(q && l !== q.letter && alike(l, q.letter));
+  // the other sounds of a question: the child's sounds first, then any other; none ALIKE the sound on the sign or each other
+  function otherSounds(t, n) {
+    const out = [];
+    for (const l of [...shuffle(basePool().slice()), ...shuffle(SOUND_L.slice())]) if (out.length < n && l !== t && fits(l, [t, ...out], null)) out.push(l);
+    return out;
+  }
+  const qIds = (q) => [LINES.q, SOUNDS[q.letter].s];   // "אֵיזוֹ תְּמוּנָה מַתְחִילָה בַּצְּלִיל..." + the sound
+  function newQ(t, letters, prev) {
+    return { letter: t, pool: prev ? prev.pool : otherSounds(t, MOLES[lvl()] + 3), letters, out: new Set(), rotLeft: prev ? prev.rotLeft : null, rotPhase: prev ? prev.rotPhase : "duck", rotMole: prev ? prev.rotMole : null,
+      wrongs: 0, firstWrong: null, hint: false, auto: false, locked: false, armed: false, firstEnd: null, lastEnd: null, firstTap: null, repeats: 0, autoRep: 0, cycle: 0,
+      phase: "rising", stayLeft: STAY_MS[lvl()], done: false, lastHoles: [], rec: false, demo: state.demo };
+  }
+  function askNext() {
+    if (HG && HG.done() && !state.demo) return endRound();   // the sand ran out: the round ends after the mole that was out
+    const t = pickSound(), n = MOLES[lvl()];
+    const q = newQ(t, null, null); q.letters = shuffle([t, ...q.pool.slice(0, n - 1)]);
+    state.q = q; state.mode = "play"; state.n++;
+    setSign(SOUNDS[t].syl, false);
+    popMoles(q);
+  }
+  // the moles of this question come up in holes (another set of holes every time they come back)
+  function popMoles(q) {
+    const live = q.letters.filter((l) => !q.out.has(l)), on = holes.map((h, i) => (h.on ? i : -1)).filter((i) => i >= 0);
+    const fresh = shuffle(on.filter((i) => !q.lastHoles.includes(i))), old = shuffle(on.filter((i) => q.lastHoles.includes(i)));
+    const use = [...fresh, ...old].slice(0, live.length);
+    q.lastHoles = use; q.phase = "rising"; q.stayLeft = STAY_MS[lvl()] * (0.85 + Math.random() * 0.3);
+    moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
+    // any of the 9 kinds (Golan 23.10), each where it hides no other one; the sound we look for first, so it is always out
+    const order = [q.letter, ...live.filter((l) => l !== q.letter)].filter((l) => live.includes(l));
+    for (let tries = 0; tries < 12; tries++) {   // a few shuffles, so all of them find a place that hides nothing
+      moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
+      const kinds = shuffle(moles.slice()), slot = shuffle(order.map((l, i) => i));   // placed target first, but it does not always come up first
+      let k = 0;
+      order.forEach((l, i) => { const m = kinds[k]; if (!m) return; const f = freePlace(m); if (!f) return; k++; placeMole(m, f.hi, l, false, 0.3 + slot[i] * 0.75, f.pose); m.state = "rise"; });   // slowly, one after another (Golan 23.10)
+      if (k === order.length) break;
+    }
+  }
+  // a mole of a random kind that is not out now (and not the one that just went down)
+  function spareMole(except) { const c = shuffle(moles.filter((k) => k !== except && k.state === "off")); return c[0] || null; }
+  // levels 2 and 3 (Golan 23.10): after the first time, the moles go down and come up one after another: a mole goes down,
+  // a moment later it comes up in another hole with another picture, then the next mole goes down, and so on
+  const ROT_GAP = 1000;
+  const outMoles = () => moles.filter((m) => m.state === "rise" || m.state === "up" || m.state === "upset");
+  function rotateStep(q) {
+    const n = MOLES[lvl()], out = outMoles();
+    if (q.rotPhase === "duck") {
+      if (out.length < n && !moles.some((k) => k.state === "duck" || k.state === "sad" || k.state === "bonk")) { q.rotMole = null; q.rotPhase = "rise"; return 0; }   // one short (after 2 mistakes): one comes up first
+      const up = out.filter((m) => m.state === "up" && m.letter !== q.letter).sort((a, b) => a.upAt - b.upAt);   // the mole with the sound we look for stays (Golan 23.10)
+      if (!up.length) return 300;
+      const m = up[0]; m.state = "duck"; m.t = 0; q.rotMole = m; q.rotPhase = "rise";
+      return ROT_GAP + 650;
+    }
+    const gone = q.rotMole, m = spareMole(gone);   // another kind comes up, in another hole, with another picture (Golan 23.10)
+    if (!m || out.length >= n) { q.rotPhase = "duck"; return ROT_GAP; }
+    const shownL = out.map((k) => k.letter);
+    const ok = (l) => fits(l, shownL, q) && (!gone || l !== gone.letter);
+    let letter = !shownL.includes(q.letter) && ok(q.letter) ? q.letter : null;   // the sound we look for is always back soon
+    if (!letter) letter = letterPool(q).find(ok) || null;
+    q.rotPhase = "duck";
+    if (!letter) return ROT_GAP;
+    const f = freePlace(m, gone ? [gone.hole] : []);
+    if (!f) return ROT_GAP;   // no place that hides nothing now: try again a little later
+    placeMole(m, f.hi, letter, q.hint && letter === q.letter, 0, f.pose);
+    return ROT_GAP + 750;
+  }
+  function speakQuestion(q, rate) {
+    // never the question while no picture of the sound is up (Golan 23.10): wait until its mole is fully out
+    if (!moles.some((m) => m.letter === q.letter && m.state === "up")) {
+      if (q.waitSay) return; q.waitSay = true;
+      const tick = () => { if (state.q !== q || q.done) return;
+        if (moles.some((m) => m.letter === q.letter && m.state === "up")) { q.waitSay = false; speakQuestion(q, rate); } else setTimeout(tick, 200); };
+      return void setTimeout(tick, 200);
+    }
+    playSeq(qIds(q), rate, () => {
+      if (state.q !== q || q.done) return;
+      const t = clock(); q.armed = true; q.firstEnd = q.firstEnd || t; q.lastEnd = t;
+    }, (i, last) => { if (last && state.q === q) q.armed = true; });
+  }
+  // every mole that is out goes back into its hole
+  function duckAll(q, except) { moles.forEach((m) => { if (m !== except && (m.state === "rise" || m.state === "up" || m.state === "upset")) { m.state = "duck"; m.t = 0; } }); }
+
+  // ---------- touching a mole ----------
+  // loose = a hammer knock (Golan 28.10): a mole still rising or already upset counts too, a little wider around it,
+  // so a knock on a wrong picture always gets the mistake sound
+  function moleAt(px, py, loose) {
+    let best = null, bd = 1e9;
+    for (const m of moles) {
+      if (m.state !== "up" && m.state !== "upset" && !(m.state === "rise" && m.t - m.delay > (loose ? 0 : 0.12)) && !(loose && m.state === "sad")) continue;
+      const s = screenOf(m), d = Math.min(Math.hypot(s.x - px, s.y - py), Math.hypot(s.hx - px, s.hy - py) * 1.15);
+      if (d < s.r * (loose ? 1.25 : 1) && d < bd) { bd = d; best = m; }
+    }
+    return best;
+  }
+  let lastTap = 0;
+  // the hammer (Golan 28.10): over the game it replaces the mouse pointer and follows the finger; a tap is a light knock that sends the mole down
+  const hammer = $("hammer"), hammerOn = () => ["play", "between"].includes(state.mode) && !$("hud").hidden && !state.demo;
+  // only over the island and its moles; away from it the normal pointer comes back (Golan 28.10)
+  const islandPick = (m) => m.isEnabled() && m.isVisible && m.isDescendantOf(island);
+  // with an invisible frame about one hammer wide around the island, where the hammer stays (Golan 28.10)
+  const HAMMER_RING = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+  const overIsland = (e) => { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = hammer.offsetWidth || 120;
+    if (moleAt(x, y)) return true;
+    return HAMMER_RING.some(([dx, dy]) => (scene.pick(x + dx * w, y + dy * w, islandPick) || {}).hit); };
+  const moveHammer = (e) => { const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); if (!on) hammer.classList.remove("hit"); canvas.classList.toggle("hammering", on);
+    if (on) hammer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; };
+  canvas.addEventListener("pointermove", moveHammer);
+  hammer.addEventListener("animationend", () => hammer.classList.remove("hit"));   // otherwise coming back over the island replays the knock (Golan 28.10)
+  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show", "hit"); });
+  canvas.addEventListener("pointerdown", (e) => {
+    if (state.demo) return;   // the demo plays by itself
+    moveHammer(e);
+    if (hammer.classList.contains("show")) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
+    const q = state.q; if (state.mode !== "play" || !q || q.done || q.locked) return;
+    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
+    if (!m) return;
+    if (m.state === "sad") { sfx.oops(); return; }   // the same wrong mole again, on its way down: the mistake sound again, not another mistake
+    const now = performance.now(); if (now - lastTap < 300 || now < (q.tapPause || 0)) return; lastTap = now;   // double-touch filter; Golan 29.10 21:22: a short rest after a mistake
+    setTimeout(() => { if (state.q === q) answer(m); }, 110);   // the hammer comes down first
+  });
+  function answer(m) {
+    const q = state.q; if (!q || q.done || q.locked || state.mode !== "play") return;
+    const t = clock();
+    if (q.firstTap == null) q.firstTap = q.firstEnd ? Math.max(0, Math.round(t - q.firstEnd)) : 0;   // a touch during the question counts as 0
+    hush();
+    if (m.letter === q.letter) return found(m, q, false);
+    // a wrong picture: only the mistake sound (sound detective rules). 2 mistakes on the same picture: that mole goes down;
+    // 3 mistakes in the question: the game solves it once (the right mole lights up and is knocked by itself)
+    q.wrongs++; m.wrongTaps++; if (!q.firstWrong) q.firstWrong = m.letter; q.tapPause = performance.now() + 900;
+    sfx.oops(); vibrate([40, 60, 40]); guideReact("oops");
+    m.brows.forEach((b) => b.setEnabled(true)); m.t = 0;
+    if (m.wrongTaps >= 2) { m.state = "sad"; q.out.add(m.letter); } else m.state = "upset";
+    if (q.wrongs >= 3) { q.locked = true; setTimeout(() => { if (state.q === q && !q.done) autoSolve(q); }, 700); }
+  }
+  // the game solves it (sound detective, Golan 30.10 07:13: after 3 mistakes): the right mole lights up, then it is knocked;
+  // Hila: the sound, the word, "מַתְחִיל / מַתְחִילָה / מַתְחִילִים בַּצְּלִיל..." and the sound again. The star is silver.
+  function autoSolve(q) {
+    q = q || state.q; if (!q || q.done) return;
+    const r = moles.find((k) => k.letter === q.letter && (k.state === "up" || k.state === "upset" || k.state === "rise"));
+    if (!r) { setTimeout(() => { if (state.q === q && !q.done) autoSolve(q); }, 400); return; }   // its mole is on its way up
+    q.auto = true; q.locked = true; q.hint = true; r.hint = true; drawSign(r, r.pic, true);
+    setTimeout(() => { if (state.q === q && !q.done && r.letter === q.letter && r.state !== "off") { hammerAt(r); found(r, q, true); } else if (state.q === q && !q.done) autoSolve(q); }, 1100);
+  }
+  // the hammer knocks a mole by itself (auto-solve, the demo)
+  function hammerAt(m) {
+    const s = screenOf(m), r = canvas.getBoundingClientRect();
+    hammer.style.transform = `translate(${r.left + s.x}px, ${r.top + s.y}px)`; hammer.classList.add("show"); hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit");
+    setTimeout(() => { if (!canvas.classList.contains("hammering") || state.demo) hammer.classList.remove("show"); }, 900);
+  }
+  const WAKE_S = 2.2;   // the right mole stays up this long, its picture awake, before it goes down
+  function found(m, q, auto) {
+    q.done = true; state.mode = "between";
+    sfx.bonk(); vibrate(30); guideReact("yay");
+    m.state = "bonk"; m.t = 0; m.hold = WAKE_S; m.hint = false; m.brows.forEach((b) => b.setEnabled(false));
+    if (auto) drawSign(m, m.pic, false);
+    const at = m.sign.getAbsolutePosition(); confetti.emitter = new BABYLON.Vector3(at.x, at.y + 0.4, at.z); confetti.manualEmitCount = auto ? 25 : 50;
+    wake(m);
+    if (!q.demo) {
+      const right = !q.wrongs && !auto;   // gold on the first try, silver after a mistake or a solved one (Golan 16.10, all games)
+      state.stars++; const kind = auto ? "silver" : LRN ? LRN.star(right) : right ? "gold" : "silver"; state.starKinds.push(kind); if (starCount) starCount.add(kind);
+      recordQ(q, true);
+      state.lastLetter = q.letter; state.lastOk = right;
+    }
+    // Golan 30.10 (as sound memory): the sound, then the word; no "יֵשׁ! נָכוֹן!". Solved by the game: + "מַתְחִיל בַּצְּלִיל... בַּ"
+    const S = SOUNDS[q.letter], W = wordOf(m.pic), explain = window.FL && FL.explainClip ? FL.explainClip((PICS[m.pic] || {}).word) : "sd_explain";
+    setTimeout(() => { if (state.q === q) playSeq(auto ? [S.s, 250, W, 300, explain, S.s] : [S.s, 250, W]); }, 250);
+    // Golan 23.10: only this mole goes down; a mole with a new picture comes up instead, and the next sound is one of the signs
+    setTimeout(() => {
+      if (state.q !== q) return;
+      const wait = (fn) => { if (state.q !== q) return; if (m.state !== "off") return setTimeout(() => wait(fn), 100); fn(); };
+      if (q.demo && demoCont) { const f = demoCont; demoCont = null; return wait(() => whenQuiet(() => { if (state.q === q) f(m, q); })); }
+      if (HG && HG.done()) { wait(() => { duckAll(q, m); setTimeout(() => { if (state.q === q) whenQuiet(() => { if (state.q === q) askNext(); }); }, 650); }); return; }
+      wait(() => replaceMole(m, q));
+    }, 900);
+  }
+  // the right picture wakes up (Golan 30.10, as sound memory): its moving drawing (pictures-animated) over the sign for a moment
+  let wakeM = null;
+  function wake(m) {
+    const el = $("wake"), a = PA && PA.svg && PA.svg[m.pic];
+    el.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a || (PICS[m.pic] || {}).svg || ""}</svg>`;
+    wakeM = m; placeWake(); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  }
+  // the sign's four corners on the screen (CSS pixels)
+  function signRect(m) {
+    cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    const W = m.sign.getWorldMatrix(), r = canvas.getBoundingClientRect(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const p = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(sx * signW / 2, sy * signH / 2, 0), W));
+      x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    return { x0: r.left + x0, y0: r.top + y0, x1: r.left + x1, y1: r.top + y1 };
+  }
+  function placeWake() {
+    const el = $("wake"), m = wakeM;
+    if (!m || m.state !== "bonk" || m.t > 0.425 + (m.hold || 0)) { if (el.classList.contains("on")) { el.classList.remove("on"); el.innerHTML = ""; } wakeM = null; return; }
+    const b = signRect(m), sz = Math.min(b.x1 - b.x0, b.y1 - b.y0) * 0.98;
+    Object.assign(el.style, { left: Math.round((b.x0 + b.x1) / 2 - sz / 2) + "px", top: Math.round((b.y0 + b.y1) / 2 - sz / 2) + "px", width: Math.round(sz) + "px", height: Math.round(sz) + "px" });
+  }
+  // sounds a mole can bring up: the child's sounds first, then the others of this question, then any
+  function letterPool(q) { return [...shuffle(basePool().slice()), ...shuffle(q && q.pool ? q.pool.slice() : []), ...shuffle(SOUND_L.slice())]; }
+  function newLetterFor(m) {
+    const shownL = moles.filter((k) => k !== m && (k.state === "rise" || k.state === "up" || k.state === "upset")).map((k) => k.letter);
+    return letterPool(null).find((l) => l !== m.letter && fits(l, shownL, null)) || null;
+  }
+  function replaceMole(m, q) {
+    const letter = newLetterFor(m), nm = spareMole(m), f = nm ? freePlace(nm, [m.hole]) : null;
+    if (letter && f) placeMole(nm, f.hi, letter, false, 0.15, f.pose);
+    whenQuiet(() => { if (state.q === q) nextFromSigns(q); });
+  }
+  // the next sound to find: one of the sounds the moles hold now (the child's pick when it is on a sign)
+  function nextFromSigns(prev) {
+    if (HG && HG.done() && !state.demo) return endRound();
+    const out = outMoles(), L = out.map((k) => k.letter);
+    if (!L.length) return askNext();
+    const t = pickSound(L);
+    const q = newQ(t, L.slice(), prev); q.lastHoles = out.map((k) => k.hole);
+    state.q = q; state.mode = "play"; state.n++;
+    out.forEach((k) => { k.wrongTaps = 0; if (k.state === "upset") k.state = "up"; k.brows.forEach((b) => b.setEnabled(false)); });
+    setSign(SOUNDS[t].syl, false);
+  }
+  // one record per sound asked, with the first answer (the shared "sound" skill, as sound memory and the sound wheel)
+  function recordQ(q, solved) {
+    if (!LRN || q.rec || q.demo || !prof()) return; q.rec = true;
+    const ok = !q.wrongs && !q.auto;
+    try {
+      LRN.record({ game: GAME, letter: q.letter, picked: ok ? q.letter : q.firstWrong, firstTry: ok, solved: solved && !q.auto, opts: q.letters.slice(), rtMs: q.firstTap || 0,
+        changed: false, hint: q.auto ? 1 : 0, mode: "sound", pace: LRN.pace ? LRN.pace() : 1 });
+    } catch (e) {}
+  }
+  function flushPartial() {
+    const q = state.q; if (q && !q.done && q.wrongs) recordQ(q, false);
+    if (LRN && state.n && state.roundOpen) { try { LRN.roundEnd({ game: GAME, skillIssue: false }); } catch (e) {} state.roundOpen = false; }
+  }
+  addEventListener("pagehide", flushPartial);
+
+  function startRound() {
+    state.stars = 0; state.starKinds = []; state.n = 0; state.roundOpen = true; state.pool = null; if (starCount) starCount.reset(); state.roundStart = performance.now();
+    const go = () => { if (HG) HG.start(); setTimeout(onScreen, 60); askNext(); };
+    // Golan 30.10 (every sound game): the first game of a child starts with the demo; the "?" card plays it again
+    setTimeout(onScreen, 60);
+    if (state.demoNext || !demoSeen()) { state.demoNext = false; runDemo(go); } else go();
+  }
+  let endP = null;
+  // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: scene, dom: [].filter(Boolean) }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
+  // the sand is out: the round ends at once, it does not wait for the child (Golan 29.10)
+  function timeUp() {}   // Golan 29.10 15:10: time up waits for the current turn; the round ends at its end (the hourglass done() checks)
+  function endRound() {
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
+    state.mode = "end"; state.q = null; if (HG) HG.stop();
+    let day = null;
+    if (LRN && state.roundOpen) { try { day = prof() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null; } catch (e) {} state.roundOpen = false; }
+    moles.forEach((m) => { if (m.state !== "off") { m.state = "duck"; m.t = 0; } });
+    sparks.emitRate = 0;
+    $("end").hidden = false; $("pause").hidden = true;
+    const sug = day && day.suggest, gt = (pl, m, f) => { const g = prof() && prof().gender; return g === "m" ? m : g === "f" ? f : pl; };
+    const note = !sug ? "" : sug === "break" ? gt("זמן להתמתח! קומו רגע, ונמשיך.", "זמן להתמתח! קום רגע, ונמשיך.", "זמן להתמתח! קומי רגע, ונמשיך.") : "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.";
+    if (sug === "break" && LRN.breakShown) LRN.breakShown();
+    // sounds, not letters (as sound memory and the sound wheel)
+    const opts = { stars: state.starKinds.map((k) => (k === "silver" ? "silver" : "gold")), letters: false, sounds: !!prof(), note };
+    if (LRN && LRN.endPanel) {
+      if (!endP) endP = LRN.endPanel($("end"), { ...opts, buttons: [{ text: "לסיים", ghost: true, id: "finish", onClick: () => $("doorEnd").click() }, { text: "עוד סיבוב", primary: true, id: "again", onClick: playAgain }] });
+      else endP.set(opts);
+    }
+    say(LINES.done);
+    if (sug) whenQuiet(() => later(() => { if (state.mode === "end") say(sug === "break" ? "day_break" : "day_end"); }, 300));
+  }
+  // the small speaker on the big sign says the sound (syl_*), Golan 30.10
+  $("replay").addEventListener("click", () => {
+    const q = state.q; if (!q || q.done || state.demo || !["play", "between"].includes(state.mode)) return;
+    unlockAudio(); q.repeats++; playSeq([SOUNDS[q.letter].s]);
+  });
+
+  // ---------- settings (the one shared form) ----------
+  let modeBeforeSettings = null;
+  function syncSeg() { $("perf").hidden = true /* no FPS box (Golan 28.10) */; }
+  function renderLetters() {
+    if (form) return form.refresh();
+    if (!LRN || !LRN.settingsForm) return;
+    const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
+    form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, יש יותר חורים ויותר חפרפרות.",
+      levels: ["5 חורים ו-2 חפרפרות. החפרפרות מחכות עד שנוגעים בהן.",
+        "7 חורים ו-3 חפרפרות. כל חפרפרת בחוץ 6 שניות, ואז קופצת מחור אחר.",
+        "10 חורים ו-4 חפרפרות. כל חפרפרת בחוץ 4 שניות, ואז קופצת מחור אחר."],
+      onLevel: () => { levelChanged = true; },
+      // the sounds, as sound memory and the sound wheel (no "סוג כתב" row: print only in the sound games)
+      picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); state.pool = null; lettersChanged = true; } },
+      quality: seg("quality", () => applyQuality()),
+      tech: { perf: seg("perf"), diag: () => diagnostics() } });
+  }
+  let levelChanged = false, lettersChanged = false;
+  function openSettings() { holdGame(); syncSeg(); renderLetters(); if (form && form.closeTech) form.closeTech(); $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0)); }
+  function holdGame() {
+    if (state.mode !== "paused") { modeBeforeSettings = state.mode; state.mode = "paused"; }
+    if (!pausedAt) pausedAt = performance.now();
+    if (seqBusy && curSeq) { heldSeq = heldSeq || curSeq; hush(); }
+    else if (clipNow && !clipNow.paused) { heardIntro = false; hush(); }
+  }
+  function closeSettings() {
+    $("settings").hidden = true;
+    if (levelChanged) { levelChanged = false; layoutHoles(); onScreen(); const q = state.q; if (q && !q.done && modeBeforeSettings === "play") { duckAll(q); q.done = true; modeBeforeSettings = "between"; setTimeout(() => { if (state.mode === "between") askNext(); }, 500); } }
+    lettersChanged = false;
+    if (!bgHold) releaseGame();
+  }
+  function releaseGame() {
+    if (state.mode === "paused" && pausedFrom === null) {
+      state.mode = modeBeforeSettings || "play";
+      if (pausedAt) { pausedTotal += performance.now() - pausedAt; pausedAt = 0; }
+    }
+    if (pausedFrom !== null) return;
+    if (state.mode === "ready") { heldSeq = null; countdown(); return; }
+    const q = state.q;
+    if (state.mode === "play" && q && !q.done) { heldSeq = null; speakQuestion(q, 1); return; }   // the current question once more
+    if (heldSeq) { const h = heldSeq; heldSeq = null; playSeq(...h); return; }
+    if (!$("start").hidden && !heardIntro) later(autoIntro, 600);
+  }
+  $("gear").addEventListener("click", openSettings);
+  addEventListener("fl:gear", openSettings);
+  ["gearStart", "gearPick", "gearEnd", "gearPause"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("xSettings").addEventListener("click", closeSettings);
+  $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
+  syncSeg();
+
+  // ---------- pause, and the app in the background ----------
+  let pausedFrom = null, pausedClip = null;
+  voiceHold = () => !$("settings").hidden || pausedFrom !== null || bgHold;
+  let bgHold = false;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { if (bgHold) return; if ($("settings").hidden) holdGame(); else hush(); bgHold = true; engine.stopRenderLoop(); }
+    else if (bgHold) { bgHold = false; engine.runRenderLoop(renderFrame); if ($("settings").hidden) releaseGame(); }
+  });
+  function pauseGame() {
+    if (state.mode === "paused" || state.mode === "end" || state.mode === "ready" || $("hud").hidden) return;
+    pausedFrom = state.mode; state.mode = "paused"; pausedAt = performance.now();
+    pausedClip = clipNow && !clipNow.paused ? clipNow : null; if (pausedClip) pausedClip.pause();
+    $("paused").hidden = false;
+  }
+  function resumeGame() {
+    if (pausedFrom === null) return;
+    state.mode = pausedFrom; pausedFrom = null;
+    if (pausedAt) { pausedTotal += performance.now() - pausedAt; pausedAt = 0; }
+    if (pausedClip) pausedClip.play().catch(() => {}); pausedClip = null;
+    if (heldSeq) { const h = heldSeq; heldSeq = null; playSeq(...h); }
+    $("paused").hidden = true;
+  }
+  $("pause").addEventListener("click", () => (pausedFrom === null ? pauseGame() : resumeGame()));
+  $("resume").addEventListener("click", resumeGame);
+  $("paused").addEventListener("pointerdown", (e) => { if (e.target === $("paused")) resumeGame(); });
+
+  // ---------- performance meter ----------
+  const fpsSamples = []; let lastPerfUpdate = 0, loadMs = 0;
+  function countTris() { let n = 0; const a = scene.getActiveMeshes(); for (let i = 0; i < a.length; i++) { const m = a.data[i]; n += (m && m.getTotalIndices ? m.getTotalIndices() : 0) / 3; } return Math.round(n); }
+  function diagnostics() {
+    const avg = fpsSamples.length ? fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length : 0;
+    return [`FPS avg: ${avg.toFixed(1)}`, `Load to ready: ${(loadMs / 1000).toFixed(1)}s`, `Render: ${engine.getRenderWidth()}x${engine.getRenderHeight()}  dpr ${window.devicePixelRatio}`,
+      `Triangles on screen: ${countTris().toLocaleString()}`, `Babylon ${BABYLON.Engine.Version}`, `Voice clips: ${clipStatus.ok} loaded, ${clipStatus.missing} missing`,
+      `Shared child card: ${LRN ? "loaded" : "missing"}`].join("\n");
+  }
+  function updatePerf(now) {
+    const fps = engine.getFps();
+    if (isFinite(fps) && fps > 0 && state.mode === "play") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); }
+    if (now - lastPerfUpdate < 500 || true /* no FPS box (Golan 28.10) */) return;
+    lastPerfUpdate = now;
+    $("perf").innerHTML = `<b class="${fps >= 50 ? "good" : fps >= 30 ? "ok" : "bad"}">${fps.toFixed(0)}</b> FPS<br>▲ ${countTris().toLocaleString()}`;
+  }
+
+  // ---------- main loop ----------
+  const easeOutBack = (k) => { const c = 1.6; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+  scene.onBeforeRenderObservable.add(() => {
+    const rdt = Math.min(engine.getDeltaTime() / 1000, 0.05), dt = rdt * motionK(), now = performance.now(); motionMs += dt * 1000;
+    const paused = state.mode === "paused";
+    if (!paused) state.gameT += dt;
+    const T = state.gameT, q = state.q;
+    for (const c of skyClouds) { c.position.x += dt * c.speed; if (c.position.x > 24) c.position.x = -24; }
+    island.position.y = Math.sin(T * 0.7) * 0.06;   // the island floats gently
+    if (!paused) for (const m of moles) {
+      if (m.state === "off") continue;
+      m.t += dt;
+      const k0 = m.t - m.delay;
+      if (m.state === "rise") {
+        if (k0 < 0) { m.body.position.y = m.down; continue; }
+        if (k0 < dt + 0.001) sfx.peek();
+        const k = Math.min(1, k0 / 0.75); m.body.position.y = m.down * (1 - easeOutBack(k));
+        if (k >= 1) { m.state = "up"; m.t = 0; m.upAt = state.gameT; }
+      } else if (m.state === "up") {
+        m.body.position.y = Math.sin(T * 2.2 + m.ph) * 0.04 * S;
+        m.tilt.rotation.z = Math.sin(T * 1.6 + m.ph) * 0.04;
+        if (m.hint) { const p = 1 + Math.sin(T * 7) * 0.05; m.tilt.scaling.set(p, p, p); }
+      } else if (m.state === "upset") {   // a first mistake on this picture (Golan 30.10): a shake of the head, then it stays up
+        const k = Math.min(1, m.t / 0.9);
+        m.body.position.y = Math.sin(T * 2.2 + m.ph) * 0.04 * S - 0.06 * S * Math.sin(k * Math.PI);
+        m.tilt.rotation.z = Math.sin(k * Math.PI * 5) * 0.16 * (1 - k);
+        if (k >= 1) { m.state = "up"; m.t = 0; m.brows.forEach((b) => b.setEnabled(false)); }
+      } else if (m.state === "sad") {   // a shake of the head, a droop, then down into the hole
+        const k = Math.min(1, m.t / 1.1);
+        m.tilt.rotation.z = Math.sin(k * Math.PI * 5) * 0.16 * (1 - k);
+        m.body.position.y = k < 0.55 ? -0.1 * S * (k / 0.55) : -0.1 * S + (m.down + 0.1 * S) * Math.pow((k - 0.55) / 0.45, 2);
+        if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
+      } else if (m.state === "bonk") {   // a soft squash (the touch), its picture awake for a moment (m.hold), then down
+        const k = Math.min(1, m.t / 0.85), d0 = 0.425 + (m.hold || 0);
+        const sq = k < 0.25 ? 1 - 0.32 * Math.sin((k / 0.25) * Math.PI / 2) : 0.68 + 0.32 * Math.min(1, (k - 0.25) / 0.2);
+        m.tilt.scaling.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
+        m.body.position.y = m.t < d0 ? 0 : m.down * Math.pow(Math.min(1, (m.t - d0) / 0.425), 2);
+        if (m.t >= d0 + 0.425) { m.state = "off"; m.hold = 0; m.root.setEnabled(false); }
+      } else if (m.state === "duck") {
+        const k = Math.min(1, m.t / 0.65); m.body.position.y = Math.min(m.body.position.y, m.down * k * k);
+        if (k >= 1) { m.state = "off"; m.root.setEnabled(false); }
+      }
+    }
+    // the hint: sparkles around the right mole
+    const hm = q && !q.done && moles.find((m) => m.hint && m.state === "up");
+    if (hm && !paused) { const p = hm.root.getAbsolutePosition(); sparks.emitter = new BABYLON.Vector3(p.x, p.y + hm.body.position.y, p.z - 0.3 * S); sparks.emitRate = 40; } else sparks.emitRate = 0;
+    if (!paused && q && !q.done && state.mode === "play") {
+      const outNow = outMoles();
+      if (q.phase === "rising" && outNow.length && outNow.every((m) => m.state === "up" || m.state === "upset")) {
+        q.phase = "up";
+        // the question at the first coming up, and every second time the moles come back (levels 2 and 3)
+        if (q.cycle === 0 || q.cycle % 2 === 0) whenQuiet(() => { if (state.q === q && !q.done && !q.locked) speakQuestion(q, q.cycle ? 0.92 : 1); });
+      }
+      if (q.phase === "up" && STAY_MS[lvl()] !== Infinity && q.armed) {
+        // levels 2 and 3: all out for 4 / 2.5 s the first time, then one after another (Golan 23.10); the speed slider too
+        if (q.rotLeft == null) q.rotLeft = q.stayLeft;
+        q.rotLeft -= rdt * 1000 * motionK();
+        if (q.rotLeft <= 0) q.rotLeft = rotateStep(q);
+      }
+      if (q.phase === "up" && !busy() && !q.locked && !q.demo) {
+        if (q.firstEnd) {
+          const t = clock(), since = (t - q.firstEnd) / 1000, sinceLast = (t - q.lastEnd) / 1000;
+          if (q.autoRep < 2 && (q.autoRep === 0 ? since > REPEAT_S : sinceLast > 8)) { q.autoRep++; q.repeats++; q.lastEnd = Infinity; speakQuestion(q, 0.85); }
+        }
+      }
+      if (q.phase === "wait") popMoles(q);   // back from settings in the middle of a "down and up"
+    }
+    updatePerf(now);
+  });
+  // after every frame: the waking picture follows its mole, and the small speakers sit at each picture's bottom-left corner
+  const spks = moles.map((m) => {
+    const b = document.createElement("button"); b.className = "pic-spk"; b.type = "button"; b.setAttribute("aria-label", "שם התמונה"); b.textContent = "🔊";
+    b.addEventListener("pointerdown", (e) => e.stopPropagation());
+    // a tap says the picture's word; it is not an answer and not a mistake (sound detective, Golan 28.10 19:02)
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (state.demo || !(m.state === "up" || m.state === "upset")) return; unlockAudio(); playSeq([wordOf(m.pic)]); });
+    $("picSpks").append(b); return b;
+  });
+  scene.onAfterRenderObservable.add(() => {
+    placeWake();
+    const q = state.q, live = !state.demo && !$("hud").hidden && (state.mode === "play" || state.mode === "between") && q;
+    moles.forEach((m, i) => {
+      const b = spks[i], on = !!live && (m.state === "up" || m.state === "upset");
+      b.classList.toggle("on", on); if (!on) return;
+      const r = signRect(m), w = r.x1 - r.x0, d = Math.round(Math.max(34, Math.min(48, w * 0.3)));
+      if (b._d !== d) { b._d = d; Object.assign(b.style, { width: d + "px", height: d + "px", margin: -d / 2 + "px 0 0 " + -d / 2 + "px", lineHeight: d + "px", fontSize: Math.round(d / 2) + "px" }); }
+      b.style.left = Math.round(r.x0 + w * 0.04) + "px"; b.style.top = Math.round(r.y1 - (r.y1 - r.y0) * 0.04) + "px";   // on the corner, half outside the picture
+    });
+  });
+  const renderFrame = () => scene.render();
+  engine.runRenderLoop(renderFrame);
+  const onScreen = () => { placeGuide(); fitCamera(); };
+  if (SCR) SCR.onChange(onScreen); else window.addEventListener("resize", () => { applyQuality(); onScreen(); });
+  window.addEventListener("resize", () => setTimeout(onScreen, 50));
+
+  // ---------- start screen ----------
+  const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
+    document.fonts.load(`800 150px "Noto Sans Hebrew"`, "בַּגָּ"), new Promise((r) => setTimeout(r, 4000))]).catch(() => {}) : Promise.resolve();
+  Promise.all([fontReady, picsReady]).then(() => {
+    moles.forEach((m) => drawSign(m, null, false));   // a texture must be drawn once before the scene counts as ready
+    layoutHoles();
+    return scene.whenReadyAsync();
+  }).then(() => {
+    loadMs = performance.now() - T0; onScreen();
+    $("go").disabled = false; $("go").textContent = "יוצאים לדרך";
+  });
+  let heardIntro = false;
+  const gl = (id) => voiceId(id);   // the boy / girl clip when it is recorded, else the plural one
+  const gt = (pl, m, f) => { const g = prof() && prof().gender; return g === "m" ? m : g === "f" ? f : pl; };
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip(LINES.name);
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say(gl(LINES.intro))); }
+  function autoIntro() {
+    if (heardIntro || $("start").hidden || !$("settings").hidden || document.querySelector(".fl-ov")) return;
+    const a = getClip(gl(LINES.intro)); if (a._bad) { if (!getClip(LINES.name)._bad) nameFirst(() => {}, true).then(() => { heardIntro = true; }).catch(() => {}); return; }
+    const my = screenTok;
+    if (!a._ok) { const again = () => { if (my === screenTok) autoIntro(); }; a.addEventListener("canplaythrough", again, { once: true }); a.addEventListener("error", again, { once: true }); return; }
+    nameFirst(() => { if (my !== screenTok) return; clipNow = a; a.currentTime = 0; a.play().catch(() => {}); }, true)
+      .then(() => { if (my !== screenTok) { if (clipNow) clipNow.pause(); return; } heardIntro = true; }).catch(() => {});
+  }
+  function genderTexts() {
+    // Golan 30.10: one description line (smole_start2 / _m / _f), as the other sound games
+    $("startText").textContent = gt("מַכִּים בַּחֲפַרְפָּרוֹת שֶׁהַתְּמוּנָה שֶׁלָּהֶן מַתְחִילָה בַּצְּלִיל", "הַכֵּה בַּחֲפַרְפָּרוֹת שֶׁהַתְּמוּנָה שֶׁלָּהֶן מַתְחִילָה בַּצְּלִיל", "הַכִּי בַּחֲפַרְפָּרוֹת שֶׁהַתְּמוּנָה שֶׁלָּהֶן מַתְחִילָה בַּצְּלִיל");
+  }
+  const whoReady = LRN ? LRN.chooseChild() : Promise.resolve();
+  whoReady.then(() => { genderTexts(); renderLetters(); layoutHoles(); drawGuide(); }).then(() => later(autoIntro, 1500));
+  $("doorStart").addEventListener("click", (e) => {
+    e.stopPropagation(); leaveScreen(); $("go").classList.remove("pressed");
+    if (LRN && LRN.fromHub && LRN.hubUrl) { location.href = LRN.hubUrl + "#games"; return; }
+    if (document.referrer && history.length > 1) { history.back(); return; }
+    if (LRN) LRN.chooseChild().then(() => { syncSeg(); if (form) form.refresh(); genderTexts(); layoutHoles(); drawGuide(); }).then(() => { heardIntro = false; later(autoIntro, 1500); });
+  });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(); });
+  $("start").addEventListener("pointerdown", (e) => { if (document.querySelector(".fl-ov")) return; if (!heardIntro && !e.target.closest("#go, #hear, #gearStart, #doorStart")) { unlockAudio(); sayIntro(); } });
+  $("go").addEventListener("click", () => {
+    hush(); unlockAudio();
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
+    leaveScreen(); say(LINES.go);
+    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; startPlay(); }, 1600);
+  });
+  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; startPlay(); }
+  // Golan 23.10: no picker; straight to 3, 2, 1
+  function startPlay() { if (starCount) starCount.reset(); $("hud").hidden = false; countdown(); }
+  function stopPickFlash() {}   // no picker in this game (as the letter mole)
+  let picking = false;
+
+  // ---------- the demo (Golan 30.10, every sound game: the first game of each child; the "?" card plays it again) ----------
+  // Two examples: the moles come up as usual, Hila asks the question, a hand goes to the mole whose picture opens with the sound
+  // and knocks it (its sound and word are said, the picture wakes); then "נַחֲזֹר לְשַׂחֵק" (demo_back, silent until recorded).
+  // The shared demo look: FL.demoFrame + FL.demoArrow; the hourglass waits; no star and no record.
+  const demoKey = () => "fl-soundmole-demo-" + (prof() ? prof().id : "guest");
+  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
+  const hand = $("demoHand"); let demoRaf = 0, demoTok = 0, demoCont = null;
+  function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
+  function moveHand(from, to, dur, then) {
+    const t0 = performance.now();
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      hand.style.left = from.x + (to.x - from.x) * e + "px"; hand.style.top = from.y + (to.y - from.y) * e + "px";
+      if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
+    hand.classList.add("show"); step();
+  }
+  function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
+  function runDemo(done) {
+    const my = ++demoTok; hush(); state.demo = true; demoCont = null;
+    if (window.FL && FL.demoFrame) FL.demoFrame(true);
+    const alive = () => my === demoTok && state.demo;
+    const at = (m) => { const s = screenOf(m), r = canvas.getBoundingClientRect(); return { x: r.left + s.x, y: r.top + s.y, top: r.top + s.y - s.r * 0.75 }; };
+    let last = null;
+    const finish = () => {
+      if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand();
+      const q = state.q; if (q) { q.done = true; duckAll(q); }
+      playSeq([LINES.back], 1, () => setTimeout(() => { if (!alive()) return; endDemoMarks(); markDemo(); state.q = null; moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); if (done) done(); }, 500));
+    };
+    const example = (n) => {
+      const wait = () => {
+        if (!alive()) return;
+        const q = state.q, m = q && !q.done && state.mode === "play" && q.armed && moles.find((k) => k.letter === q.letter && k.state === "up");
+        if (!m || busy()) return setTimeout(wait, 150);
+        const p = at(m);
+        if (window.FL && FL.demoArrow) FL.demoArrow(p.x, p.top);
+        moveHand(last || { x: p.x + 60, y: innerHeight + 40 }, p, 1100, () => setTimeout(() => {
+          if (!alive()) return;
+          if (state.q !== q || q.done || m.state !== "up") return wait();
+          last = at(m); if (window.FL && FL.demoArrow) FL.demoArrow(null);
+          demoCont = (mm, qq) => { if (!alive()) return; if (n === 0) { replaceMole(mm, qq); example(1); } else finish(); };
+          hammerAt(m); answer(m);
+        }, 300));
+      };
+      wait();
+    };
+    playSeq([LINES.demo], 1, () => { if (!alive()) return; askNext(); example(0); });
+  }
+  // the "?" card at the bottom left plays the demo again (as in the other sound games); then the game goes on with a new question
+  function demoAgain() {
+    if (state.demo || !["play", "between"].includes(state.mode) || $("hud").hidden) return;
+    unlockAudio(); hush(); const q = state.q; if (q) { q.done = true; duckAll(q); } state.q = null;
+    setTimeout(() => runDemo(() => askNext()), 700);
+  }
+  $("helpCard").addEventListener("click", (e) => { e.stopPropagation(); demoAgain(); });
+  $("demoSettings").addEventListener("click", (e) => { e.stopPropagation(); const m = modeBeforeSettings; closeSettings(); if (["play", "between"].includes(state.mode) || ["play", "between"].includes(m)) demoAgain(); });
+
+  // ---------- 3, 2, 1, then the first moles come up ----------
+  let countToken = 0;
+  function countdown() {
+    const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");   // on clean light blue (Golan 23.10; screen.js)
+    state.mode = "ready"; state.q = null;
+    moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); });
+    layoutHoles(); setSign("?", false); onScreen();
+    const box = $("count");
+    [0, 1, 2].forEach((i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = String(3 - i); sp.style.background = "#10b947"; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      startRound();
+    }, 700 + 3 * 1000);
+  }
+
+  // ---------- door = back to the start screen (or the hub), from every screen ----------
+  function backToStart() {
+    flushPartial(); leaveScreen(); $("go").classList.remove("pressed");
+    if (pausedFrom !== null) resumeGame();
+    stopPickFlash(); picking = false; endDemoMarks();
+    state.q = null; state.mode = "intro"; if (starCount) starCount.reset(); if (HG) HG.stop();
+    countToken++; $("count").innerHTML = "";
+    moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); sparks.emitRate = 0;
+    ["hud", "end", "balloonPick", "settings", "paused"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; endDemoMarks(); flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
+  ["doorGame", "doorPick", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));   // the door always leaves to the island's game list, from every screen (Golan 28.10); opened on its own: the start screen
+  // "התחל מחדש" under the gear (Golan 23.10, all games): the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
+
+  // test hook for automated checks (games/tests/check-games.js): targets() = where the right and wrong moles are on the screen
+  window.__soundmole = { state, settings, moles, holes, answer, autoSolve, endRound, askNext, layoutHoles, runDemo, screenOf, screenBox, signRect, fitCamera, engine, scene, cam, canvas, hg: HG, lvl,
+    SOUNDS, SOUND_L, PICS_OF, alike, region: () => fitInfo, demoSeen: () => demoSeen(),
+    targets: () => { const q = state.q; if (state.demo || state.mode !== "play" || !q || q.done || q.locked) return null;
+      const up = moles.filter((m) => m.state === "up"), r = canvas.getBoundingClientRect(), at = (m) => { const s = screenOf(m); return { x: r.left + s.x, y: r.top + s.y, letter: m.letter, pic: m.pic }; };
+      return { right: up.filter((m) => m.letter === q.letter).map(at), wrong: up.filter((m) => m.letter !== q.letter).map(at) }; } };
+})();
+</script>

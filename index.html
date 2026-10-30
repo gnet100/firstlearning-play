@@ -182,6 +182,7 @@
     { id: "wheel", ac: "#f08c00", name: "גַּלְגַּל הַצְּלִילִים", path: "games/sound-wheel/index.html", bg: "#fff4dc", pic: "wheel", isle: 1, noSystem: true },   // Golan 29.10, summaries/sound-wheel-spec.md
     { id: "soundtrain", ac: "#2bb673", name: "רַכֶּבֶת הַצְּלִילִים", path: "games/sound-train/index.html", bg: "#e3f8ea", pic: "soundtrain", isle: 1, noSystem: true },   // Golan 29.10, summaries/sound-train-spec.md
     { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
+    { id: "soundmole", ac: "#a47148", name: "חֲפַרְפֶּרֶת הַצְּלִילִים", path: "games/sound-mole/index.html", bg: "#dff3ff", pic: "soundmole", isle: 1, noSystem: true },   // Golan 30.10: the letter mole with pictures (summaries/sound-mole-spec.md)
   ];
   const isleOf = (g) => g.isle || 0;
   let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
@@ -219,6 +220,15 @@
       <g transform="translate(82 20) rotate(8 20 22)"><rect width="40" height="44" rx="6" fill="#fff" stroke="#ff8fb3" stroke-width="2.5"/>${pic("ב", 20, 22, 36)}</g>
       <path d="M86 12c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="#ff5a8a"/>
       <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/></svg>`;
+  }
+  // חפרפרת הצלילים: the mole card's island, the moles hold pictures (בַּיִת, חָתוּל), the sound בַּ on a sign over them
+  function soundMolePic() {
+    const P = window.PICTURES || {}, pic = (l, x, y, s) => P[l] ? `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 1000})">${P[l].svg}</g>` : "";
+    return `<svg viewBox="0 0 160 100"><ellipse cx="80" cy="72" rx="72" ry="22" fill="#e0b373"/><path d="M12 74 Q80 112 148 74 L132 92 Q80 108 28 92 Z" fill="#a47148"/>
+      <ellipse cx="44" cy="70" rx="17" ry="6" fill="#3b2a20"/><ellipse cx="118" cy="72" rx="15" ry="5" fill="#3b2a20"/>
+      ${[[44, "ב"], [116, "ח"]].map(([x, k], i) => `<g transform="translate(${x} ${i ? 50 : 40})"><ellipse cx="0" cy="8" rx="14" ry="20" fill="#7b5a4c"/><ellipse cx="0" cy="0" rx="7" ry="5" fill="#f2c9a8"/><circle cx="0" cy="-1" r="3" fill="#ff7f9b"/><circle cx="-5" cy="-7" r="1.8" fill="#1d1d1d"/><circle cx="5" cy="-7" r="1.8" fill="#1d1d1d"/>
+        <rect x="-15" y="6" width="30" height="24" rx="4" fill="#fffaf0" stroke="#a0703f" stroke-width="2"/>${pic(k, 0, 18, 22)}<circle cx="-14" cy="8" r="3.5" fill="#f7b3c0"/><circle cx="14" cy="8" r="3.5" fill="#f7b3c0"/></g>`).join("")}
+      <g transform="translate(80 18)"><rect x="-17" y="-13" width="34" height="26" rx="13" fill="#fff" stroke="#ff8a3d" stroke-width="2.5"/><text x="0" y="0" font-size="17" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#1d2a3a" font-family="Noto Sans Hebrew, sans-serif">בַּ</text></g></svg>`;
   }
   const L = (x, y, ch, size, fill = "#1d2a3a") => `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${fill}" font-family="Noto Sans Hebrew, sans-serif">${ch}</text>`;
   const PICS = {
@@ -278,7 +288,7 @@
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
       const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
