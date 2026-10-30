@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../shared/fonts/fonts.css">
+<title>ציורים בתנועה: בלש הצלילים</title>
+<style>
+  :root { --bg: #d6ecff; --card: #ffffff; --ink: #3b2f2f; --muted: #6b5e5e; --accent: #ff9f43; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Noto Sans Hebrew", "Segoe UI", Arial, sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; max-width: 1100px; margin: 0 auto; flex-wrap: wrap; }
+  h1 { font-size: 26px; margin: 0; }
+  button { font: inherit; font-size: 18px; border: 0; border-radius: 999px; padding: 10px 22px; background: var(--accent); color: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 16px; padding: 0 16px 24px; max-width: 1100px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 24px; padding: 12px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+  .card svg { width: 100%; height: auto; display: block; }
+  .card .word { font-size: 40px; font-weight: 700; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ציורים בתנועה: 21 התמונות של בלש הצלילים</h1>
+  <button id="pause">עצירה</button>
+</header>
+<div class="grid" id="grid"></div>
+<script src="../pictures.js"></script>
+<script src="../../sound-detective/sound-pictures.js"></script>
+<script src="pictures-animated.js"></script>
+<script>
+  const KEYS = ["banana", "camel", "socks", "shoe", "tiger", "ring", "hand", "teaspoon", "firefighter", "rabbit", "watermelon", "donkey", "window", "plate", "rooster", "gnome", "chef", "painter", "rattle", "trafficLight", "crocodile"];
+  const grid = document.getElementById("grid");
+  for (const k of KEYS) {
+    if (!PICTURES_ANIMATED.svg[k]) continue;
+    const c = document.createElement("div"); c.className = "card";
+    c.innerHTML = `<svg viewBox="0 0 1000 1000">${PICTURES_ANIMATED.svg[k]}</svg>`;
+    const w = document.createElement("p"); w.className = "word"; w.textContent = PICTURES[k] ? PICTURES[k].word : k; c.append(w);
+    grid.append(c);
+  }
+  let paused = false;
+  document.getElementById("pause").onclick = (e) => { paused = !paused; PICTURES_ANIMATED.pause(paused); e.target.textContent = paused ? "המשך" : "עצירה"; };
+</script>
+</body>
+</html>
