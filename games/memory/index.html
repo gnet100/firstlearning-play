@@ -929,10 +929,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function boardDone() {
     state.mode = "between"; state.boards++;
     const win = !(HG && HG.done());   // the whole board found before the hourglass ran out (Golan 22.10)
-    if (win) { if (manualRung == null) { rung(); progress.wins++; saveProgress(); } state.roundWins++; }   // a board picked by hand does not move the system's choice (Golan 30.10)
+    if (win) { if (manualRung == null) { rung(); progress.wins++; saveProgress(); } else manualWins++; state.roundWins++; }   // a hand-picked board counts its own wins (Golan 30.10 15:25)   // a board picked by hand does not move the system's choice (Golan 30.10)
     later(ms(1200), () => {
       // the offer of a bigger board comes first, even when the hourglass ran out; the end window after it (Golan 22.10)
-      if (win && manualRung == null && progress.wins >= WINS_TO_ASK && rung() < RUNGS.length - 1) return askLevel();
+      if (win && (manualRung == null ? progress.wins : manualWins) >= WINS_TO_ASK && curRung() < RUNGS.length - 1) return askLevel();   // also after a hand pick (Golan 30.10 15:25)
       if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
       newBoard();
     });
@@ -949,7 +949,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   let askT = [];
   function askLevel() {
     state.mode = "levelask";
-    const R = rung(), box = $("boards"); box.innerHTML = "";
+    const R = curRung(), box = $("boards"); box.innerHTML = "";
     const pair = [[RUNGS[R], false], [RUNGS[R + 1], true]];
     for (const [n, up] of pair) {
       const b = document.createElement("button"); b.type = "button"; b.dataset.up = up ? "1" : "0";
@@ -972,8 +972,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function answerLevel(up) {
     if (state.mode !== "levelask") return;
     askT.forEach(clearTimeout); askT = [];
-    $("levelAsk").hidden = true; $("board").hidden = true; progress.wins = 0; saveProgress();   // no flash of the old board before the new one (Golan 22.10)
-    if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); }
+    $("levelAsk").hidden = true; $("board").hidden = true;   // no flash of the old board before the new one (Golan 22.10)
+    if (manualRung != null) { manualWins = 0; if (up) manualRung = Math.min(RUNGS.length - 1, manualRung + 1); }   // a hand pick moves up by itself; the system's choice stays (Golan 30.10)
+    else { progress.wins = 0; saveProgress(); if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); } }
     say(up ? "fb_bravo" : Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
     // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
     later(800, () => { if (HG && HG.done()) endRound(); else whenQuiet(() => later(150, newBoard)); });
@@ -982,11 +983,12 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // ---------- one round = the golden hourglass (spec 10): board after board ----------
   // Golan 30.10: the number of cards can be picked by hand on a standing slider under the hourglass; a pick starts the game again
   // with that board. It lasts while the child stays in the game and never changes the system's own choice (progress.rung).
-  let manualRung = null;
+  let manualRung = null, manualWins = 0;
+  const curRung = () => manualRung ?? rung();
   const cardPick = LRN && LRN.cardSlider ? LRN.cardSlider({ values: RUNGS.map((n) => BOARDS[n].letters + BOARDS[n].hints), get: () => manualRung ?? rung(),
     show: () => ["ready", "play", "between", "busy"].includes(state.mode) || (state.mode && !["end", "flying", "levelask", "start", "pick"].includes(state.mode)),
     onPick: (i) => {
-      manualRung = i; epoch++; askT.forEach(clearTimeout); askT = []; $("levelAsk").hidden = true; $("board").hidden = true; stopVoice();
+      manualRung = i; manualWins = 0; epoch++; askT.forEach(clearTimeout); askT = []; $("levelAsk").hidden = true; $("board").hidden = true; stopVoice();
       // no 3-2-1: only a new deal and shuffle (Golan 30.10 14:46); mid-countdown, the round starts at once
       if (state.mode === "ready") { countToken++; document.documentElement.classList.remove("fl-counting"); $("count").innerHTML = ""; startRound(); } else newBoard();
     } }) : null;
