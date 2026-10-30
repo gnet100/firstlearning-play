@@ -504,7 +504,7 @@
   const ROUND_DROPS_NOW = () => (window.FL && FL.learner && FL.learner.roundLength ? FL.learner.roundLength() : 7);
   // One train: one wagon with a picture of the asked sound, the others with pictures of other sounds (none alike)
   function makeTrain(prev) {
-    const n = carCount(), t = pickTarget(prev);
+    const n = state.demo ? 3 : carCount(), t = pickTarget(prev);   // the demo train has 3 wagons (Golan 30.10 16:04)
     const others = shuffle(SOUND_L.filter((l) => l !== t && !alike(l, t))).reduce((a, l) => (a.length < n - 1 && !a.some((x) => alike(x, l)) ? a.concat(l) : a), []);
     const letters = [t, ...others], pics = {};
     for (const l of letters) { const o = picsOf(l), fresh = l === t ? o.filter((k) => !state.usedPics.has(k)) : o; pics[l] = pickOne(fresh.length ? fresh : o); }
@@ -1344,7 +1344,7 @@
     const r = rightCar(); if (r) drawCarSign(r, "hint");
   }
   function startRound() {
-    state.usedRound.clear(); state.usedPics.clear(); if (state.demoNext || !demoSeen()) { state.demoNext = false; state.demo = true; }
+    state.usedRound.clear(); state.usedPics.clear(); if (state.demoNext || !demoSeen()) { state.demoNext = false; state.demo = true; state.demoEx = 0; }
     state.drops = 0; state.roundStart = performance.now(); state.roundWrongs = 0; state.trainNo = 0; state.letter = null;
     renderDots(); newTrain(true);
   }
@@ -1372,7 +1372,8 @@
   const moveMode = () => ["hand", "slow", "fast"][lvl() - 1] || "hand";   // Golan 30.10 07:17: as the letter train: level 1 the child moves it, levels 2-3 it flies by itself and the cube is dropped in flight (+ more wagons)
   const autoMove = () => moveMode() === "slow" || moveMode() === "mid" || moveMode() === "fast";   // 4 motion levels like the other games (17.10): still, slow, medium, fast
   // Golan 30.10 06:36: a touch drops only a cube that is there now (a touch kept from before dropped it later, by itself, anywhere)
-  function requestDrop() { if (state.phase === "ask" && state.crate && state.crateIn >= 1 && !state.paused && !(state.auto && !state.autoDrop) && performance.now() >= (state.tapPause || 0)) state.wantDrop = true; }   // Golan 29.10 21:22: a short rest after a mistake; nothing while the game solves it
+  function requestDrop() { if (state.demo && !state.autoDrop) return;   // a tap during the demo never drops the letter (Golan 30.10 16:04: it fell in the middle of the names)
+    if (state.phase === "ask" && state.crate && state.crateIn >= 1 && !state.paused && !(state.auto && !state.autoDrop) && performance.now() >= (state.tapPause || 0)) state.wantDrop = true; }   // Golan 29.10 21:22: a short rest after a mistake; nothing while the game solves it
 
   // The box is let go over a car.
   function doDrop() {
@@ -1503,8 +1504,10 @@
     const ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : [S.s, W, "fb_correct"];   /* Golan 29.10 21:27: first the sound and the word, then the praise */   // "יש! נכון!" first, then "רָ... רַעֲשָׁן" (Golan 29.10)
     stopSeq();
     // Golan 30.10 06:37: the train sets off as the praise starts (not after it)
-    const go = () => { if (state.train !== myTrain || state.phase !== "cheer") return; if (demo) endDemo(); callLoco(); };   // one right drop and the train goes; a new train with other pictures comes in
-    if (!auto) ids.splice(ids.indexOf("fb_correct"), 0, go);
+    const go = () => { if (state.train !== myTrain || state.phase !== "cheer") return;
+      if (demo && ++state.demoEx >= 2) { endDemo(); return playIds(["demo_back"], () => after(400, callLoco)); }   // after the 2nd example: "נַחֲזֹר לְשַׂחֵק", then the game (Golan 30.10 16:04)
+      callLoco(); };   // one right drop and the train goes; a new train with other pictures comes in
+    if (!auto && !demo) ids.splice(ids.indexOf("fb_correct"), 0, go);
     after(250, () => playIds(ids, () => after(300, go)));
   }
   // All cars are full: the balloon flies away, the engine whistles twice, then pulls the train away slowly.
@@ -1790,7 +1793,7 @@
     if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays, an arrow at each picture as it is named
     const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = signScreen(c, true); FL.demoArrow(a.x, a.y); }, noArrow = () => FL.demoArrow && FL.demoArrow(null);
     const names = []; for (const c of activeCars().slice().sort((a, b) => a.root.getAbsolutePosition().x - b.root.getAbsolutePosition().x)) names.push(() => { drawCarSign(c, "glow"); arrow(c); }, PICS[c.pic] && PICS[c.pic].clip, () => { drawCarSign(c, "normal"); noArrow(); });
-    playIds(["sd_demo", ...names, ...qIds(L)], () => {
+    playIds([...(state.demoEx ? [] : ["sd_demo"]), ...names, ...qIds(L)], () => {   // two examples (Golan 30.10 16:04); the opening line only before the first
       if (!state.demo || state.train !== T) return;
       const c = rightCar(); if (!c) return endDemo();
       const at = signScreen(c), r = canvas.getBoundingClientRect();
@@ -1806,7 +1809,7 @@
   $("helpCard").addEventListener("click", (e) => {
     e.stopPropagation(); unlockAudio();
     if (state.demo || !["ask", "bounce"].includes(state.phase) || state.auto) return;
-    stopSeq(); state.demo = true; replaceTrain();
+    stopSeq(); state.demo = true; state.demoEx = 0; replaceTrain();
   });
 
   // ---------- settings panel ----------
