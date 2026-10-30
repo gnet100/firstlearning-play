@@ -1041,7 +1041,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     show: () => !state.demo && (["ready", "play", "between", "busy"].includes(state.mode) || (state.mode && !["end", "flying", "levelask", "start", "pick", "intro", "demo"].includes(state.mode))),
     onPick: (i) => {
       manualRung = i; epoch++; askT.forEach(clearTimeout); askT = []; $("levelAsk").hidden = true; $("board").hidden = true; stopVoice();
-      countdown();
+      // no 3-2-1: only a new deal and shuffle (Golan 30.10 14:46); mid-countdown, the round starts at once
+      if (state.mode === "ready") { countToken++; document.documentElement.classList.remove("fl-counting"); $("count").innerHTML = ""; startRound(); } else newBoard();
     } }) : null;
   function startRound() {
     epoch++;
