@@ -45,7 +45,7 @@
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
 
   .stars {
     position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
@@ -103,7 +103,7 @@
     background: #ffffffcc; color: var(--ink); font-size: 46px; font-weight: 800; box-shadow: 0 4px 0 #0003;
     display: grid; place-items: center; cursor: pointer;
   }
-  .arrow:active { transform: translateY(3px); box-shadow: 0 1px 0 #0003; }
+  .arrow:active { box-shadow: 0 1px 0 #0003; }
   /* new in the train game: the drop button, between the two arrows */
   .arrow.drop { background: var(--accent); color: #fff; box-shadow: 0 4px 0 #c45f1d; }
   .arrow.drop:active { box-shadow: 0 1px 0 #c45f1d; }
@@ -136,7 +136,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; }
@@ -1301,7 +1301,7 @@
   }
   function dropStar() { const cr = state.starCr; if (!cr) return; cr.root.dispose(); const j = crates.indexOf(cr); if (j >= 0) crates.splice(j, 1); state.starCr = null; }
   // Golan 29.10 20:12: the balloon comes in and goes out slower; the same numbers in the letter train and the sound train
-  const BAL_IN_MIN = 1.2, BAL_IN_K = 0.8, BAL_OUT_K = 0.55;
+  const BAL_IN_MIN = 1.2, BAL_IN_K = 0.8, BAL_OUT_K = 0.55, BAL_UP_K = 1.0;   // BAL_UP_K: the rise after a right drop, faster (Golan 30.10 06:38); same numbers in both train games
   const LIFT_OUT = 9;   // how high the balloon rises after a right drop before it is out of sight
   // the next pass of the balloon (levels 2-4) comes in with a new cube of the same letter, already tied on (Golan 18.10)
   function newCubeOn() {
@@ -1638,7 +1638,10 @@
     const px = worldXAt(e.clientX, e.clientY);
     { const r = canvas.getBoundingClientRect(), k = engine.getRenderWidth() / r.width;
       const hit = scene.pick((e.clientX - r.left) * k, (e.clientY - r.top) * k, (m) => m.isVisible && m.isDescendantOf(balloon), false, cam);
-      drag.onBalloon = !!(hit && hit.hit); }
+      drag.onBalloon = !!(hit && hit.hit);
+      // Golan 30.10 06:54 (as in the sound train): a tap on a car or its sign sends the balloon there and drops the letter in it
+      const hc = drag.onBalloon ? null : scene.pick((e.clientX - r.left) * k, (e.clientY - r.top) * k, (m) => m.isVisible && activeCars().some((c) => m.isDescendantOf(c.root)), false, cam);
+      drag.car = hc && hc.hit ? activeCars().findIndex((c) => hc.pickedMesh.isDescendantOf(c.root)) : -1; }
     drag.startBX = drag.x = px == null ? state.bx : clampX(px);
     drag.dir = Math.abs(drag.x - state.bx) > 0.3 ? Math.sign(drag.x - state.bx) : 0; drag.lane = nearestLane(state.bx);
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
@@ -1663,6 +1666,7 @@
     // exactly under the balloon (not snapped to a car's middle); a touch anywhere else only moves the balloon there.
     const tap = Math.abs(e.clientX - drag.startX) < 8 && Math.abs(e.clientY - drag.startY) < 8;
     if (autoMove()) { state.flingV = 0; if (e.type === "pointerup") requestDrop(); return; }   // levels 2-3: a touch anywhere drops the letter
+    if (tap && !drag.onBalloon && drag.car >= 0) { state.freeX = null; state.lane = drag.car; state.flingV = 0; if (e.type === "pointerup") requestDrop(); return; }
     if (tap && !drag.onBalloon) { state.freeX = x; l = nearestLane(x); state.lane = Math.max(0, Math.min(LANE_X.length - 1, l)); return; }
     state.freeX = state.bx; l = nearestLane(state.bx);
     state.lane = Math.max(0, Math.min(LANE_X.length - 1, l));
@@ -2053,7 +2057,7 @@
     if (dt > 0) state.bVel = (state.bVel || 0) + (((state.bx - (state.bxPrev ?? state.bx)) / dt) - (state.bVel || 0)) * Math.min(1, dt * 20);
     state.bxPrev = state.bx;
     // Golan 18.10: after a right drop the balloon rises up and out of the screen (and comes back only with the next train)
-    if (state.flyUp != null) { state.flyUp += dt * BAL_OUT_K; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
+    if (state.flyUp != null) { state.flyUp += dt * BAL_UP_K; const u = Math.max(0, state.flyUp - 0.4); state.lift = u < 0.4 ? 1.06 * u * u : 0.17 + 0.85 * (u - 0.4) + 0.25 * Math.max(0, u - 1.5) ** 2;   /* Golan 18.10: slow while it is near the cars; higher up it speeds up gently, so the next cube is not kept waiting */   /* Golan 18.10 (later): slower again */ } else state.lift = 0;   // a soft start, then one steady speed up and out (Golan 18.10)
     let lift = state.lift;
     if (state.bounce) {   // wrong car: the balloon jumps up a little and settles (like the car backing off)
       state.bounce.t += dt; const k = Math.min(1, state.bounce.t / 0.7);
@@ -2292,7 +2296,17 @@
   // A door or any screen change stops every voice: the playing clip and the intro that waits to start (Golan 16.10, all games)
   let goT = 0;
   function stopVoice() { clearTimeout(introT); introT = 0; introTok++; if (clipNow) clipNow.pause(); try { speechSynthesis.cancel(); } catch (e) {} }
-  function sayIntro() { heardIntro = true; say("הוראות", 1); }
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_train");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say("הוראות", 1)); }
   let introTok = 0;   // bumped by stopVoice(): an intro that was waiting (timer or clip loading) never plays after a door or "יוצאים לדרך"
   function autoIntro(tok) {
     if (tok === undefined) tok = introTok; else if (tok !== introTok) return;
@@ -2301,7 +2315,8 @@
     if (a._bad) { heardIntro = true; return; }
     if (!a._ok) return a.addEventListener("canplaythrough", () => autoIntro(tok), { once: true });
     if (clipNow) clipNow.pause();
-    a.currentTime = 0; clipNow = a; a.play().then(() => { heardIntro = true; }).catch(() => { if (clipNow === a) clipNow = null; });   // the handle is set first, so a door can stop a clip that is just starting
+    nameFirst(() => { if (tok !== introTok) return; a.currentTime = 0; clipNow = a; a.play().catch(() => { if (clipNow === a) clipNow = null; }); }, true)
+      .then(() => { heardIntro = true; }).catch(() => { clipNow = null; });   // the handle is set first, so a door can stop a clip that is just starting
   }
   if (!(window.FL && FL.learner)) introT = setTimeout(autoIntro, 1500);   // a moment to look at the screen before Hila speaks (Golan 16.10, all games)
   $("hear").addEventListener("click", (e) => { e.stopPropagation(); sayIntro(); });

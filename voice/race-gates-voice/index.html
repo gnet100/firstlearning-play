@@ -41,7 +41,7 @@
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
   .round-btn[hidden] { display: none; }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
 
   .stars {
     position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
@@ -98,7 +98,7 @@
     background: #ffffffcc; color: var(--ink); font-size: 46px; font-weight: 800; box-shadow: 0 4px 0 #0003;
     display: grid; place-items: center; cursor: pointer;
   }
-  .arrow:active { transform: translateY(3px); box-shadow: 0 1px 0 #0003; }
+  .arrow:active { box-shadow: 0 1px 0 #0003; }
 
   .perf {
     position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
@@ -138,7 +138,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   /* start screen: "יוצאים לדרך" in the middle, speaker at the end of the row, space between (Golan, 14.10) */
@@ -1600,7 +1600,17 @@
   // Read the start instructions aloud (clip ins_start). Browsers block sound before the first click,
   // so we try on load, then again on the first touch of the start screen, and on the 🔊 button.
   let heardIntro = false;
-  function sayIntro() { heardIntro = true; say("הוראות", 1); }
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_race");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say("הוראות", 1)); }
   // In the phone app (Capacitor) autoplay is allowed, so this always plays there. In Edge it plays if autoplay is set to "Allow".
   const introTok = navTok;   // a door before the intro plays cancels it for good (Golan, 16.10)
   function autoIntro() {
@@ -1610,7 +1620,7 @@
     if (a._bad) { heardIntro = true; return sayBrowser("הוראות", 0.8); }
     if (!a._ok) return a.addEventListener("canplaythrough", autoIntro, { once: true });
     if (clipNow) clipNow.pause();
-    a.currentTime = 0; clipNow = a; a.play().then(() => { heardIntro = true; }).catch(() => {});
+    nameFirst(() => { if (navTok !== introTok) return; a.currentTime = 0; clipNow = a; a.play().catch(() => {}); }, true).then(() => { heardIntro = true; }).catch(() => {});
   }
   setTimeout(autoIntro, 1500);   // let the child look at the screen first (Golan, 16.10)
   $("hear").addEventListener("click", (e) => { e.stopPropagation(); sayIntro(); });

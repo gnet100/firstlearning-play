@@ -55,7 +55,7 @@
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
 
   .stars {
     position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
@@ -129,7 +129,7 @@
   }
   .jbtn.yes { background: #34b36b; color: #fff; box-shadow: 0 5px 0 #1f8048; }
   .jbtn.no { background: #ffffffe6; color: var(--ink); box-shadow: 0 5px 0 #0003; }
-  .jbtn:active { transform: translateY(3px); }
+  .jbtn:active { filter: brightness(.92); }
   .jbtn:disabled { opacity: .35; cursor: default; transform: none; }
   .jbtn.flash { animation: jFlash 1.4s ease-in-out; }   /* nobody tapped yet: the buttons lift a little, slowly */
   @keyframes jFlash { 50% { transform: translateY(-14px); } }
@@ -161,7 +161,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }

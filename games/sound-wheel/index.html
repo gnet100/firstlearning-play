@@ -35,7 +35,7 @@
   #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
     border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
     font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
-  #helpCard:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a3fd1; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
   #demoStart { display: none; }   /* the card in the game replaces the button in the start window */
   .hud[hidden] { display: none; }
 
@@ -54,7 +54,7 @@
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
 
   .stars {
     position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
@@ -133,7 +133,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
@@ -389,7 +389,7 @@
   #starSpk { position: absolute; left: -6%; bottom: -6%; width: max(calc(var(--ss) * .22), var(--tap-s, 44px)); height: max(calc(var(--ss) * .22), var(--tap-s, 44px)); border-radius: 50%; border: 0;
     background: #fff; box-shadow: 0 2px 8px #0003; display: grid; place-items: center; font-size: calc(var(--ss) * .11); cursor: pointer; pointer-events: auto; padding: 0; }
   #starSpk:active { transform: scale(.92); }
-  #starSpk { display: none; }   /* Golan 29.10: no speaker on the picture card */
+  #starSpk { left: 4%; bottom: 4%; }   /* Golan 30.10 06:46: a speaker at the bottom of the picture card again (bottom-left corner, as in the sound detective); 29.10 had none */
   /* the round answer balls: a letter with its nikud, always inside and in the middle (spec 6) */
   #balls { position: fixed; left: 0; right: 0; display: flex; justify-content: center; align-items: flex-start; gap: var(--bg); direction: rtl; pointer-events: none; }
   #balls[hidden] { display: none; }
@@ -424,7 +424,7 @@
     padding: 0 calc(var(--sb) * .3); color: #fff; font: 800 calc(var(--sb) * .3) "Noto Sans Hebrew", system-ui, sans-serif; }
   #spinBtn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
   #stopBtn { background: #ff8a3d; box-shadow: 0 5px 0 #c45f1d; }
-  #spinRow button:active { transform: translateY(3px); box-shadow: none; }
+  #spinRow button:active { box-shadow: none; }
   #spinRow button[hidden] { display: none; }
   /* Golan 29.10: "סובב" and "עצור" both breathe softly the whole time (a gentle blink, not a jump) */
   #spinRow button { animation: softPulse 1.8s ease-in-out infinite; }
@@ -467,7 +467,7 @@
   <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
     <h1>גלגל הצלילים</h1>
-    <p><span id="startText">מסובבים את הגלגל ועוצרים</span><br><span id="startText2">ואז נוגעים בצליל שהתמונה מתחילה בו</span></p>
+    <p><span id="startText">מְסוֹבְבִים אֶת הַגַּלְגַּל וּמְזַהִים אֶת צְלִיל תְּחִלַּת הַמִּלָּה</span><span id="startText2" hidden>ואז נוגעים בצליל שהתמונה מתחילה בו</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
       <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
@@ -541,7 +541,7 @@
   const kid = () => (LRN ? LRN.profile() : null);
   const gt = (pl, m, f) => { const g = kid() && kid().gender; return g === "m" ? m : g === "f" ? f : pl; };
   function genderTexts() {
-    $("startText").textContent = gt("מסובבים את הגלגל ועוצרים", "סובב את הגלגל ועצור", "סובבי את הגלגל ועצרי");
+    $("startText").textContent = "מְסוֹבְבִים אֶת הַגַּלְגַּל וּמְזַהִים אֶת צְלִיל תְּחִלַּת הַמִּלָּה";   // Golan 30.10 06:41: one short line (the second line is hidden)
     $("startText2").textContent = gt("ואז נוגעים בצליל שהתמונה מתחילה בו", "ואז גע בצליל שהתמונה מתחילה בו", "ואז געי בצליל שהתמונה מתחילה בו");
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
     $("topicTitle").textContent = gt("בּוֹחֲרִים גַּלְגַּל", "בְּחַר גַּלְגַּל", "בַּחֲרִי גַּלְגַּל")   /* nikud: Golan 29.10 */;
@@ -649,7 +649,7 @@
     return clipCache[id];
   }
   // lines of the voice thread (lines.js): sw_start (opening), sw_q (the question), sw_cat_* (topic names), hub_g_wheel; sd_demo and sd_explain shared with the sound detective; silent until recorded
-  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "ins_balloon", "sw_pick", "sw_q", "sd_demo", "sd_explain", "sd_explain_f", "sd_explain_p", "day_break", "day_end"];
+  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "sw_start", "sw_start2", "ins_balloon", "sw_pick", "sw_q", "sd_demo", "sd_explain", "sd_explain_f", "sd_explain_p", "day_break", "day_end"];
   const CHILD_LINES = ["sw_start", "ins_balloon", "sw_pick", "day_break"];   // boy / girl versions first, else the plural clip
   LINES.forEach(getClip); Object.values(SOUNDS).forEach((s) => getClip(s.s)); TOPICS.forEach((t) => { getClip(t.clip); t.pics.forEach(([k]) => PICS[k] && getClip(PICS[k].clip)); });
   if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
@@ -991,7 +991,7 @@
     // 2 mistakes on the same ball: it flies off; then one more try. 2 mistakes on different balls, or a mistake after a ball
     // flew off: the game solves it (as the sound detective)
     if (b._wrong >= 2 && q.wrongs === 2) { q.dropped++; setTimeout(() => { b.classList.add("gone"); }, 450); return; }
-    if (q.wrongs >= 2) { q.locked = true; clearTimeout(idleT); setTimeout(() => autoSolve(), 650); }
+    if (q.wrongs >= 3) { q.locked = true;   /* Golan 30.10 07:13: after 3 mistakes (was 2) */ clearTimeout(idleT); setTimeout(() => autoSolve(), 650); }
   }
   // the right ball flies to the picture; Hila: "בַּ... בַּלּוֹן"; gold on the first try, silver after a mistake (spec 4)
   function right(b, auto) {
@@ -1214,8 +1214,18 @@
   // ---------- start screen ----------
   let heardIntro = false, introTok = 0, choosingKid = false;
   const cancelIntro = () => { introTok++; };
-  function sayIntro() { heardIntro = true; say("sw_start"); }
-  function scheduleIntro() { const t = ++introTok; setTimeout(() => { if (t !== introTok || choosingKid || heardIntro || $("start").hidden || !$("settings").hidden) return; const a = getClip(voiceId("sw_start")); if (a._bad) { heardIntro = true; return; } sayIntro(); }, 1500); }
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_wheel");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say("sw_start2")); }   // Golan 30.10: sw_start2 = the new one-line description (silent until recorded)
+  function scheduleIntro() { const t = ++introTok; setTimeout(() => { if (t !== introTok || choosingKid || heardIntro || $("start").hidden || !$("settings").hidden) return; const a = getClip("hub_g_wheel"); if (a._bad) { heardIntro = true; return; } sayIntro(); }, 1500); }
   const fontReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בגד"), new Promise((r) => setTimeout(r, 3000))]).catch(() => {}) : Promise.resolve();
   fontReady.then(() => { $("go").disabled = false; $("go").textContent = "יוצאים לדרך"; });
   (LRN ? LRN.chooseChild() : Promise.resolve()).then(() => { genderTexts(); scheduleIntro(); });

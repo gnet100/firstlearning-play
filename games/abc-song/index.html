@@ -93,7 +93,7 @@
     --wfs: max(calc(40 * var(--u, 1px)), 20px); --big: min(calc(100dvh - var(--stage-t) - var(--strip-h) - var(--wfs) * 1.5 - 52px), 34vw); }
   .round-btn { position: fixed; width: var(--s); height: var(--s); border-radius: 50%; border: 0; background: var(--card); color: var(--ink);
     font-size: calc(var(--s) * .45); display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 16px #0003; z-index: 30; padding: 0; }
-  .round-btn:active { transform: translateY(2px); }
+  .round-btn:active { filter: brightness(.92); }
   .door-btn { top: var(--edge-t, 12px); left: var(--edge-l, 12px); font-size: calc(var(--s) * .6); }
   .door-ico { width: 1em; height: 1em; display: block; }
   .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);

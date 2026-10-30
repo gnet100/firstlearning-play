@@ -44,7 +44,7 @@
     width: var(--btn-s); height: var(--btn-s); border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: calc(var(--btn-s) * .46); display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d; padding: 0;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
   .round-btn[hidden] { display: none; }
   /* the door column at the top left, on every screen: door, then settings under it (Golan 14.10-16.10) */
   .door-btn, .gear { position: absolute; left: var(--edge-l); background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; }
@@ -127,7 +127,7 @@
   .panel p { margin: .3em 0 .9em; font-size: var(--t-body); color: var(--muted); }
   .big-btn { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
     font: 800 var(--t-btn) "Noto Sans Hebrew", system-ui, sans-serif; padding: 0 1.3em; min-height: var(--tap); box-shadow: 0 5px 0 #c45f1d; }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
   #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
@@ -1412,14 +1412,24 @@
   let heardIntro = false;
   const gl = (id) => { const g = prof() && prof().gender; return g && GENDERED.includes(id) ? id + "_" + g : id; };
   const gt = (pl, m, f) => { const g = prof() && prof().gender; return g === "m" ? m : g === "f" ? f : pl; };
-  function sayIntro() { heardIntro = true; say(gl(LINES.intro)); }
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_mole");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say(gl(LINES.intro))); }
   function autoIntro() {
     if (heardIntro || $("start").hidden || !$("settings").hidden || document.querySelector(".fl-ov")) return;
     const a = getClip(gl(LINES.intro)); if (a._bad) return;
     const my = screenTok;
     if (!a._ok) { const again = () => { if (my === screenTok) autoIntro(); }; a.addEventListener("canplaythrough", again, { once: true }); a.addEventListener("error", again, { once: true }); return; }
-    if (clipNow) clipNow.pause(); clipNow = a; a.currentTime = 0;
-    a.play().then(() => { if (my !== screenTok) { a.pause(); return; } heardIntro = true; }).catch(() => {});
+    nameFirst(() => { if (my !== screenTok) return; clipNow = a; a.currentTime = 0; a.play().catch(() => {}); }, true)
+      .then(() => { if (my !== screenTok) { if (clipNow) clipNow.pause(); return; } heardIntro = true; }).catch(() => {});
   }
   function genderTexts() {
     $("startText").textContent = gt("מקשיבים לשם של האות, ונוגעים בחפרפרת שמחזיקה אותה", "תקשיב לשם של האות, וגע בחפרפרת שמחזיקה אותה", "תקשיבי לשם של האות, וגעי בחפרפרת שמחזיקה אותה");

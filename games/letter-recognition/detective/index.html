@@ -70,7 +70,7 @@
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
   .prompt #replay { width: 46px; height: 46px; font-size: 21px; }   /* a smaller speaker (Golan, 16.10) */
   /* listening sky: only the speaker, in the middle of the bar (Golan, 16.10) */
   .prompt.listen { padding: 8px 14px; }
@@ -142,7 +142,7 @@
     background: #ffffffcc; color: var(--ink); font-size: 46px; font-weight: 800; box-shadow: 0 4px 0 #0003;
     display: grid; place-items: center; cursor: pointer;
   }
-  .arrow:active { transform: translateY(3px); box-shadow: 0 1px 0 #0003; }
+  .arrow:active { box-shadow: 0 1px 0 #0003; }
 
   .perf {
     position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
@@ -179,7 +179,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   /* start screen: "יוצאים לדרך" in the middle, speaker at the end of the row, space between (Golan, 14.10) */
@@ -385,7 +385,7 @@
   <button class="round-btn gear under-door" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
     <h1 id="gameTitle">הבלש בעננים</h1>
-    <p><span id="startText">מצאו בעננים את כל האותיות</span><br><span id="startText2">נוגעים בענן עם האצבע או העכבר</span></p>
+    <p><span id="startText">מצאו בעננים את כל האותיות</span><span id="startText2" hidden>נוגעים בענן עם האצבע או העכבר</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
       <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
@@ -1158,8 +1158,8 @@
       // phone lying down: the top of the envelope lines up with the middle of the top row of letters (Golan, 15.10)
       const rowY = top + ch / 2, envTop = ENV_Y + 1.5 * envelope.scaling.y, below = 2.6;
       const fit = Math.min((H - lift - rowY) / (envTop + below), roomW * 0.9 / 3.6) * view.perPx;
-      const bs2 = Math.min(1.5 * BIG, Math.max(0.4, fit)); balloon.scaling.setAll(bs2);
-      balloonHome.y = skyAt(0, rowY).y - envTop * bs2;
+      const bs2 = Math.min(1.5 * BIG, Math.max(0.4, fit * 0.85)); balloon.scaling.setAll(bs2);   // Golan 30.10 06:21: a little smaller
+      balloonHome.y = skyAt(0, rowY - ch * 0.35).y - envTop * bs2;   // ... and a little higher, so the letters under the basket are clear of the bottom
     }
     const cells = []; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push([r, c]);
     shuffle(cells);

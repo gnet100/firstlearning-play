@@ -51,14 +51,18 @@
   // and an arrow that points at each picture while its name is said. FL.demoFrame(true/false); FL.demoArrow(x, y) / FL.demoArrow(null)
   function demoCss() {
     if (document.getElementById("fl-demo-css")) return; const st = document.createElement("style"); st.id = "fl-demo-css";
-    st.textContent = `.fl-demo-frame{position:fixed;inset:max(10px,2.2vmin);z-index:45;pointer-events:none;opacity:0;transition:opacity .35s}
+    st.textContent = `.fl-demo-frame{position:fixed;inset:max(24px,7vmin);z-index:45;pointer-events:none;opacity:0;transition:opacity .35s}
       .fl-demo-frame.on{opacity:1}.fl-demo-frame svg{width:100%;height:100%;display:block;overflow:visible}
       .fl-demo-arrow{position:fixed;z-index:46;pointer-events:none;width:max(54px,7vmin);height:max(54px,7vmin);translate:-50% -100%;opacity:0;transition:opacity .2s,left .35s ease,top .35s ease}
       .fl-demo-arrow.on{opacity:1}.fl-demo-arrow svg{width:100%;height:100%;display:block;animation:flDemoBob .7s ease-in-out infinite alternate}
-      @keyframes flDemoBob{from{transform:translateY(-14%)}to{transform:translateY(4%)}}`;
+      @keyframes flDemoBob{from{transform:translateY(-14%)}to{transform:translateY(4%)}}
+      .fl-demo-tint{position:fixed;inset:0;z-index:44;pointer-events:none;opacity:0;transition:opacity .5s;mix-blend-mode:multiply;background:radial-gradient(ellipse at 50% 45%,#fff3d6 0%,#ffe1a8 70%,#f7c98a 100%)}
+      .fl-demo-tint.on{opacity:.55}
+      html.fl-demo-mode [id^="door"],html.fl-demo-mode #gear,html.fl-demo-mode .gear,html.fl-demo-mode #flRestart,html.fl-demo-mode #helpCard,
+      html.fl-demo-mode .fl-hg,html.fl-demo-mode [data-fl-stars]{visibility:hidden!important}`;   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
     document.head.append(st);
   }
-  let demoFrameEl = null, demoArrowEl = null;
+  let demoFrameEl = null, demoArrowEl = null; let demoTintEl = null;
   FL.demoFrame = (on) => {
     if (typeof document === "undefined") return; demoCss();
     if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.body.append(demoFrameEl); }
@@ -71,6 +75,8 @@
       const d = "M" + pts.map((q) => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L") + " Z";
       demoFrameEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffffcc" stroke-width="20" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#ffb800" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
     }
+    if (!demoTintEl) { demoTintEl = document.createElement("div"); demoTintEl.className = "fl-demo-tint"; document.body.append(demoTintEl); }
+    demoTintEl.classList.toggle("on", !!on); document.documentElement.classList.toggle("fl-demo-mode", !!on);
     demoFrameEl.classList.toggle("on", !!on); if (!on) FL.demoArrow(null);
   };
   FL.demoArrow = (x, y) => {
@@ -956,7 +962,7 @@ ${items[item]}</svg>`;
 .fl-rb svg{width:1em;height:1em;display:block}.fl-rb.fl-gear svg{width:1.3em;height:1.3em}
 .fl-rb.fl-door{top:var(--edge-t,max(12px,env(safe-area-inset-top)));background:#ff8a3d;box-shadow:0 3px 0 #c45f1d}
 .fl-rb.fl-gear{top:calc(var(--edge-t,max(12px,env(safe-area-inset-top))) + 76px);background:#ffffffee;box-shadow:0 4px 16px #0002}
-.fl-rb:active{transform:translateY(2px)}.fl-rb[hidden]{display:none}
+.fl-rb:active{}.fl-rb[hidden]{display:none}
 .fl-box{background:#fff;border-radius:28px;padding:22px;box-sizing:border-box;max-width:min(calc(560 * var(--u, 1px)),100%);max-height:100%;overflow:auto;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25)}
 .fl-box h2{margin:4px 0 16px;font-size:30px;line-height:1.7;color:#1d3557}
 .fl-np{display:none}
@@ -1349,7 +1355,8 @@ ${items[item]}</svg>`;
 .fl-end-note{margin:0;font-size:max(calc(24 * var(--u,1px) * var(--k)),16px);font-weight:700;color:#2b6cb0}
 .fl-end-btns{display:flex;gap:calc(14 * var(--u,1px));justify-content:center;align-items:stretch;flex-wrap:nowrap;direction:rtl;width:100%}
 .fl-end-btn{flex:0 1 calc(260 * var(--u,1px));min-width:0;box-sizing:border-box;border:2px solid transparent;border-radius:999px;background:var(--accent,#ff8a3d);color:var(--accent-ink,#fff);cursor:pointer;font-family:inherit;font-weight:800;font-size:max(calc(30 * var(--u,1px) * var(--k)),20px);padding:0 calc(40 * var(--u,1px));min-height:max(calc(76 * var(--u,1px) * var(--k)),var(--tap,56px));box-shadow:0 5px 0 #c45f1d}
-.fl-end-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #c45f1d}
+/* Golan 30.10: no jump on press in any game (a button that moved down lost a click pressed near its top edge: "לחיצה ראשונה לא משפיעה") */
+.fl-end-btn:active{box-shadow:0 2px 0 #c45f1d}
 .fl-end-btn.ghost{background:#fff;color:#1d3557;border-color:#d5dde6;box-shadow:0 5px 0 #d5dde6}
 .fl-end-btn:not(.ghost){background:#34b36b;color:#fff;box-shadow:0 5px 0 #1f8048}
 .fl-end-btn:not(.ghost):active{box-shadow:0 2px 0 #1f8048}

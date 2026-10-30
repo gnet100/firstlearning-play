@@ -48,7 +48,7 @@
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
     font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
   }
-  .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
 
   .stars {
     position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
@@ -127,7 +127,7 @@
     font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
     box-shadow: 0 5px 0 #c45f1d;
   }
-  .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
   .big-btn:disabled { opacity: .6; }
   .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
   #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
@@ -1439,8 +1439,8 @@
       state.celebrate = { phase: "rise", t: 0, i };
       whenQuiet(() => later(250, () => {
         state.celebrate = { phase: "fly", t: 0, i };
-        // the found letter flies to the balloon and hangs there until the round ends (Golan 17.10)
-        const g = signs[i]; flyTag(q.order[i], g.board.getAbsolutePosition(), 1.6 * g.root.scaling.y * 0.95); g.board.isVisible = false; $("toast").classList.remove("show");   // the check goes with it
+        // the found letter goes away (it no longer flies to the balloon, Golan 30.10)
+        const g = signs[i]; g.board.isVisible = false;   /* Golan 30.10 06:22: no letter tag flies to the balloon in this game */ $("toast").classList.remove("show");   // the check goes with it
         signs.forEach((s, k) => k !== i && (s.want = 0));
         state.balGoal = null; state.travel = 14;   // the balloon flies on to the next place
         later(1100, () => {
@@ -1760,7 +1760,7 @@
     // Golan 19.10: as it flies it also turns around itself (the envelope and its skirt; the basket and its letters stay facing us)
     { const mx = state.bal.x - (state.spinX ?? state.bal.x), my = state.bal.y - (state.spinY ?? state.bal.y);
       state.spinX = state.bal.x; state.spinY = state.bal.y;
-      state.spin = (state.spin || 0) + mx * 0.9 + Math.abs(my) * 0.35 * (mx < 0 ? -1 : 1);
+      state.spin = (state.spin || 0) + mx * 0.9 + Math.abs(my) * 0.35 * (mx < 0 ? -1 : 1) + dt * 0.5;   // Golan 30.10: it also turns slowly while it stands
       envelope.rotation.y = skirt.rotation.y = state.spin; }
     for (const g of tags) if (g.on) {
       g.t += dt;
@@ -1846,7 +1846,17 @@
   });
   let heardIntro = false;
   const INTRO_DELAY = 1500; // Golan 16.10: a short pause after the start screen opens, before Hila speaks
-  function sayIntro() { heardIntro = true; say("ins_wake", 1); }
+  // Golan 30.10: name, then the short description. The game's name plays first, then `then` after a short gap, unless something
+  // else took over. auto (the timed intro): when the browser blocks sound, nothing follows, so the first tap still plays it all.
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_waking");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say("ins_wake", 1)); }
   // Every screen change (the door, "יוצאים לדרך") bumps introTok, so a waiting intro never speaks later (Golan, 16.10)
   let introTok = 0, choosingKid = false;
   const cancelIntro = () => { introTok++; };
@@ -1857,7 +1867,8 @@
     if (a._bad) { heardIntro = true; return sayBrowser(LINE_TEXT.ins_wake, 0.8); }
     if (!a._ok) return a.addEventListener("canplaythrough", () => autoIntro(t), { once: true });
     if (clipNow) clipNow.pause();
-    clipNow = a; a.currentTime = 0; a.play().then(() => { if (t !== introTok || !$("settings").hidden) { a.pause(); return; } heardIntro = true; }).catch(() => {});
+    nameFirst(() => { if (t !== introTok || !$("settings").hidden) return; clipNow = a; a.currentTime = 0; a.play().catch(() => {}); }, true)
+      .then(() => { if (t !== introTok || !$("settings").hidden) { if (clipNow) clipNow.pause(); return; } heardIntro = true; }).catch(() => {});
   }
   (LRN ? LRN.chooseChild() : Promise.resolve()).then(() => { loadProgress(); syncSeg(); genderTexts(); scheduleIntro(); });
   $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(); });
