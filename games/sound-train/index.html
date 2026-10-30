@@ -2144,7 +2144,11 @@
       else if (state.flyUp != null) {   // Golan 18.10 (evening): after a right drop it rises towards the middle of the screen and goes out at the top there
         const was = state.flyVx == null ? v : state.flyVx, want = Math.max(-v, Math.min(v, (screenMidX - state.bx) * 0.7));
         state.flyVx = was + (want - was) * ease(1.5, dt); state.bx += state.flyVx * dt;
-      } else state.bx += (waitOut ? Math.max(v, 6) : v) * dt;   // with no cube left it flies out a bit faster
+      } else {
+        // Golan 30.10: with a cube it comes in slowly and speeds up until it reaches the start of the first wagon, then flies on at the level's speed
+        const x0 = L - OUT, x1 = Math.max(L + 1, LANE_X[0] - 1.5 * CL), f = Math.max(0, Math.min(1, (state.bx - x0) / (x1 - x0)));
+        state.bx += (waitOut ? Math.max(v, 6) : v * (0.3 + 0.7 * f * (2 - f))) * dt;   // with no cube left it flies out a bit faster
+      }   // with no cube left it flies out a bit faster
       if (state.bEntering && state.bx >= L) {
         state.bEntering = false;
         // Golan 18.10: the letter is said once on each pass of the balloon, as it comes onto the screen (not with every new cube)
