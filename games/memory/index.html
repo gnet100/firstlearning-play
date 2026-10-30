@@ -388,9 +388,9 @@
   .boards { display: flex; gap: max(calc(30 * var(--u, 1px)), 16px); justify-content: center; align-items: flex-end; margin-top: 10px; }
   .boards button { border: 3px solid #d5dde6; background: #eaf6ff; border-radius: 22px; padding: 10px; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
   .boards button svg { display: block; }
-  .boards button.flash { animation: carFlash 1s ease-in-out; }
-  .boards button:active { transform: scale(.96); }
-  @media (hover: hover) and (pointer: fine) { .boards button:hover { transform: translateY(-2px); border-color: #ffb27a; } }
+  .boards button.flash { animation: boardFlash 1s ease-in-out; }   /* Golan 30.10: the boards never grow (no scale); only the frame lights up */
+  @keyframes boardFlash { 50% { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ffb27a88; } }
+  @media (hover: hover) and (pointer: fine) { .boards button:hover { border-color: #ffb27a; } }
 </style>
 </head>
 <body>
@@ -752,7 +752,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
 
   function newBoard() {
     epoch++;
-    const n = RUNGS[rung()], B = BOARDS[n], pairs = B.letters / 2;
+    const n = RUNGS[manualRung ?? rung()], B = BOARDS[n], pairs = B.letters / 2;
     state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
     const letters = boardLetters(pairs); state.letters = letters;
     const curs = cursiveSet(letters); state.curs = curs;
@@ -820,9 +820,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, el + 60) + g;
     // A: a full-height column between the door column and the stars / hourglass column; B: under the star pill, full width
     // C: under the door / gear column and the hourglass, the whole width (a standing phone)
-    const gear = $("gear").getBoundingClientRect();
+    const gear = $("gear").getBoundingClientRect(), rs = document.getElementById("flRestart"), rsBot = rs && rs.offsetParent ? rs.getBoundingClientRect().bottom : 0;   // the restart button under the gear
     return [{ x0: left, x1: Math.min(pill.left, pill.right - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: pill.right - hgW - g, y0: pill.bottom + g, y1: H - eb },
-      { x0: el, x1: W - er, y0: Math.max(gear.bottom, hgBot) + g, y1: H - eb }];
+      { x0: el, x1: (cardPick ? pill.right - hgW - g : W - er), y0: Math.max(gear.bottom, rsBot, hgBot) + g, y1: H - eb }];   // the card-count slider stands under the hourglass (Golan 30.10)
   }
   const wideBoard = () => { const r = rooms().sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0]; return r.x1 - r.x0 >= r.y1 - r.y0; };
   // the biggest square cards that fit; each card at its cell (c.at), the row shape centred in the free room
@@ -929,10 +929,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function boardDone() {
     state.mode = "between"; state.boards++;
     const win = !(HG && HG.done());   // the whole board found before the hourglass ran out (Golan 22.10)
-    if (win) { rung(); progress.wins++; saveProgress(); state.roundWins++; }
+    if (win) { if (manualRung == null) { rung(); progress.wins++; saveProgress(); } state.roundWins++; }   // a board picked by hand does not move the system's choice (Golan 30.10)
     later(ms(1200), () => {
       // the offer of a bigger board comes first, even when the hourglass ran out; the end window after it (Golan 22.10)
-      if (win && progress.wins >= WINS_TO_ASK && rung() < RUNGS.length - 1) return askLevel();
+      if (win && manualRung == null && progress.wins >= WINS_TO_ASK && rung() < RUNGS.length - 1) return askLevel();
       if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
       newBoard();
     });
@@ -980,6 +980,15 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   }
 
   // ---------- one round = the golden hourglass (spec 10): board after board ----------
+  // Golan 30.10: the number of cards can be picked by hand on a standing slider under the hourglass; a pick starts the game again
+  // with that board. It lasts while the child stays in the game and never changes the system's own choice (progress.rung).
+  let manualRung = null;
+  const cardPick = LRN && LRN.cardSlider ? LRN.cardSlider({ values: RUNGS.map((n) => BOARDS[n].letters + BOARDS[n].hints), get: () => manualRung ?? rung(),
+    show: () => ["ready", "play", "between", "busy"].includes(state.mode) || (state.mode && !["end", "flying", "levelask", "start", "pick"].includes(state.mode)),
+    onPick: (i) => {
+      manualRung = i; epoch++; askT.forEach(clearTimeout); askT = []; $("levelAsk").hidden = true; $("board").hidden = true; stopVoice();
+      countdown();
+    } }) : null;
   function startRound() {
     epoch++;
     state.starRow = []; state.boards = 0; state.roundWins = 0; starCount.reset();

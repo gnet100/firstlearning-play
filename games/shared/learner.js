@@ -1588,6 +1588,49 @@ ${items[item]}</svg>`;
     // Golan 18.10: by the child's level (the age sets the level at first; once the level changes the age no longer counts)
     const p = cur(), lv = p ? effLevel(p) : 2; return (lv <= 1 ? 1.5 : lv === 2 ? 2 : 2.5) * 60000;
   }
+  // ---------- how many cards (Golan 30.10, the memory games): a standing slider under the hourglass ----------
+  // cardSlider({ values: [4, 6, 9, ...], get: () => index now, onPick: (index) => start again with it, show: () => bool })
+  // The top of the track = the most cards. Dragging moves the knob step by step (the number on it); letting go on another step calls onPick.
+  function cardSlider(opt) {
+    if (!document.getElementById("fl-cs-css")) {
+      const st = document.createElement("style"); st.id = "fl-cs-css";
+      st.textContent = `.fl-cs{position:fixed;z-index:31;width:var(--fl-csw,46px);display:flex;flex-direction:column;align-items:center;gap:4px;touch-action:none;user-select:none;-webkit-user-select:none;direction:rtl;font-family:inherit}
+.fl-cs[hidden]{display:none}
+.fl-cs-ico{width:70%;height:auto;filter:drop-shadow(0 1px 1px #0003)}
+.fl-cs-tr{position:relative;width:100%;height:var(--fl-csh,170px);margin:calc(var(--fl-csw,46px)*.42) 0;cursor:pointer}
+.fl-cs-tr::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:10px;translate:-50% 0;border-radius:5px;background:#e9edf1;box-shadow:inset 0 1px 2px #0002}
+.fl-cs-dot{position:absolute;left:50%;width:6px;height:6px;translate:-50% -50%;border-radius:50%;background:#c3ccd5}
+.fl-cs-k{position:absolute;left:50%;width:calc(var(--fl-csw,46px)*.86);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:#ff8a3d;border:3px solid #fff;box-shadow:0 2px 5px #0005;color:#fff;font-weight:800;font-size:calc(var(--fl-csw,46px)*.38);display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;transition:top .15s}
+.fl-cs.drag .fl-cs-k{transition:none;scale:1.1}`;
+      (document.head || document.documentElement).appendChild(st);
+    }
+    const el = document.createElement("div"); el.className = "fl-cs"; el.hidden = true; el.setAttribute("role", "slider"); el.setAttribute("aria-label", "כמות הקלפים");
+    el.innerHTML = `<svg class="fl-cs-ico" viewBox="0 0 40 30" aria-hidden="true"><rect x="2" y="5" width="16" height="22" rx="3" fill="#fff" stroke="#5f6a76" stroke-width="2" transform="rotate(-10 10 16)"/><rect x="20" y="3" width="16" height="22" rx="3" fill="#ffd166" stroke="#5f6a76" stroke-width="2" transform="rotate(8 28 14)"/></svg><div class="fl-cs-tr"></div>`;
+    const tr = el.querySelector(".fl-cs-tr"), n = opt.values.length;
+    opt.values.forEach((v, i) => { const d = document.createElement("span"); d.className = "fl-cs-dot"; d.style.top = (100 - (i / (n - 1)) * 100) + "%"; tr.append(d); });
+    const k = document.createElement("span"); k.className = "fl-cs-k"; tr.append(k);
+    (document.body || document.documentElement).appendChild(el);
+    let at = opt.get(), drag = null;
+    const show = (i) => { k.style.top = (100 - (i / (n - 1)) * 100) + "%"; k.textContent = opt.values[i]; el.setAttribute("aria-valuenow", opt.values[i]); };
+    const idxAt = (y) => { const r = tr.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (r.bottom - y) / r.height)) * (n - 1)); };
+    el.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); drag = { id: e.pointerId, i: idxAt(e.clientY) }; el.classList.add("drag"); show(drag.i); try { el.setPointerCapture(e.pointerId); } catch (x) {} });
+    el.addEventListener("pointermove", (e) => { if (!drag || e.pointerId !== drag.id) return; drag.i = idxAt(e.clientY); show(drag.i); });
+    const end = (e) => { if (!drag || e.pointerId !== drag.id) return; const i = drag.i; drag = null; el.classList.remove("drag");
+      if (i !== opt.get()) { at = i; show(i); opt.onPick(i); } else show(opt.get()); };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", (e) => { if (drag && e.pointerId === drag.id) { drag = null; el.classList.remove("drag"); show(opt.get()); } });
+    el.addEventListener("click", (e) => e.stopPropagation());
+    const place = () => {   // under the hourglass, its middle on the hourglass's middle; as wide as the hourglass
+      const hg = document.querySelector(".fl-hg"), on = hg && !hg.hidden && hg.style.opacity !== "0" && (!opt.show || opt.show());
+      if (!on) { el.hidden = true; return; }
+      const r = hg.getBoundingClientRect(), w = Math.max(38, Math.min(64, r.width * 1.05));
+      const room = window.innerHeight - r.bottom - 24, h = Math.max(90, Math.min(220, room - w * 0.9 - 10));
+      el.style.setProperty("--fl-csw", w + "px"); el.style.setProperty("--fl-csh", h + "px");
+      el.style.top = (r.bottom + 10) + "px"; el.style.left = (r.left + r.width / 2 - w / 2) + "px"; el.hidden = false;
+      if (!drag && opt.get() !== at) { at = opt.get(); } if (!drag) show(opt.get());
+    };
+    show(at); setInterval(place, 250); place();
+    return { el, place };
+  }
   let hgOne = null;
   function hourglass(opt = {}) {
     if (hgOne) { hgOne.opt = opt; return hgOne; }
@@ -1894,7 +1937,7 @@ ${items[item]}</svg>`;
     speed, speedPct, setSpeedPct, speedRow, refreshSpeed,
     pace: () => (cur() ? cur().pace : 1), roundEnd, setLevelFromDiagnostic, star, starSvg, starCounter, lineIds, stripNikud,
     dayInfo: () => dayInfo(), breakShown, warmup, motorMedian: () => { const p = cur(); return p ? median(p.motor || []) : null; },
-    hourglass, playMs: () => playMs(), settingsForm, endFly, endFlyReset,
+    hourglass, cardSlider, playMs: () => playMs(), settingsForm, endFly, endFlyReset,
     // Golan 18.10 (all games): once a letter is "מוכרת" (or known), the bar beside the speaker no longer shows it; the letter is only said
     hearOnly: (l) => { try { const k = cardsFor(cur())[l]; return !!k && ["almost", "known"].includes(k.recognize.state); } catch (e) { return false; } },
     roundLength: () => { const p = (load(), cur()); return roundLengthFor(p && p.birthYear ? new Date().getFullYear() - p.birthYear : null); },
