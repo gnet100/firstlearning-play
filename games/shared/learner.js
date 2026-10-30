@@ -942,7 +942,7 @@ ${items[item]}</svg>`;
     // Golan 24.10: "סוג כתב" for the games that show cursive (כתב יד): automatic mix (a letter known in print sometimes shows
     // in cursive), print only, cursive, or "mixed" (half and half at random, Golan 28.10). Per child and per game is the game's own business (cfg.script.get / set).
     if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, cfg.script.items || [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"], ["mixed", "משולב"]], cfg.script.get, cfg.script.set);
-      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב. משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי."; r.append(n); api.refreshers.push(d); }
+      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: מרמת קושי 2, אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב. ברמה 1 רק דפוס. משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי."; r.append(n); api.refreshers.push(d); }
     // 4. speed of everything that moves (the shared slider)
     if (cfg.game) { const r4 = row(null), sp = document.createElement("div"); r4.append(sp); const sr = speedRow(sp, cfg.game, cfg.speed || {}); api.refreshers.push(() => sr.refresh()); }
     // 5. the narrator's voice, 6. graphics quality
@@ -1797,6 +1797,7 @@ ${items[item]}</svg>`;
   function cursiveReady(l) { try { return cardsFor(cur())[l].recognize.state === "known"; } catch (e) { return false; } }
   function cursiveShare(l) {
     if (!cursiveReady(l)) return 0;
+    if (cur() && effLevel(cur()) <= 1) return 0;   // Golan 30.10: in the automatic mix, level 1 is print only; cursive opens from level 2 (all games)
     const st = cardsFor(cur())[l].cursive.state;
     return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
   }
