@@ -1595,24 +1595,31 @@ ${items[item]}</svg>`;
   function cardSlider(opt) {
     if (!document.getElementById("fl-cs-css")) {
       const st = document.createElement("style"); st.id = "fl-cs-css";
-      st.textContent = `.fl-cs{position:fixed;z-index:31;width:var(--fl-csw,46px);display:flex;flex-direction:column;align-items:center;gap:4px;touch-action:none;user-select:none;-webkit-user-select:none;direction:rtl;font-family:inherit}
+      st.textContent = `.fl-cs{position:fixed;z-index:31;width:var(--fl-csw,46px);display:flex;flex-direction:column;align-items:center;gap:0;touch-action:none;user-select:none;-webkit-user-select:none;direction:rtl;font-family:inherit}
 .fl-cs[hidden]{display:none}
-.fl-cs-ico{width:70%;height:auto;filter:drop-shadow(0 1px 1px #0003)}
+.fl-cs-ico{width:100%;height:auto;margin-bottom:2px;filter:drop-shadow(0 1px 2px #0004)}
 .fl-cs-tr{position:relative;width:100%;height:var(--fl-csh,170px);margin:calc(var(--fl-csw,46px)*.42) 0;cursor:pointer}
-.fl-cs-tr::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:10px;translate:-50% 0;border-radius:5px;background:#e9edf1;box-shadow:inset 0 1px 2px #0002}
-.fl-cs-dot{position:absolute;left:50%;width:6px;height:6px;translate:-50% -50%;border-radius:50%;background:#c3ccd5}
+.fl-cs-tr::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:18px;translate:-50% 0;border-radius:9px;background:#e9edf1;box-shadow:inset 0 1px 2px #0002}
+.fl-cs-dot{position:absolute;left:50%;width:8px;height:8px;translate:-50% -50%;border-radius:50%;background:#c3ccd5}
 .fl-cs-k{position:absolute;left:50%;width:calc(var(--fl-csw,46px)*.86);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:#ff8a3d;border:3px solid #fff;box-shadow:0 2px 5px #0005;color:#fff;font-weight:800;font-size:calc(var(--fl-csw,46px)*.38);display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;transition:top .15s}
 .fl-cs.drag .fl-cs-k{transition:none;scale:1.1}`;
       (document.head || document.documentElement).appendChild(st);
     }
     const el = document.createElement("div"); el.className = "fl-cs"; el.hidden = true; el.setAttribute("role", "slider"); el.setAttribute("aria-label", "כמות הקלפים");
-    el.innerHTML = `<svg class="fl-cs-ico" viewBox="0 0 40 30" aria-hidden="true"><rect x="2" y="5" width="16" height="22" rx="3" fill="#fff" stroke="#5f6a76" stroke-width="2" transform="rotate(-10 10 16)"/><rect x="20" y="3" width="16" height="22" rx="3" fill="#ffd166" stroke="#5f6a76" stroke-width="2" transform="rotate(8 28 14)"/></svg><div class="fl-cs-tr"></div>`;
+    el.innerHTML = `<svg class="fl-cs-ico" viewBox="0 0 60 56" aria-hidden="true"></svg><div class="fl-cs-tr"></div>`;
+    // a deck of the moon-and-stars card backs: more cards = a bigger, thicker deck (Golan 30.10 13:22)
+    const ico = el.querySelector(".fl-cs-ico");
+    const deck = (i) => { const f = n > 1 ? i / (n - 1) : 1, layers = 2 + Math.round(f * 6), sc = 0.7 + 0.45 * f; let g = "";
+      for (let j = 0; j < layers; j++) { const top = j === layers - 1, x = j * 1.4, y = -j * 1.6;
+        g += `<g transform="translate(${x} ${y})"><rect x="-13" y="-34" width="26" height="34" rx="4" fill="${top ? "url(#flcsN)" : "#2c2f7a"}" stroke="#fff" stroke-width="1.6"/>` +
+          (top ? `<circle cx="4" cy="-23" r="6" fill="#FFF0A8"/><circle cx="6.6" cy="-25" r="5.2" fill="#25307a"/><path d="M-6 -27l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z M-4 -9l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z M6 -11l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4z" fill="#FFF6C8"/>` : "") + `</g>`; }
+      ico.innerHTML = `<defs><linearGradient id="flcsN" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#3b2f86"/></linearGradient></defs><g transform="translate(25 55) scale(${sc.toFixed(3)})">${g}</g>`; };
     const tr = el.querySelector(".fl-cs-tr"), n = opt.values.length;
     opt.values.forEach((v, i) => { const d = document.createElement("span"); d.className = "fl-cs-dot"; d.style.top = (100 - (i / (n - 1)) * 100) + "%"; tr.append(d); });
     const k = document.createElement("span"); k.className = "fl-cs-k"; tr.append(k);
     (document.body || document.documentElement).appendChild(el);
     let at = opt.get(), drag = null;
-    const show = (i) => { k.style.top = (100 - (i / (n - 1)) * 100) + "%"; k.textContent = opt.values[i]; el.setAttribute("aria-valuenow", opt.values[i]); };
+    const show = (i) => { deck(i); k.style.top = (100 - (i / (n - 1)) * 100) + "%"; k.textContent = opt.values[i]; el.setAttribute("aria-valuenow", opt.values[i]); };
     const idxAt = (y) => { const r = tr.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (r.bottom - y) / r.height)) * (n - 1)); };
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); drag = { id: e.pointerId, i: idxAt(e.clientY) }; el.classList.add("drag"); show(drag.i); try { el.setPointerCapture(e.pointerId); } catch (x) {} });
     el.addEventListener("pointermove", (e) => { if (!drag || e.pointerId !== drag.id) return; drag.i = idxAt(e.clientY); show(drag.i); });
@@ -1624,9 +1631,9 @@ ${items[item]}</svg>`;
       const hg = document.querySelector(".fl-hg"), on = hg && !hg.hidden && hg.style.opacity !== "0" && (!opt.show || opt.show());
       if (!on) { el.hidden = true; return; }
       const r = hg.getBoundingClientRect(), w = Math.max(38, Math.min(64, r.width * 1.05));
-      const room = window.innerHeight - r.bottom - 24, h = Math.max(90, Math.min(220, room - w * 0.9 - 10));
+      const room = window.innerHeight - r.bottom - 38, h = Math.max(90, Math.min(220, room - w * 0.9 - 10));
       el.style.setProperty("--fl-csw", w + "px"); el.style.setProperty("--fl-csh", h + "px");
-      el.style.top = (r.bottom + 10) + "px"; el.style.left = (r.left + r.width / 2 - w / 2) + "px"; el.hidden = false;
+      el.style.top = (r.bottom + 24) + "px"; el.style.left = (r.left + r.width / 2 - w / 2) + "px"; el.hidden = false;
       if (!drag && opt.get() !== at) { at = opt.get(); } if (!drag) show(opt.get());
     };
     show(at); setInterval(place, 250); place();

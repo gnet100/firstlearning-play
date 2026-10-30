@@ -395,6 +395,11 @@
   .boards button.flash { animation: boardFlash 1s ease-in-out; }   /* Golan 30.10: the boards never grow (no scale); only the frame lights up */
   @keyframes boardFlash { 50% { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ffb27a88; } }
   @media (hover: hover) and (pointer: fine) { .boards button:hover { border-color: #ffb27a; } }
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
+  #demoStart { display: none; }   /* Golan 30.10: the "?" card in the game replaces the button in the start window (as the other sound games) */
   /* the demo hand and the "איך משחקים?" buttons, as in the sound wheel */
   .demo-hand { position: fixed; z-index: 47; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
   .demo-hand.show { display: block; }
@@ -408,6 +413,7 @@
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
 
 <div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
   <div class="stars" id="stars" data-fl-stars data-fl-title="זִכָּרוֹן הַצְּלִילִים"></div>
   <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
@@ -852,16 +858,20 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // free room for the board: between the door column, the star pill and the hourglass
   function rooms() {
     const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
-    const W = innerWidth, H = innerHeight, et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
+    const W = innerWidth, H = innerHeight;
+    // the demo (Golan 30.10): the buttons are hidden, the cards stand inside the yellow wavy frame (its inset + the wave + the stroke)
+    if (document.documentElement.classList.contains("fl-demo-mode")) { const f = Math.max(24, 0.07 * Math.min(W, H)) + 40; return [{ x0: f, x1: W - f, y0: f, y1: H - f }]; }
+    const et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
     const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
     // the hourglass under the star pill (learner.js places it the same way): its width and bottom keep the cards clear of it (Golan 29.10)
     const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), hgW = hgH * 1.012 + 8, hgBot = pill.bottom + 8 + hgH * 1.725;
-    const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, el + 60) + g;
+    const hc = $("helpCard").getBoundingClientRect(), hcOn = hc.width > 0;   // the "?" card at the bottom left (Golan 30.10)
+    const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, el + 60, hcOn ? hc.right : 0) + g;
     // A: a full-height column between the door column and the stars / hourglass column; B: under the star pill, full width
     // C: under the door / gear column and the hourglass, the whole width (a standing phone)
     const gear = $("gear").getBoundingClientRect(), rs = document.getElementById("flRestart"), rsBot = rs && rs.offsetParent ? rs.getBoundingClientRect().bottom : 0;   // the restart button under the gear
     return [{ x0: left, x1: Math.min(pill.left, pill.right - hgW) - g, y0: et, y1: H - eb }, { x0: left, x1: pill.right - hgW - g, y0: pill.bottom + g, y1: H - eb },
-      { x0: el, x1: (cardPick ? pill.right - hgW - g : W - er), y0: Math.max(gear.bottom, rsBot, hgBot) + g, y1: H - eb }];   // the card-count slider stands under the hourglass (Golan 30.10)
+      { x0: el, x1: (cardPick ? pill.right - hgW - g : W - er), y0: Math.max(gear.bottom, rsBot, hgBot) + g, y1: hcOn ? hc.top - g : H - eb }];   // the card-count slider stands under the hourglass (Golan 30.10)
   }
   const wideBoard = () => { const r = rooms().sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0]; return r.x1 - r.x0 >= r.y1 - r.y0; };
   // the biggest square cards that fit; each card at its cell (c.at), the row shape centred in the free room
@@ -897,7 +907,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     if (state.open.length < 2) { stopVoice(); afterTok++; playIds([clipOf(c)]); return; }
     const [a, b] = state.open; state.open = []; state.busy = true;
     // Golan 30.10: a right pair = only the sound, then the word (no "יש! נכון!"); a wrong pair = the second card's own clip
-    if (a.l === b.l) { const s = a.snd ? a : b, p = a.snd ? b : a; sayAfter([SOUNDS[s.l].s, 250, wordOf(p.k)]); match(a, b); }
+    if (a.l === b.l) { const s = a.snd ? a : b, p = a.snd ? b : a; sayAfter(b === p ? [wordOf(p.k)] : [SOUNDS[s.l].s, 250, wordOf(p.k)]); match(a, b); }   // sound opened first: it was just said, so only the word (Golan 30.10 13:19)
     else { sayAfter([clipOf(b)]); miss(a, b); }
   }
   function match(a, b) {
@@ -1240,6 +1250,10 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     });
   }
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
+  $("helpCard").addEventListener("click", (e) => {   // the "?" card at the bottom left plays the demo again (as in the other sound games)
+    e.stopPropagation(); if (["intro", "end", "flying", "ready", "pick", "levelask", "shuffle"].includes(state.mode) || state.demo) return;
+    unlockAudio(); $("fx").innerHTML = ""; runDemo(() => newBoard());
+  });
   $("demoSettings").addEventListener("click", (e) => {
     e.stopPropagation(); if (["intro", "end", "flying", "ready", "pick", "levelask"].includes(state.mode) || state.demo) return;
     closeSettings(); unlockAudio(); $("fx").innerHTML = "";
