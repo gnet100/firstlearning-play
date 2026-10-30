@@ -1147,7 +1147,7 @@
     const balloonPx = tall ? { x: W / 2, y: H - (H - room.bottom) * 0.5 } : { x: W - room.edge.r - colW / 2, y: top + (H - top) * 0.5 };
     const lift = Math.max(44 * room.u, H * 0.08, room.edge.b), roomH = tall ? H - room.bottom - lift : H - top, roomW = tall ? W : colW;
     const BIG = 1.25;   // Golan 28.10: a bigger balloon in the middle
-    const bs = Math.min(1.5 * BIG, Math.max(0.4, Math.min(roomH * 0.94 / 7.4 * BIG, roomW * 0.9 / 3.6) * view.perPx)); balloon.scaling.setAll(bs);
+    const bs = Math.min(1.5 * BIG, Math.max(0.4, Math.min(roomH * 0.94 / 7.4 * BIG, roomW * 0.9 / 3.6) * view.perPx * 0.88)); balloon.scaling.setAll(bs);   // Golan 30.10: a little smaller
     const b = skyAt(balloonPx.x, balloonPx.y); balloonHome.x = b.x; balloonHome.y = b.y - 1.75 * bs + (tall ? 0 : 0.6 * bs);
     const floor = skyAt(0, H - lift).y + 2.6 * bs;   // basket and hanging letters well above the bottom edge (Golan, 15.10)
     if (tall || balloonHome.y < floor) balloonHome.y = floor;
@@ -1156,7 +1156,7 @@
       // phone lying down: the top of the envelope lines up with the middle of the top row of letters (Golan, 15.10)
       const rowY = top + ch / 2, envTop = ENV_Y + 1.5 * envelope.scaling.y, below = 2.6;
       const fit = Math.min((H - lift - rowY) / (envTop + below), roomW * 0.9 / 3.6) * view.perPx;
-      const bs2 = Math.min(1.5 * BIG, Math.max(0.4, fit)); balloon.scaling.setAll(bs2);
+      const bs2 = Math.min(1.5 * BIG, Math.max(0.4, fit * 0.88)); balloon.scaling.setAll(bs2);   // Golan 30.10 08:32: a little smaller
       balloonHome.y = skyAt(0, rowY - ch * 0.3).y - envTop * bs2;   // Golan 28.10 16:29: the balloon a little higher
     }
     const cells = []; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push([r, c]);
@@ -1401,16 +1401,29 @@
   // A tap (or a drop on the balloon) is judged; a drag that ends away from the balloon puts the letter back, with no mistake counted.
   let drag = null;
   const canPlay = () => (state.mode === "play" || state.mode === "blocked") && state.q && !state.resolved && !state.locked && performance.now() >= (state.tapPause || 0);   // Golan 29.10 21:22: no taps after the 2nd mistake, and a short rest after each mistake
+  // Golan 30.10 08:32: the balloon itself can be dragged with the mouse or a finger; let go and it glides back to its place
+  const balDrag = { on: false, id: null, x0: 0, y0: 0, ox: 0, oy: 0, x: 0, y: 0 };
   canvas.addEventListener("pointerdown", (e) => {
-    if (!canPlay() || drag) return;
+    if (drag || balDrag.on) return;
     const r = canvas.getBoundingClientRect();
-    const c = cloudAt(e.clientX - r.left, e.clientY - r.top);
-    if (!c) return;
+    const c = canPlay() ? cloudAt(e.clientX - r.left, e.clientY - r.top) : null;
+    if (!c) {
+      if (state.liftGoal && state.mode !== "paused" && state.mode !== "demo" && overBalloon(e)) {
+        const p = skyAt(e.clientX - r.left, e.clientY - r.top);
+        Object.assign(balDrag, { on: true, id: e.pointerId, x0: p.x, y0: p.y, ox: balDrag.x, oy: balDrag.y });
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      return;
+    }
+    if (!canPlay()) return;
     drag = { c, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false };
     grabTok(c, skyAt(e.clientX - r.left, e.clientY - r.top));
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   });
   canvas.addEventListener("pointermove", (e) => {
+    if (balDrag.on && e.pointerId === balDrag.id) { const r = canvas.getBoundingClientRect(), p = skyAt(e.clientX - r.left, e.clientY - r.top);
+      balDrag.x = balDrag.ox + p.x - balDrag.x0; balDrag.y = balDrag.oy + p.y - balDrag.y0;
+      balDrag.x = Math.max(-view.halfW - balloonHome.x + 1, Math.min(view.halfW - balloonHome.x - 1, balDrag.x)); return; }
     if (!drag || e.pointerId !== drag.id) return;
     const r = canvas.getBoundingClientRect();
     if (tok.c === drag.c && tok.mode === "grab") tok.at = skyAt(e.clientX - r.left, e.clientY - r.top);   // the round tag follows the finger
@@ -1418,6 +1431,7 @@
     if (!drag.moved) { drag.moved = true; state.idleAt = state.gameT; }
   });
   function endDrag(e, cancel) {
+    if (balDrag.on && e.pointerId === balDrag.id) { balDrag.on = false; return; }   // let go: it glides back (main loop)
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag; drag = null;
     // Golan 28.10 18:48: a tap is an answer too, like a drop on the balloon (as in the letter detective); no tap-to-hear any more
@@ -1724,6 +1738,8 @@
       else { const k = Math.min(1, w.t / 3.4),   /* a little slower (Golan 19.10 12:48) */ e = 1 - Math.pow(1 - k, 3); w.y = w.from * (1 - e); if (k >= 1) state.swap = null; }
     }
     balloon.position.y = groundY + (balloonHome.y - groundY) * L + Math.sin(T * 1.3) * 0.12 * L + (1 - Math.cos(sway)) * arm + (state.swap ? state.swap.y : 0);
+    if (!balDrag.on && (balDrag.x || balDrag.y)) { const k = Math.min(1, dt * 4); balDrag.x -= balDrag.x * k; balDrag.y -= balDrag.y * k; if (Math.hypot(balDrag.x, balDrag.y) < 0.01) balDrag.x = balDrag.y = 0; }   // back home, softly
+    balloon.position.x += balDrag.x; balloon.position.y += balDrag.y;
     hill.position.set(0, -view.halfH - 1.2 - L * 6, 6);
 
     if (!paused) waveFlag(mnow / 1000);
@@ -1838,7 +1854,9 @@
   const INTRO_NAME = "hub_g_sound", INTRO_DESC = "sd_start2";
   // the start window says the game's name, then its short description (Golan 30.10: "המערכת צריכה לומר את שם המשחק ואת התיאור הקצר")
   function introChain(auto) {
-    const ids = [genderedId(INTRO_NAME), genderedId(INTRO_DESC)]; let i = 0;
+    // the description to a boy or a girl is said only in their own form (Golan 30.10: "כתוב שמע, המערכת אומרת שמעו"); missing = silent
+    const own = LM ? LM.lineIds(INTRO_DESC)[0] : INTRO_DESC;
+    const ids = [genderedId(INTRO_NAME), own]; let i = 0;
     const next = () => {
       if (i >= ids.length || !$("settings").hidden) return;
       const a = getClip(ids[i++]); if (!a || a._bad) return next();

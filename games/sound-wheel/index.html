@@ -378,7 +378,7 @@
   #pointer { position: absolute; left: 50%; top: 0; width: calc(var(--ts) * .34); translate: -50% -62%; z-index: 3; filter: drop-shadow(0 3px 3px #0004); pointer-events: none; }
   #pointer svg { display: block; width: 100%; }
   /* the picture of the question: it grows a little over the wheel, with its own small speaker (spec 3) */
-  #star { position: fixed; z-index: 4; pointer-events: none; translate: -50% -50%; transition: width .45s cubic-bezier(.3, 1.4, .5, 1), height .45s cubic-bezier(.3, 1.4, .5, 1); }
+  #star { position: fixed; z-index: 4; pointer-events: none; translate: -50% -50%; transition: width 1.1s cubic-bezier(.25, .8, .3, 1), height 1.1s cubic-bezier(.25, .8, .3, 1), top 1.1s cubic-bezier(.25, .8, .3, 1); }   /* Golan 30.10 08:41: slower, it grows from the wheel's card to its full size */
   #star[hidden] { display: none; }
   #star .card { position: absolute; inset: 0; border-radius: 18%; background: #fff; box-shadow: 0 0 0 calc(var(--ss) * .045) #FFC233, 0 calc(var(--ss) * .05) calc(var(--ss) * .16) #0004; overflow: visible; }
   #star .pic { position: absolute; inset: 6%; }
@@ -679,6 +679,7 @@
   let seqTok = 0, seqOn = false;
   function playIds(ids, then) {
     const my = ++seqTok; let i = 0; seqOn = true;
+    $("balls").querySelectorAll(".lit").forEach((x) => x.classList.remove("lit"));   // a new chain cuts the old one: no ball stays lit (Golan 30.10 08:40)
     const next = () => {
       if (my !== seqTok) return;
       if (paused) return setTimeout(next, 120);
@@ -835,6 +836,7 @@
     const sk = Math.max(px("--tap-s", 44) * 0.9, Math.min(bs * 0.34, 64));   // the speaker under each ball
     const sb = Math.max(px("--tap", 60) * 1.1, Math.min(rowH * 0.8, ts * 0.8, 150));
     for (const id of ["balls", "spinRow"]) { const e = $(id); e.style.top = rowTop + "px"; e.style.height = rowH + "px"; e.style.setProperty("--bs", bs + "px"); e.style.setProperty("--sb", sb + "px"); e.style.setProperty("--bg", gap + "px"); e.style.setProperty("--sk", sk + "px"); }
+    { const sr = $("spinRow"); sr.style.top = top2 + wh + Math.max(8, ts * 0.06) + "px"; sr.style.height = sb * 0.62 + 12 + "px"; }   // Golan 30.10 08:35: the spin button closer to the wheel (also in the demo)
     $("balls").classList.toggle("tight", bs * 1.08 + sk + 4 > rowH || rowTop + rowH > H - eb + 1);
     drawWheel(); placeStar(); placeOk();
     [...$("balls").children].forEach(drawBall);
@@ -842,7 +844,7 @@
   // the big picture over the wheel's middle (spec 3: the picture grows a little)
   function placeStar() {
     const s = $("star"); if (s.hidden) return;
-    const big = state.q && state.q.big, k = big ? 1.1 : 1, ss = geo.ts * k;   // smaller and a bit lower, so the red arrow stays seen (Golan 29.10)
+    const big = state.q && state.q.big, k = big ? 1.1 : TILE_K, ss = geo.ts * k;   // smaller and a bit lower, so the red arrow stays seen (Golan 29.10)
     s.style.left = geo.cx + "px"; s.style.top = (geo.cy + (big ? geo.ts * 0.12 : 0)) + "px"; s.style.width = ss + "px"; s.style.height = ss + "px"; s.style.setProperty("--ss", ss + "px");
   }
   // run the wheel: SPIN_V tiles a second; "עצור" (or a touch on the wheel) stops it right where it is, then the nearest
@@ -934,7 +936,7 @@
   // the ball's speaker (Golan 29.10): its sound, with the ball lit; it is not an answer
   function sayBall(b) {
     if (!state.q || state.q.resolved || state.mode !== "play" || b.classList.contains("gone")) return;
-    unlockAudio(); const q = state.q;
+    unlockAudio(); const q = state.q; unlitAll();
     playIds([() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false)], () => { if (state.q === q) idleFrom(); });
   }
   const word = (k) => (PICS[k] || {}).clip;
@@ -975,7 +977,10 @@
     }, ms(9000));
   }
   $("replay").addEventListener("click", (e) => { e.stopPropagation(); const q = state.q; if (!q || q.resolved || state.mode !== "play") return; unlockAudio(); playIds(readSteps(q, true), () => idleFrom()); });
-  $("starSpk").addEventListener("click", (e) => { e.stopPropagation(); const q = state.q; if (!q) return; unlockAudio(); playIds([word(q.k)]); });
+  // Golan 30.10 08:38: the picture's speaker waits until all the balls are in (it cut the balls' coming in, and the balls stayed locked);
+  // anything said before lets go of a lit ball (08:40: a lit frame got stuck)
+  const unlitAll = () => [...$("balls").children].forEach((x) => lit(x, false));
+  $("starSpk").addEventListener("click", (e) => { e.stopPropagation(); const q = state.q; if (!q || state.mode !== "play") return; unlockAudio(); unlitAll(); playIds([word(q.k)], () => { if (state.q === q && !q.resolved) idleFrom(); }); });
   function judge(b) {
     const q = state.q; if (!q || q.resolved || state.mode !== "play" || b.classList.contains("gone")) return;
     unlockAudio();

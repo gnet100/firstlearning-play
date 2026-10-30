@@ -1713,7 +1713,9 @@
   const INTRO_NAME = "hub_g_detective", INTRO_DESC = "det_start2";
   // the start window says the game's name, then its short description (Golan 30.10: "המערכת צריכה לומר את שם המשחק ואת התיאור הקצר")
   function introChain(auto) {
-    const ids = [genderedId(INTRO_NAME), genderedId(INTRO_DESC)]; let i = 0;
+    // the description to a boy or a girl is said only in their own form (Golan 30.10: "כתוב שמע, המערכת אומרת שמעו"); missing = silent
+    const own = LM ? LM.lineIds(INTRO_DESC)[0] : INTRO_DESC;
+    const ids = [genderedId(INTRO_NAME), own]; let i = 0;
     const next = () => {
       if (i >= ids.length || !$("settings").hidden) return;
       const a = getClip(ids[i++]); if (!a || a._bad) return next();

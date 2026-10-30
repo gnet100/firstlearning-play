@@ -1735,7 +1735,7 @@ ${items[item]}</svg>`;
       for (const it of doms) {
         const f = flying(it);
         if (reduce || it.big) { it.el.style.opacity = String(Math.max(0, 1 - (reduce ? used / 1500 : (used - it.st) / 2000))); continue; }
-        it.el.style.translate = `${(f.sway * W * 0.01).toFixed(1)}px ${(-f.e * it.rise).toFixed(1)}px`; it.el.style.rotate = `${(f.rot * 57.3).toFixed(1)}deg`;
+        it.el.style.translate = `0px ${(-f.e * it.rise).toFixed(1)}px`;   // Golan 30.10 08:33: the bars and buttons rise straight up (no tilt, no sway: "דרמטי מדי")
       }
       sky.style.opacity = String(Math.max(0, Math.min(1, (used - 3800) / 900)));   // whatever is left (land too big to leave) is under a clean sky
       if (used >= FLY_MS) { done = true; stopAll(); ok && ok(); return; }
