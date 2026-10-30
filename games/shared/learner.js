@@ -22,6 +22,50 @@
   // words by their plain spelling; any other word is masculine. Clips: sd_explain, sd_explain_f, sd_explain_p.
   const WORD_F = new Set(["דלת", "סכריה", "מטריה", "רכבת", "שמש", "זברה", "בננה", "נעל", "טבעת", "יד", "כף", "צלחת", "משאית", "כבאית", "חללית", "נדנדה", "מגלשה", "חצוצרה", "מסכה"]);
   const WORD_P = new Set(["גרבים"]);
+  // Golan 30.10 (all games): nikud on every title and button. Each plain word found in this list gets its pointed spelling
+  // (from voice/lines.js and the word bank where it is there); a word not in the list, or one already pointed, stays as it is.
+  // Applied to the page by itself (also to text a game sets later), so the games' own code keeps its plain strings.
+  const NIKUD = {
+    "איפוס": "אִפּוּס", "הסיכום": "הַסִּכּוּם", "סיכום": "סִכּוּם", "בחר": "בְּחַר", "בחרי": "בַּחֲרִי", "בוחרים": "בּוֹחֲרִים",
+    "כדור": "כַּדּוּר", "כדורים": "כַּדּוּרִים", "פורח": "פּוֹרֵחַ", "פורחים": "פּוֹרְחִים", "קטר": "קַטָּר", "גלגל": "גַּלְגַּל", "מכונית": "מְכוֹנִית",
+    "חפרפרות": "חֲפַרְפָּרוֹת", "בלש": "בַּלָּשׁ", "בלשית": "בַּלָּשִׁית", "הבלש": "הַבַּלָּשׁ", "הבלשית": "הַבַּלָּשִׁית", "הצלילים": "הַצְּלִילִים",
+    "בעננים": "בָּעֲנָנִים", "בן": "בֶּן", "כמה": "כַּמָּה", "גבוהה": "גְּבוֹהָה", "דפוס": "דְּפוּס", "בלבד": "בִּלְבַד", "האות": "הָאוֹת",
+    "שמתעוררת": "שֶׁמִּתְעוֹרֶרֶת", "הבנת": "הֲבָנַת", "הנשמע": "הַנִּשְׁמָע", "הגדרות": "הַגְדָּרוֹת", "להורה": "לַהוֹרֶה", "או": "אוֹ",
+    "למורה": "לַמּוֹרֶה", "החלטת": "הַחְלָטַת", "מערכת": "מַעֲרֶכֶת", "הכה": "הַכֵּה", "את": "אֶת", "החפרפרת": "הַחֲפַרְפֶּרֶת",
+    "המשך": "הַמְשֵׁךְ", "למשחק": "לַמִּשְׂחָק", "הבא": "הַבָּא", "התקדמות": "הִתְקַדְּמוּת", "למידה": "לְמִידָה", "זיהוי": "זִהוּי",
+    "אותיות": "אוֹתִיּוֹת", "האותיות": "הָאוֹתִיּוֹת", "בכתב": "בִּכְתַב", "כתב": "כְּתַב", "יד": "יָד", "הברות": "הֲבָרוֹת", "צלילים": "צְלִילִים",
+    "הצליל": "הַצְּלִיל", "של": "שֶׁל", "כל": "כָּל", "אות": "אוֹת", "זמנים": "זְמַנִּים", "חדשים": "חֲדָשִׁים", "חזור": "חֲזֹר",
+    "חזרה": "חֲזָרָה", "לשיר": "לַשִּׁיר", "חסכונית": "חֶסְכוֹנִית", "יוצאים": "יוֹצְאִים", "לדרך": "לַדֶּרֶךְ", "יש": "יֵשׁ",
+    "סיימנו": "סִיַּמְנוּ", "סיבוב": "סִבּוּב", "עוד": "עוֹד", "כבוי": "כָּבוּי", "כן": "כֵּן", "להחליף": "לְהַחְלִיף", "כתיבת": "כְּתִיבַת",
+    "ומילים": "וּמִלִּים", "מילים": "מִלִּים", "לא": "לֹא", "מידע": "מֵידָע", "טכני": "טֶכְנִי", "מעגל": "מַעְגַּל", "משולב": "מְשֻׁלָּב",
+    "משחק": "מִשְׂחַק", "זיכרון": "זִכָּרוֹן", "משחקים": "מְשַׂחֲקִים", "ביחד": "בְּיַחַד", "ניקוי": "נִקּוּי", "נכון": "נָכוֹן", "נסו": "נַסּוּ",
+    "שוב": "שׁוּב", "סובב": "סוֹבֵב", "סופיות": "סוֹפִיּוֹת", "עצור": "עֲצֹר", "פועל": "פּוֹעֵל", "קריאת": "קְרִיאַת", "עם": "עִם",
+    "ניקוד": "נִקּוּד", "רוצה": "רוֹצֶה", "רוצים": "רוֹצִים", "לוח": "לוּחַ", "גדול": "גָּדוֹל", "יותר": "יוֹתֵר", "רכבת": "רַכֶּבֶת",
+    "שטף": "שֶׁטֶף", "קריאה": "קְרִיאָה", "שפה": "שָׂפָה", "ואוצר": "וְאוֹצַר", "איך": "אֵיךְ", "פתיחה": "פְּתִיחָה", "אחיד": "אָחִיד",
+    "מעורב": "מְעֹרָב", "מרוץ": "מֵרוֹץ", "השערים": "הַשְּׁעָרִים", "פתח": "פַּתָּח", "קמץ": "קָמַץ", "מוכנים": "מוּכָנִים", "מוכן": "מוּכָן",
+    "מוכנה": "מוּכָנָה", "צלילים": "צְלִילִים", "שיר": "שִׁיר", "האלף": "הָאָלֶף", "בית": "בֵּית", "הצגת": "הַצָּגַת", "הסתרת": "הַסְתָּרַת",
+    "הלוח": "הַלּוּחַ", "הסתרה": "הַסְתָּרָה", "חזרה": "חֲזָרָה", "מלאה": "מְלֵאָה", "מאוזנת": "מְאֻזֶּנֶת", "בסיסית": "בְּסִיסִית", "אוטומטי": "אוֹטוֹמָטִי",
+    "בשם": "בְּשֵׁם", "שמירה": "שְׁמִירָה",
+  };
+  const POINTED = /[֑-ׇ]/;
+  FL.nikud = (s) => String(s).replace(/[א-ת][א-ת֑-ׇ]*/g, (w) => (POINTED.test(w) ? w : NIKUD[w] || w));
+  const NIK_SEL = "h1, h2, h3, h4, button, [role=button], [class*=title], [id*=itle]";
+  function nikudIn(el) {
+    if (!el || el.nodeType !== 1 || el.closest("[data-no-nikud], input, textarea, select")) return;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) { const v = n.nodeValue; if (!/[א-ת]/.test(v)) continue; const p = FL.nikud(v); if (p !== v) n.nodeValue = p; }
+  }
+  function nikudScan(node) {
+    const el = node && (node.nodeType === 1 ? node : node.parentElement); if (!el) return;
+    const top = el.closest(NIK_SEL); if (top) return nikudIn(top);
+    el.querySelectorAll(NIK_SEL).forEach(nikudIn);
+  }
+  if (root.document && root.MutationObserver) {
+    const start = () => { nikudScan(document.body);
+      new MutationObserver((ms) => { for (const m of ms) { if (m.type === "characterData") nikudScan(m.target); else m.addedNodes.forEach(nikudScan); } })
+        .observe(document.body, { subtree: true, childList: true, characterData: true }); };
+    if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  }
   // Draw a picture centred by what is actually drawn in it, not by its frame (Golan 29.10 21:27: "דאג שהתמונות יהיו ממורכזות"):
   // some drawings sit to one side of their square, so the visible part is measured once and moved to the middle of the box.
   FL.drawPicCentred = (ctx, im, x, y, w, h) => {
@@ -1466,7 +1510,7 @@ ${items[item]}</svg>`;
           const ghost = b.ghost || b.primary === false, label = b.text === "לסיים" ? "חזור" : b.text;
           const btn = btnEls.get(key) || document.createElement("button"); btnEls.set(key, btn); btn.type = "button"; btn.className = "fl-end-btn" + (ghost ? " ghost" : ""); btn.textContent = "";
           if (ghost && label === "חזור") btn.insertAdjacentHTML("beforeend", END_DOOR);
-          if (b.next) { const t = document.createElement("span"); t.className = "fl-end-2l"; t.innerHTML = "<span>הַמְשֵׁךְ</span><span>לַמִּשְׂחָק הַבָּא</span>".replace(/[\u0591-\u05C7]/g, ""); btn.append(t); } else btn.append(label);
+          if (b.next) { const t = document.createElement("span"); t.className = "fl-end-2l"; t.innerHTML = "<span>הַמְשֵׁךְ</span><span>לַמִּשְׂחָק הַבָּא</span>"; btn.append(t); } else btn.append(label);
           if (!ghost && label === "עוד סיבוב") { const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
             sp.onclick = (e) => { e.stopPropagation(); sayClip("btn_again"); }; btn.append(sp); }   // Hila reads "עוֹד סִבוּב" (btn_again; silent until the clip exists)
           if (b.next) { btn.classList.add("fl-end-next"); const sp = document.createElement("span"); sp.className = "fl-end-spk"; sp.setAttribute("role", "button"); sp.setAttribute("aria-label", "הקשבה"); sp.textContent = "🔊";
