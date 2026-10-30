@@ -1225,16 +1225,16 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     demoAfter = () => { endDemoMarks(); markDemo(); $("board").hidden = true; $("fx").innerHTML = ""; if (done) done(); };
     newBoard();   // dealt as usual; the end of the deal calls demoPlay
   }
-  function demoPlay() {
+  function demoPlay() {   // two examples (Golan 30.10 13:58), then "נחזור לשחק" (demo_back; silent until recorded)
     const my = epoch, alive = () => my === epoch && state.demo;
-    const s = state.cards.find((c) => c.snd && c.state === "closed"), p = s && state.cards.find((c) => !c.snd && !c.surprise && c.l === s.l);
-    if (!s || !p) return demoAfter && demoAfter();
     const at = (c) => { const r = c.el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; };
     const arrow = (c) => { if (window.FL && FL.demoArrow) { const q = at(c); FL.demoArrow(q.x, q.top + 6); } };
-    playIds(["sd_demo"], () => {
-      if (!alive()) return;
+    const finish = () => { if (window.FL && FL.demoArrow) FL.demoArrow(null); playIds(["demo_back"], () => later(500, () => { if (alive() && demoAfter) { const f = demoAfter; demoAfter = null; f(); } })); };
+    const example = (n, from) => {
+      const s = state.cards.find((c) => c.snd && c.state === "closed"), p = s && state.cards.find((c) => !c.snd && !c.surprise && c.l === s.l);
+      if (!s || !p) return n > 0 ? finish() : demoAfter && demoAfter();
       const a = at(s);
-      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
+      moveHand(from || { x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
         if (!alive()) return;
         flip(state.cards.indexOf(s), true); arrow(s);
         later(400, () => whenQuiet(() => later(700, () => {
@@ -1243,12 +1243,14 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
           moveHand(at(s), at(p), 1200, () => later(300, () => {
             if (!alive()) return;
             flip(state.cards.indexOf(p), true); arrow(p);
-            later(600, () => whenQuiet(() => later(1800, () => { if (alive() && demoAfter) { const f = demoAfter; demoAfter = null; f(); } })));
+            later(600, () => whenQuiet(() => later(1500, () => { if (!alive()) return; if (n === 0) example(1, at(p)); else finish(); })));
           }));
         })));
       }));
-    });
+    };
+    playIds(["sd_demo"], () => { if (alive()) example(0); });
   }
+
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
   $("helpCard").addEventListener("click", (e) => {   // the "?" card at the bottom left plays the demo again (as in the other sound games)
     e.stopPropagation(); if (["intro", "end", "flying", "ready", "pick", "levelask", "shuffle"].includes(state.mode) || state.demo) return;
