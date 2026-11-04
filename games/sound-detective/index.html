@@ -1551,7 +1551,7 @@
     const myQ = state.q, S = SOUNDS[q.letter];
     // the letter with its nikud shows beside the picture once it hangs; Hila: "בַּ... בַּיִת" (+ the explanation after a solved sky)
     const landMs = Math.max(0, ...tags.filter((g) => g.on).map((g) => TAG_FLY - g.t)) * 1000 / motionK();
-    setTimeout(() => { if (state.q === myQ) showOk(q.letter); }, Math.max(0, landMs - 300));
+    setTimeout(() => { if (state.q === myQ && !q.demo) showOk(q.letter); }, Math.max(0, landMs - 300));   // not in the demo (Golan 4.11 11:20: the letter is not written again)
     const W = wordOf(q.letter), ids = auto ? [S.s, W]   /* Golan 29.10 20:28: the system's own answer says the sound once and the word once */ : [S.s, W, "fb_correct"];   /* Golan 29.10 21:27: first the sound and the word, then the praise */   // "יש! נכון!" first (Golan 29.10)
     setTimeout(() => playIds(ids, () => setTimeout(() => {
       if (state.q !== myQ) return;
