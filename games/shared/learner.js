@@ -1433,11 +1433,16 @@ ${items[item]}</svg>`;
   function confidentCount() { const p = cur(); if (!p) return 0; const c = cardsFor(p);
     return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; }
   function nextTier() { const n = confidentCount(); return n >= 15 ? "isle2" : n > 8 ? "hard" : "easy"; }
+  // the games this child played last, newest first (from the answers saved, so a game left with no answer does not count)
+  function recentGames(n) { const p = cur(), out = []; if (!p) return out;
+    for (let i = p.events.length - 1; i >= 0 && out.length < n; i--) { const g = p.events[i].g; if (g && !out.includes(g)) out.push(g); }
+    return out; }
   function nextGame(justPlayed) {
     const now = justPlayed === undefined ? gameCfg.game : justPlayed;
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const tier = nextTier(), all = NEXT_GAMES.filter((x) => x.tier === tier);
-    let pool = all.filter((x) => x.g !== now && x.id !== last);
+    const tier = nextTier(), all = NEXT_GAMES.filter((x) => x.tier === tier), recent = recentGames(2);   // Golan 4.11: the child's own last games are not offered again
+    let pool = all.filter((x) => x.g !== now && x.id !== last && !recent.includes(x.g));
+    if (!pool.length) pool = all.filter((x) => x.g !== now && x.id !== last);
     if (!pool.length) pool = all.filter((x) => x.g !== now);
     if (!pool.length) pool = all;
     const g = pool[Math.floor(Math.random() * pool.length)];
