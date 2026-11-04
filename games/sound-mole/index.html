@@ -1091,9 +1091,13 @@
   // loose = a hammer knock (Golan 28.10): a mole still rising or already upset counts too, a little wider around it,
   // so a knock on a wrong picture always gets the mistake sound
   function moleAt(px, py, loose) {
+    const live = (m) => m.state === "up" || m.state === "upset" || (m.state === "rise" && m.t - m.delay > (loose ? 0 : 0.12)) || (loose && m.state === "sad");
+    // first the mole's own body: the hat, the head, the hands or the sign all count the same (Golan 4.11)
+    const up = moles.filter(live), hit = up.length ? scene.pick(px, py, (k) => k.isEnabled() && k.isVisible && up.some((m) => k.isDescendantOf(m.root))) : null;
+    if (hit && hit.hit) { const m = up.find((k) => hit.pickedMesh.isDescendantOf(k.root)); if (m) return m; }
     let best = null, bd = 1e9;
     for (const m of moles) {
-      if (m.state !== "up" && m.state !== "upset" && !(m.state === "rise" && m.t - m.delay > (loose ? 0 : 0.12)) && !(loose && m.state === "sad")) continue;
+      if (!live(m)) continue;
       const s = screenOf(m), d = Math.min(Math.hypot(s.x - px, s.y - py), Math.hypot(s.hx - px, s.hy - py) * 1.15);
       if (d < s.r * (loose ? 1.25 : 1) && d < bd) { bd = d; best = m; }
     }
