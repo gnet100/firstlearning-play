@@ -860,7 +860,6 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
     const W = innerWidth, H = innerHeight;
     // the demo (Golan 30.10): the buttons are hidden, the cards stand inside the yellow wavy frame (its inset + the wave + the stroke)
-    if (document.documentElement.classList.contains("fl-demo-mode")) { const f = Math.max(24, 0.07 * Math.min(W, H)) + 40; return [{ x0: f, x1: W - f, y0: f, y1: H - f }]; }
     const et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
     const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
     // the hourglass under the star pill (learner.js places it the same way): its width and bottom keep the cards clear of it (Golan 29.10)
@@ -1225,7 +1224,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function runDemo(done) {
     epoch++; stopVoice(); state.demo = true;
     if (window.FL && FL.demoFrame) FL.demoFrame(true);
-    demoAfter = () => { endDemoMarks(); markDemo(); $("board").hidden = true; $("fx").innerHTML = ""; if (done) done(); };
+    demoAfter = () => { hideHand(); const fin = () => { endDemoMarks(); markDemo(); $("board").hidden = true; $("fx").innerHTML = ""; if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };   // Golan 4.11: it all flies up, then the game
     newBoard();   // dealt as usual; the end of the deal calls demoPlay
   }
   function demoPlay() {   // two examples (Golan 30.10 13:58), then "נחזור לשחק" (demo_back; silent until recorded)

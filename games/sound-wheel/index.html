@@ -1086,7 +1086,7 @@
   function runDemo(done) {
     stopVoice(); state.mode = "demo";
     if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays
-    demoAfter = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); hideHand(); markDemo(); if (done) done(); };
+    demoAfter = () => { hideHand(); const fin = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); markDemo(); if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };   // Golan 4.11: it all flies up, then the game
     readySpin(); state.mode = "demo";
     const my = epoch;
     playIds(["sd_demo"], () => {

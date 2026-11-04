@@ -1590,12 +1590,14 @@
     const my = ++demoTok; hush(); state.demo = true; demoCont = null;
     if (window.FL && FL.demoFrame) FL.demoFrame(true);
     const alive = () => my === demoTok && state.demo;
-    const at = (m) => { const s = screenOf(m), r = canvas.getBoundingClientRect(); return { x: r.left + s.x, y: r.top + s.y, top: r.top + s.y - s.r * 0.75 }; };
+    const at = (m) => { const s = screenOf(m), r = canvas.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width); return { x: r.left + s.x * k, y: r.top + s.y * k, top: r.top + (s.y - s.r * 0.75) * k }; };   // k: the demo makes the game smaller
     let last = null;
     const finish = () => {
       if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand();
       const q = state.q; if (q) { q.done = true; duckAll(q); }
-      playSeq([LINES.back], 1, () => setTimeout(() => { if (!alive()) return; endDemoMarks(); markDemo(); state.q = null; moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); if (done) done(); }, 500));
+      playSeq([LINES.back], 1, () => setTimeout(() => { if (!alive()) return; hideHand();
+        const fin = () => { if (!alive()) return endDemoMarks(); endDemoMarks(); markDemo(); state.q = null; moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); if (done) done(); };
+        if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); }, 500));   // Golan 4.11: it all flies up, then the game
     };
     const example = (n) => {
       const wait = () => {

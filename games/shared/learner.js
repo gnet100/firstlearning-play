@@ -103,14 +103,23 @@
       .fl-demo-tint{position:fixed;inset:0;z-index:44;pointer-events:none;opacity:0;transition:opacity .5s;mix-blend-mode:multiply;background:radial-gradient(ellipse at 50% 45%,#fff3d6 0%,#ffe1a8 70%,#f7c98a 100%)}
       .fl-demo-tint.on{opacity:.55}
       html.fl-demo-mode [id^="door"],html.fl-demo-mode #gear,html.fl-demo-mode .gear,html.fl-demo-mode #flRestart,html.fl-demo-mode #helpCard,
-      html.fl-demo-mode .fl-hg,html.fl-demo-mode [data-fl-stars]{visibility:hidden!important}`;   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
+      html.fl-demo-mode .fl-hg,html.fl-demo-mode [data-fl-stars]{visibility:hidden!important}
+      body{transition:transform .45s ease}
+      html.fl-demo-mode body{transform:scale(var(--fl-demo-s,1));transform-origin:50vw 50vh}
+      html.fl-demo-mode{background:var(--fl-demo-bg,#cfe9f4)}
+      html.fl-demo-out body{transition:transform .8s cubic-bezier(.5,0,.85,.4),opacity .8s ease-in;transform:translateY(-115vh) scale(var(--fl-demo-s,1));opacity:0}
+      html.fl-demo-out .fl-demo-frame,html.fl-demo-out .fl-demo-tint{transition:opacity .7s;opacity:0}`;   /* Golan 4.11: at the end of every demo it all goes up and away, then the game */   /* Golan 4.11: the frame goes round everything; the whole game is made smaller inside it */   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
     document.head.append(st);
   }
   let demoFrameEl = null, demoArrowEl = null; let demoTintEl = null;
   FL.demoFrame = (on) => {
     if (typeof document === "undefined") return; demoCss();
-    if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.body.append(demoFrameEl); }
-    if (on) {   // a wavy line all round, drawn for the frame's own size
+    if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.documentElement.append(demoFrameEl); }
+    if (on) {   // Golan 4.11: the game shrinks to fit inside the frame (the frame, tint, arrow and hand stay outside the game, at full size)
+      const f = Math.max(24, 0.07 * Math.min(innerWidth, innerHeight)) + 26, sc = Math.max(0.5, Math.min(1 - 2 * f / innerWidth, 1 - 2 * f / innerHeight));
+      const root = document.documentElement; root.style.setProperty("--fl-demo-s", sc.toFixed(3));
+      const bg = getComputedStyle(document.body).backgroundColor; if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) root.style.setProperty("--fl-demo-bg", bg);
+      const hd = document.getElementById("demoHand"); if (hd && hd.parentNode !== root) root.append(hd);   // a wavy line all round, drawn for the frame's own size
       // Golan 30.10: thicker, and really wavy (the old points all fell on the wave's zero line, so it was drawn straight)
       const r = demoFrameEl.getBoundingClientRect(), W = Math.max(100, r.width), H = Math.max(100, r.height), A = 9, wave = 46, M = 14, pts = [];
       const side = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), half = Math.max(2, Math.round(L / (wave / 2))), n = half * 8, nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
@@ -119,14 +128,28 @@
       const d = "M" + pts.map((q) => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L") + " Z";
       demoFrameEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffffcc" stroke-width="20" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#ffb800" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
     }
-    if (!demoTintEl) { demoTintEl = document.createElement("div"); demoTintEl.className = "fl-demo-tint"; document.body.append(demoTintEl); }
+    if (!demoTintEl) { demoTintEl = document.createElement("div"); demoTintEl.className = "fl-demo-tint"; document.documentElement.append(demoTintEl); }
     demoTintEl.classList.toggle("on", !!on); document.documentElement.classList.toggle("fl-demo-mode", !!on);
     demoFrameEl.classList.toggle("on", !!on); if (!on) FL.demoArrow(null);
+  };
+  // FL.demoOut(then): the end of a demo (Golan 4.11, every demo): everything in the frame flies up and is gone, then then() sets up
+  // the game, which fades in at full size. Without a demo on screen, then() runs at once.
+  FL.demoOut = (then) => {
+    const root = document.documentElement, b = document.body;
+    if (typeof document === "undefined" || !root.classList.contains("fl-demo-mode")) { FL.demoFrame && FL.demoFrame(false); if (then) then(); return; }
+    FL.demoArrow(null); root.classList.add("fl-demo-out");
+    setTimeout(() => {
+      b.style.transition = "none"; b.style.opacity = "0"; root.classList.remove("fl-demo-out"); FL.demoFrame(false);
+      try { if (then) then(); } finally {
+        void b.offsetWidth; b.style.transition = "opacity .45s ease"; b.style.opacity = "1";
+        setTimeout(() => { b.style.transition = ""; b.style.opacity = ""; }, 500);
+      }
+    }, 820);
   };
   FL.demoArrow = (x, y) => {
     if (typeof document === "undefined") return; demoCss();
     if (!demoArrowEl) { demoArrowEl = document.createElement("div"); demoArrowEl.className = "fl-demo-arrow";
-      demoArrowEl.innerHTML = '<svg viewBox="0 0 60 60"><path d="M22 4 H38 V30 H50 L30 56 L10 30 H22 Z" fill="#ff5a4e" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>'; document.body.append(demoArrowEl); }
+      demoArrowEl.innerHTML = '<svg viewBox="0 0 60 60"><path d="M22 4 H38 V30 H50 L30 56 L10 30 H22 Z" fill="#ff5a4e" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>'; document.documentElement.append(demoArrowEl); }
     if (x == null) { demoArrowEl.classList.remove("on"); return; }
     demoArrowEl.style.left = x + "px"; demoArrowEl.style.top = y + "px"; demoArrowEl.classList.add("on");
   };

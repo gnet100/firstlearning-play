@@ -1505,7 +1505,7 @@
     stopSeq();
     // Golan 30.10 06:37: the train sets off as the praise starts (not after it)
     const go = () => { if (state.train !== myTrain || state.phase !== "cheer") return;
-      if (demo && ++state.demoEx >= 2) { endDemo(); return playIds(["demo_back"], () => after(400, callLoco)); }   // after the 2nd example: "נַחֲזֹר לְשַׂחֵק", then the game (Golan 30.10 16:04)
+      if (demo && ++state.demoEx >= 2) { hideHand(); return playIds(["demo_back"], () => { const fin = () => { endDemo(); after(400, callLoco); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); }); }   // Golan 4.11: it all flies up, then the game   // after the 2nd example: "נַחֲזֹר לְשַׂחֵק", then the game (Golan 30.10 16:04)
       callLoco(); };   // one right drop and the train goes; a new train with other pictures comes in
     if (!auto && !demo) ids.splice(ids.indexOf("fb_correct"), 0, go);
     after(250, () => playIds(ids, () => after(300, go)));
