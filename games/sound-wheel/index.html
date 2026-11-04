@@ -961,7 +961,7 @@
     playIds(["sw_q", word(k)], () => {
       if (state.q !== q) return;
       const steps = [];
-      q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); sfx.pop(); }, ms(260)));
+      q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); sfx.pop(); }, ms(500)));   // half a second apart (Golan 4.11 11:10)
       // Golan 29.10 21:46: no taps until every ball is in (a tap before stopped the voice, and the other balls never came)
       playIds(steps, () => { if (state.q === q) { state.mode = "play"; q.audioEnd = performance.now(); idleFrom(); } });
     });
