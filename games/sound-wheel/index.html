@@ -956,12 +956,12 @@
     requestAnimationFrame(() => { state.q.big = true; placeStar(); });
     const box = $("balls"); box.textContent = ""; box.hidden = false;
     const q = state.q;
-    // the question and the word first; then the balls come in one by one, each with its sound (levels 1-2)
+    // the question and the word first; then the balls come in one by one, quickly, each with a small pop (Golan 4.11 08:19:
+    // one after another, not all at once, with a system sound and not the letter's sound; the sounds are heard on the replay button)
     playIds(["sw_q", word(k)], () => {
       if (state.q !== q) return;
       const steps = [];
-      q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); if (saySounds()) lit(b, true); else sfx.pop(); },
-        saySounds() ? SOUNDS[bl].s : () => {}, () => { lit(box.lastChild, false); }, saySounds() ? ms(350) : 0));
+      q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); sfx.pop(); }, ms(260)));
       // Golan 29.10 21:46: no taps until every ball is in (a tap before stopped the voice, and the other balls never came)
       playIds(steps, () => { if (state.q === q) { state.mode = "play"; q.audioEnd = performance.now(); idleFrom(); } });
     });
