@@ -1437,18 +1437,29 @@ ${items[item]}</svg>`;
   function recentGames(n) { const p = cur(), out = []; if (!p) return out;
     for (let i = p.events.length - 1; i >= 0 && out.length < n; i--) { const g = p.events[i].g; if (g && !out.includes(g)) out.push(g); }
     return out; }
+  // Golan 4.11: the games are ranked easy -> hard (RANK). The known letters (sounds on the sound island) choose a window of 3
+  // neighbouring games; inside it the last round moves the choice: a good round = one game up, a hard round = one down.
+  // The child's last 2 games and the game just played are not offered (when the window has nothing else, the whole island).
+  const RANK = { isle1: ["wake", "detective", "circle", "mole", "memory", "train", "race"], isle2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain"] };
+  function lastRoundScore(g) {   // share of first-try answers in this game's last round (answers of the last 10 minutes)
+    const p = cur(); if (!p || !g) return null; const since = Date.now() - 10 * 60 * 1000, ev = p.events.filter((e) => e.g === g && e.t >= since);
+    return ev.length >= 3 ? ev.filter((e) => e.ok).length / ev.length : null; }
   function nextGame(justPlayed) {
     const now = justPlayed === undefined ? gameCfg.game : justPlayed;
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const tier = nextTier(), all = NEXT_GAMES.filter((x) => x.tier === tier), recent = recentGames(2);   // Golan 4.11: the child's own last games are not offered again
-    let pool = all.filter((x) => x.g !== now && x.id !== last && !recent.includes(x.g));
-    if (!pool.length) pool = all.filter((x) => x.g !== now && x.id !== last);
-    if (!pool.length) pool = all.filter((x) => x.g !== now);
-    if (!pool.length) pool = all;
-    const g = pool[Math.floor(Math.random() * pool.length)];
-    try { localStorage.setItem("fl-map-last", g.id); } catch (e) {}
-    return g;
+    const isle = confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
+    const w0 = isle === "isle2" ? (n <= 2 ? 0 : n <= 5 ? 1 : 2) : Math.min(rank.length - 3, Math.floor(n / 3)), win = rank.slice(w0, w0 + 3);
+    const sc = lastRoundScore(now), step = sc == null ? 0 : sc >= 0.8 ? 1 : sc <= 0.5 ? -1 : 0;
+    const at = rank.indexOf(now), base = at >= w0 && at < w0 + 3 ? at - w0 : 1, want = Math.max(0, Math.min(2, base + step));
+    const recent = recentGames(2), byId = (g) => NEXT_GAMES.find((x) => x.g === g), ok = (g) => g !== now && !recent.includes(g) && byId(g) && byId(g).id !== last;
+    // the wanted place first, then the nearest ones (upwards first after a good round, downwards first after a hard one)
+    const order = [0, 1, -1, 2, -2].map((d) => want + (step < 0 ? -d : d)).filter((k, i, a) => k >= 0 && k < 3 && a.indexOf(k) === i).map((k) => win[k]);
+    let g = order.find(ok) || rank.find(ok) || win.find((x) => x !== now) || rank.find((x) => x !== now);
+    const pick = byId(g) || NEXT_GAMES[0];
+    try { localStorage.setItem("fl-map-last", pick.id); } catch (e) {}
+    return pick;
   }
+
   function nextGameUrl(g) { if (!HUB_URL || !g) return null; try { return new URL(g.path, HUB_URL).href + "?hub=" + encodeURIComponent(HUB_URL); } catch (e) { return null; } }
   function goNextGame() { const u = nextGameUrl(nextGame()); if (u) location.href = u; }
   let endShownAt = Date.now(), lastPractice = {}, lastSounds = {};
