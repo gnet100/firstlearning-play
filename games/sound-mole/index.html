@@ -248,7 +248,7 @@
   /* the hammer (Golan 28.10): it takes the place of the mouse pointer over the game, follows the finger, and a tap is a light knock */
   #game.hammering { cursor: none; }
   #hammer { position: fixed; left: 0; top: 0; width: max(calc(150 * var(--u)), 96px); height: auto; pointer-events: none; z-index: 5;
-    transform-origin: 18% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.2) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.78); display: none; }   /* held from the bottom left (Golan 28.10) */
+    transform-origin: 18% 88%; margin: calc(max(calc(150 * var(--u)), 96px) * -0.46) 0 0 calc(max(calc(150 * var(--u)), 96px) * -0.78); display: none; }   /* held from the bottom left (Golan 28.10); the knock lands where the hammer head is drawn (Golan 4.11) */
   #hammer.show { display: block; }
   #hammer svg { display: block; width: 100%; height: auto; transform: rotate(18deg); transform-origin: 18% 88%; }
   #hammer.hit svg { animation: knock .28s ease-in-out; }
