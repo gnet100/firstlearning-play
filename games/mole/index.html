@@ -750,29 +750,55 @@
   const POSES = { low: SIGN_LOW, high: SIGN_HIGH, poles: SIGN_POLES };
   // each mole turns a little toward the middle of the screen, not outward (Golan 23.10)
   const yawOf = (h) => 0.6 * Math.max(-1, Math.min(1, h.x / R));
+  // Golan 4.11: the place a mole takes is measured from its real 3D parts (hat, ears, paws, sign, poles), not guessed,
+  // once per kind and sign pose, as a box around the mole fully up; then turned and moved to each hole and put on the screen
+  function localBox(m, pose) {
+    m.boxes = m.boxes || {}; if (m.boxes[pose]) return m.boxes[pose];
+    const keep = { pose: m.pose, y: m.body.position.y, rz: m.body.rotation.z, tr: m.tilt.rotation.clone(), ts: m.tilt.scaling.clone() };
+    poseSign(m, pose); m.body.position.y = 0; m.body.rotation.z = 0; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1);
+    m.root.computeWorldMatrix(true); const inv = m.root.getWorldMatrix().clone().invert();
+    const on = (k) => { for (let n = k; n && n !== m.root; n = n.parent) if (!n.isEnabled(false)) return false; return true; };
+    const lo = new BABYLON.Vector3(1e9, 1e9, 1e9), hi = new BABYLON.Vector3(-1e9, -1e9, -1e9);
+    m.root.getChildMeshes(false).forEach((k) => { if (!on(k) || !k.isVisible || !k.getTotalVertices()) return;
+      k.computeWorldMatrix(true); const bb = k.getBoundingInfo().boundingBox, w = k.getWorldMatrix().multiply(inv);
+      for (const x of [bb.minimum.x, bb.maximum.x]) for (const y of [bb.minimum.y, bb.maximum.y]) for (const z of [bb.minimum.z, bb.maximum.z]) {
+        const p = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(x, y, z), w); lo.minimizeInPlace(p); hi.maximizeInPlace(p); } });
+    poseSign(m, keep.pose || pose); m.body.position.y = keep.y; m.body.rotation.z = keep.rz; m.tilt.rotation.copyFrom(keep.tr); m.tilt.scaling.copyFrom(keep.ts);
+    lo.y = Math.max(lo.y, 0);   // what is under the rim of the hole is not seen
+    return (m.boxes[pose] = { lo, hi });
+  }
   function screenBox(K, hi, pose) {
-    const h = holes[hi], P = POSES[pose], wm = island.getWorldMatrix(), bw = K.bw, top = (1.5 * K.bh + (K.helmet ? 0.35 : 0.05)) * S;
+    const h = holes[hi], wm = island.getWorldMatrix(), m = moles.find((k) => k.K === K), { lo, hi: up } = localBox(m, pose), bob = 0.06 * S;
     cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
-    const pts = [];
-    for (const sx of [-1, 1]) {
-      pts.push([sx * 0.58 * bw * S, 0, -0.3 * S], [sx * 0.58 * bw * S, top, -0.3 * S]);
-      for (const sy of [-1, 1]) pts.push([sx * (signW / 2 + 0.12 * S), P.y * S + sy * (signH / 2 + 0.1 * S), P.z * S]);
-    }
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     const yw = yawOf(h), cy = Math.cos(yw), sy = Math.sin(yw);
-    for (const [x, y, z] of pts) { const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x * cy + z * sy, TOP + h.y + y, h.z - x * sy + z * cy), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    for (const x of [lo.x, up.x]) for (const y of [lo.y - bob, up.y + bob]) for (const z of [lo.z, up.z]) {
+      const q = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x * cy + z * sy, TOP + h.y + y, h.z - x * sy + z * cy), wm)); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
     return { x0, y0, x1, y1 };
+  }
+  // Golan 4.11: no sign behind the hill of the island either. Rays from the camera to the middle and the corners of the sign:
+  // if the land is hit before the sign, that hole and pose are not used
+  const landPick = (k) => k.isEnabled() && k.isVisible && k.isDescendantOf(island) && !moles.some((m) => k.isDescendantOf(m.root));
+  function landHides(hi, pose) {
+    const h = holes[hi], P = POSES[pose], wm = island.getWorldMatrix(), yw = yawOf(h), cy = Math.cos(yw), sy = Math.sin(yw), eye = cam.globalPosition;
+    for (const [fx, fy] of [[0, 0], [-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) {
+      const x = fx * signW, y = P.y * S + fy * signH, z = P.z * S;
+      const p = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(h.x + x * cy + z * sy, TOP + h.y + y, h.z - x * sy + z * cy), wm);
+      const d = p.subtract(eye), len = d.length(), hit = scene.pickWithRay(new BABYLON.Ray(eye, d.scale(1 / len), len), landPick);
+      if (hit && hit.hit && hit.distance < len - 0.05 * S) return true;
+    }
+    return false;
   }
   const hits = (a, b, g = 4) => a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.y0 < b.y1 + g && b.y0 < a.y1 + g;
   // a free hole and a sign pose for mole m that hide nothing and are hidden by nothing; null when there is none now
   function freePlace(m, avoid = []) {
-    const others = moles.filter((k) => k !== m && (k.state === "rise" || k.state === "up")), taken = others.map((k) => k.hole);
+    const others = moles.filter((k) => k !== m && k.state !== "off"), taken = others.map((k) => k.hole);
     const boxes = others.map((k) => screenBox(k.K, k.hole, k.pose));
     const want = posePick(m.K), poses = [want, ...["low", "high", "poles"].filter((p) => p !== want)];
     const cand = shuffle(holes.map((h, i) => (h.on && !taken.includes(i) && !avoid.includes(i) ? i : -1)).filter((i) => i >= 0));
     // nothing under the letter strip, the door, the gear or the stars either (Golan 23.10: the speaker hid a sign)
     const inside = (b) => b.y0 >= region.y0 - 2 && b.x0 >= region.x0 - 2 && b.x1 <= region.x1 + 2;
-    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (inside(b) && !boxes.some((o) => hits(o, b))) return { hi, pose }; }
+    for (const pose of poses) for (const hi of cand) { const b = screenBox(m.K, hi, pose); if (inside(b) && !boxes.some((o) => hits(o, b)) && !landHides(hi, pose)) return { hi, pose }; }
     return null;
   }
   function placeMole(m, hi, letter, hint, delay, pose) {
@@ -780,7 +806,7 @@
     m.letter = letter; m.hole = hi; m.hint = hint; drawSign(m, letter, hint);
     poseSign(m, pose || posePick(m.K));
     m.root.position.set(h.x, TOP + h.y, h.z); m.root.rotation.y = yawOf(h); m.root.setEnabled(true);
-    m.body.position.y = m.down; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
+    m.body.position.y = m.down; m.body.rotation.z = 0; m.joltT = 0; m.tilt.rotation.set(0, 0, 0); m.tilt.scaling.setAll(1); m.brows.forEach((b) => b.setEnabled(false));
     m.state = "rise"; m.t = 0; m.delay = delay;
   }
   // the sign: a light wooden board with a dark letter; final letters get their tail below the writing line (as in every game)
@@ -1096,7 +1122,9 @@
     }
     return best;
   }
-  let lastTap = 0;
+  let lastTap = 0, lastMole = null;
+  // a knock that is not counted as a new mistake: a quick shake of the whole mole and the mistake sound (Golan 4.11)
+  const jolt = (m) => { sfx.oops(); vibrate(25); m.joltT = 0.45; };
   // the hammer (Golan 28.10): over the game it replaces the mouse pointer and follows the finger; a tap is a light knock that sends the mole down
   const hammer = $("hammer"), hammerOn = () => ["play", "between"].includes(state.mode) && !$("hud").hidden;
   // only over the island and its moles; away from it the normal pointer comes back (Golan 28.10)
@@ -1117,8 +1145,11 @@
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
     const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
     if (!m) return;
-    if (m.state === "sad") { sfx.oops(); return; }   // the same wrong mole again, on its way down: the mistake sound again, not another mistake
-    const now = performance.now(); if (now - lastTap < 300 || now < (q.tapPause || 0)) return; lastTap = now;   // double-touch filter; Golan 29.10 21:22: a short rest after a mistake
+    // Golan 4.11: every knock gets a reaction. A knock that is not counted (a mole already going down, the short rest after a mistake,
+    // a double touch, the game already solving it) still shakes that mole with the mistake sound; a right mole is always taken
+    const now = performance.now(), right = m.letter === q.letter && m.state !== "sad";
+    if (m.state === "sad" || (now - lastTap < 300 && m === lastMole) || (!right && now < (q.tapPause || 0))) { if (!right) jolt(m); return; }
+    lastTap = now; lastMole = m;
     setTimeout(() => { if (state.q === q) answer(m); }, 110);   // the hammer comes down first
   });
   function answer(m) {
@@ -1344,6 +1375,7 @@
     if (!paused) for (const m of moles) {
       if (m.state === "off") continue;
       m.t += dt;
+      if (m.joltT > 0) { m.joltT = Math.max(0, m.joltT - dt); const k = 1 - m.joltT / 0.45; m.body.rotation.z = Math.sin(k * Math.PI * 6) * 0.15 * (1 - k); }
       const k0 = m.t - m.delay;
       if (m.state === "rise") {
         if (k0 < 0) { m.body.position.y = m.down; continue; }
