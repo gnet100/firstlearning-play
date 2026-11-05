@@ -1030,6 +1030,44 @@
   const EXIT = { camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["walk", 1],
     tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
     "ר": ["drive", 1], plane: ["fly", -1], helicopter: ["up", -1], truck: ["drive", -1], fireTruck: ["drive", -1], ambulance: ["drive", -1], spaceship: ["fly", -1] };
+  // the sounds of a picture leaving its card (Golan 5.11): an engine, a train's puffs and whistle, a whoosh, a rotor, wings, steps, boings, a hiss
+  let noiseBuf = null;
+  function exitSound(kind, D) {
+    if (!actx) return;
+    try {
+      const t0 = actx.currentTime, out = actx.createGain(); out.gain.value = 1; out.connect(actx.destination);
+      if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const noise = (t, len, type, f, q, vol, f2) => { const n = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(); n.buffer = noiseBuf; n.loop = true;
+        fl.type = type; fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + len); fl.Q.value = q;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.05, len / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        n.connect(fl).connect(g).connect(out); n.start(t); n.stop(t + len + 0.05); };
+      const osc = (t, len, type, f, f2, vol) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + len);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.04, len / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(g).connect(out); o.start(t); o.stop(t + len + 0.05); };
+      if (kind === "drive") {   // an engine that starts, pulls away and fades
+        const o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain(), fl = actx.createBiquadFilter(), g = actx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(55, t0); o.frequency.linearRampToValueAtTime(95, t0 + D * 0.8);
+        lfo.frequency.value = 22; lg.gain.value = 12; lfo.connect(lg).connect(o.frequency);
+        fl.type = "lowpass"; fl.frequency.value = 420; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.25); g.gain.setValueAtTime(0.16, t0 + D * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t0 + D);
+        o.connect(fl).connect(g).connect(out); o.start(t0); lfo.start(t0); o.stop(t0 + D + 0.05); lfo.stop(t0 + D + 0.05);
+        osc(t0, 0.25, "square", 520, 0, 0.05); osc(t0 + 0.3, 0.25, "square", 520, 0, 0.05);   // beep beep
+      } else if (kind === "train") {   // a whistle, then choo-choo puffs that get faster
+        osc(t0, 0.5, "triangle", 880, 0, 0.12); osc(t0, 0.5, "triangle", 1100, 0, 0.08);
+        let t = t0 + 0.45, gap = 0.36; while (t < t0 + D - 0.1) { noise(t, 0.16, "bandpass", 900, 0.8, 0.22); t += gap; gap = Math.max(0.18, gap * 0.92); }
+      } else if (kind === "fly") {   // a rising whoosh with a soft jet under it
+        noise(t0 + 0.2, D - 0.2, "bandpass", 300, 1.2, 0.2, 2400); osc(t0 + 0.2, D - 0.2, "sawtooth", 90, 160, 0.05);
+      } else if (kind === "up") {   // the rotor: quick soft thumps
+        for (let t = t0; t < t0 + D - 0.05; t += 0.09) noise(t, 0.07, "lowpass", 260, 1, 0.3 * Math.max(0.15, 1 - (t - t0) / D));
+      } else if (kind === "wings") {   // flapping wings
+        for (let t = t0 + 0.2; t < t0 + D - 0.1; t += 0.26) noise(t, 0.12, "bandpass", 700, 1.5, 0.22);
+      } else if (kind === "walk") {   // soft steps, one with each little bounce
+        for (let i = 1; i < 12; i++) osc(t0 + (D * i) / 12, 0.09, "sine", 150, 70, 0.28 * (1 - i / 14));
+      } else if (kind === "hop") {   // a boing with every hop
+        for (let i = 0; i < 4; i++) osc(t0 + (D * (i * 2 + 0.3)) / 8, 0.28, "sine", 260, 620, 0.16);
+      } else if (kind === "slither") {   // a soft hiss
+        noise(t0 + 0.1, D - 0.2, "highpass", 3500, 0.7, 0.07);
+      }
+    } catch (e) {}
+  }
   function exitPic(k) {
     const p = $("starPic"), e = EXIT[k], q = state.q; if (!e || !p.animate) return false;
     const [kind, d] = e, X = (v) => `${d * v}%`;
@@ -1042,7 +1080,10 @@
       fly: [{ transform: "translate(0, 0)" }, { transform: `translate(${X(-5)}, 3%)`, offset: 0.15 }, { transform: `translate(${X(140)}, -120%) rotate(${d * -12}deg) scale(.75)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -150%) rotate(${d * -12}deg) scale(.6)`, opacity: 0 }],
       up: [{ transform: "translate(0, 0)" }, { transform: "translate(0, -25%)", offset: 0.35 }, { transform: `translate(${X(140)}, -110%) rotate(${d * 8}deg)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -130%) rotate(${d * 8}deg)`, opacity: 0 }] }[kind];
     p.classList.remove("wake"); if (p._exit) p._exit.cancel();
-    const an = p._exit = p.animate(frames, { duration: ms(kind === "walk" || kind === "slither" ? 2000 : kind === "hop" ? 1700 : 1500), easing: kind === "walk" || kind === "hop" || kind === "slither" ? "linear" : "ease-in", fill: "forwards" });
+    // Golan 5.11 19:50: slower, with a sound that goes with it
+    const dur = ms(kind === "walk" || kind === "slither" ? 3800 : kind === "hop" ? 3200 : 3000);
+    exitSound(k === "ר" ? "train" : k === "י" ? "wings" : kind, dur / 1000);
+    const an = p._exit = p.animate(frames, { duration: dur, easing: kind === "walk" || kind === "hop" || kind === "slither" ? "linear" : "ease-in", fill: "forwards" });
     an.onfinish = () => setTimeout(() => { if (p._exit !== an) return; an.cancel(); p._exit = null; if (state.q === q) p.innerHTML = picHtml(k); }, ms(250));   // very short rest, then the still picture
     return true;
   }
