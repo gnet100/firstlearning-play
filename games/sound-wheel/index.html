@@ -357,7 +357,7 @@
   .topic .bead .f { background: #fff; box-shadow: 0 0 0 2px #FFC233 inset; }
   .topic .bead .b { background: linear-gradient(#ffe7a8, #f5c95c); transform: rotateY(180deg); }
   .topic .bead svg, .topic .bead img { position: absolute; inset: 8%; width: 84%; height: 84%; display: block; }
-  @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ffb27a; } .topic:hover .ring { animation-play-state: paused; } }   /* the mouse over a row stops its bracelet (Golan 29.10) */
+  @media (hover: hover) and (pointer: fine) { .topic:not(.locked):hover { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ff8a3d, 0 6px 22px #ff8a3d66; } }   /* Golan 5.11: the bracelet keeps turning under the mouse; a clearly stronger frame */
 
   /* the game: one wide wheel of pictures across the screen (spec 2) */
   #wheel { position: fixed; left: 0; right: 0; direction: ltr; touch-action: none; }
@@ -952,7 +952,7 @@
     state.q = { k, l, balls: makeBalls(l), wrongs: 0, dropped: 0, firstWrong: null, start: performance.now(), audioEnd: Infinity, firstTap: 0, reads: 1, auto: false, resolved: false, big: false };
     state.mode = "ask";
     $("spinRow").hidden = true;
-    const s = $("star"); $("starPic").innerHTML = picHtml(k); $("starPic").className = "pic"; s.hidden = false; placeStar();
+    const s = $("star"); if ($("starPic")._exit) { $("starPic")._exit.cancel(); $("starPic")._exit = null; } $("starPic").innerHTML = picHtml(k); $("starPic").className = "pic"; s.hidden = false; placeStar();
     requestAnimationFrame(() => { state.q.big = true; placeStar(); });
     const box = $("balls"); box.textContent = ""; box.hidden = false;
     const q = state.q;
@@ -1025,8 +1025,30 @@
     setTimeout(() => { if (state.q === q) right(b, true); }, 900);
   }
   // the picture wakes up for a moment: the moving drawing of "האות שמתעוררת" when there is one, else it bounces (spec 4)
+  // Golan 5.11: a vehicle or an animal leaves its card (drives, walks, hops, slithers or flies out, the way its drawing faces),
+  // a very short rest with the card empty, then the still picture is back, with no motion
+  const EXIT = { camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["walk", 1],
+    tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
+    "ר": ["drive", 1], plane: ["fly", -1], helicopter: ["up", -1], truck: ["drive", -1], fireTruck: ["drive", -1], ambulance: ["drive", -1], spaceship: ["fly", -1] };
+  function exitPic(k) {
+    const p = $("starPic"), e = EXIT[k], q = state.q; if (!e || !p.animate) return false;
+    const [kind, d] = e, X = (v) => `${d * v}%`;
+    const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n, i));
+    const frames = {
+      drive: [{ transform: "translateX(0)" }, { transform: `translateX(${X(-6)})`, offset: 0.15 }, { transform: `translateX(${X(190)})`, opacity: 1, offset: 0.85 }, { transform: `translateX(${X(230)})`, opacity: 0 }],
+      walk: steps(12, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -5 : 0}%) rotate(${i % 2 ? d * 3 : 0}deg)`, opacity: t > 0.85 ? 0 : 1 })),
+      hop: steps(8, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -16 : 0}%)`, opacity: t > 0.85 ? 0 : 1 })),
+      slither: steps(12, (t, i) => ({ transform: `translateX(${X(t * 220)}) scaleX(${i % 2 ? 1.08 : 0.94})`, opacity: t > 0.85 ? 0 : 1 })),
+      fly: [{ transform: "translate(0, 0)" }, { transform: `translate(${X(-5)}, 3%)`, offset: 0.15 }, { transform: `translate(${X(140)}, -120%) rotate(${d * -12}deg) scale(.75)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -150%) rotate(${d * -12}deg) scale(.6)`, opacity: 0 }],
+      up: [{ transform: "translate(0, 0)" }, { transform: "translate(0, -25%)", offset: 0.35 }, { transform: `translate(${X(140)}, -110%) rotate(${d * 8}deg)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -130%) rotate(${d * 8}deg)`, opacity: 0 }] }[kind];
+    p.classList.remove("wake"); if (p._exit) p._exit.cancel();
+    const an = p._exit = p.animate(frames, { duration: ms(kind === "walk" || kind === "slither" ? 2000 : kind === "hop" ? 1700 : 1500), easing: kind === "walk" || kind === "hop" || kind === "slither" ? "linear" : "ease-in", fill: "forwards" });
+    an.onfinish = () => setTimeout(() => { if (p._exit !== an) return; an.cancel(); p._exit = null; if (state.q === q) p.innerHTML = picHtml(k); }, ms(250));   // very short rest, then the still picture
+    return true;
+  }
   function wake(k) {
     const p = $("starPic"), a = awake(k);
+    if (exitPic(k)) return;
     if (WP && WP.pics[k] && p.firstElementChild) return WP.wake(p.firstElementChild);   // its own motion, ~2.6 s
     if (a) { p.innerHTML = a; setTimeout(() => { if (state.q && state.q.k === k) p.innerHTML = picHtml(k); }, ms(2800)); }
     p.classList.remove("wake"); void p.offsetWidth; p.classList.add("wake");

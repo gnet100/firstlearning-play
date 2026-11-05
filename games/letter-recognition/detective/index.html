@@ -1035,6 +1035,9 @@
     if (Math.random() < 0.4) parts.push([r(-0.2, 0.2), r(0.6, 0.8), r(0.55, 0.75)]);          // a bump on top
     const meshes = parts.map(([x, y, r]) => { const s = BABYLON.MeshBuilder.CreateSphere("puff", { diameter: r * 2, segments: 10 }, scene); s.position.set(x, y, 0.3); s.scaling.z = 0.55; return s; });
     const m = BABYLON.Mesh.MergeMeshes(meshes, true, true);
+    // Golan 5.11: the letter always sits in the middle of its cloud; the random puffs must not pull the cloud to one side
+    const bb = m.getBoundingInfo().boundingBox;
+    m.bakeTransformIntoVertices(BABYLON.Matrix.Translation(-(bb.minimum.x + bb.maximum.x) / 2, -(bb.minimum.y + bb.maximum.y) / 2, 0)); m.refreshBoundingInfo();
     m.name = "cloud" + i; m.material = cloudMat; m.isPickable = false;
     return m;
   }
