@@ -108,11 +108,25 @@
       html.fl-demo-mode body{transform:scale(var(--fl-demo-s,1));transform-origin:50vw 50vh}
       html.fl-demo-mode{background:var(--fl-demo-bg,#cfe9f4)}
       html.fl-demo-out body{transition:transform .8s cubic-bezier(.5,0,.85,.4),opacity .8s ease-in;transform:translateY(-115vh) scale(var(--fl-demo-s,1));opacity:0}
-      html.fl-demo-out .fl-demo-frame,html.fl-demo-out .fl-demo-tint{transition:opacity .7s;opacity:0}`;   /* Golan 4.11: at the end of every demo it all goes up and away, then the game */   /* Golan 4.11: the frame goes round everything; the whole game is made smaller inside it */   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
+      html.fl-demo-out .fl-demo-frame,html.fl-demo-out .fl-demo-tint{transition:opacity .7s;opacity:0}
+      .fl-demo-door{position:fixed;z-index:47;left:calc(max(24px,7vmin) + 22px);top:calc(max(24px,7vmin) + 22px);width:max(52px,7vmin);height:max(52px,7vmin);border-radius:50%;border:0;padding:0;
+        background:#fff;box-shadow:0 4px 16px #0003;display:none;place-items:center;cursor:pointer;font-size:calc(max(52px,7vmin) * .62)}
+      .fl-demo-door.on{display:grid}.fl-demo-door svg{width:1em;height:1em;display:block}
+      html.fl-demo-out .fl-demo-door{display:none}`;   /* Golan 5.11: a door in every demo stops it and goes to the game */   /* Golan 4.11: at the end of every demo it all goes up and away, then the game */   /* Golan 4.11: the frame goes round everything; the whole game is made smaller inside it */   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
     document.head.append(st);
   }
-  let demoFrameEl = null, demoArrowEl = null; let demoTintEl = null;
-  FL.demoFrame = (on) => {
+  let demoFrameEl = null, demoArrowEl = null; let demoTintEl = null, demoDoorEl = null, demoSkip = null;
+  // FL.demoFrame(true, skip): skip() is called when the child taps the demo's door (Golan 5.11): the game stops its demo and starts playing
+  FL.demoFrame = (on, skip) => {
+    if (typeof document !== "undefined" && on !== undefined) {
+      demoSkip = on ? (skip || null) : null;
+      if (!demoDoorEl) { demoCss(); demoDoorEl = document.createElement("button"); demoDoorEl.type = "button"; demoDoorEl.className = "fl-demo-door"; demoDoorEl.setAttribute("aria-label", "חֲזָרָה לַמִּשְׂחָק");
+        demoDoorEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg>';
+        demoDoorEl.addEventListener("pointerdown", (e) => e.stopPropagation());
+        demoDoorEl.addEventListener("click", (e) => { e.stopPropagation(); const f = demoSkip; demoSkip = null; demoDoorEl.classList.remove("on"); if (f) f(); });
+        document.documentElement.append(demoDoorEl); }
+      demoDoorEl.classList.toggle("on", !!(on && demoSkip));
+    }
     if (typeof document === "undefined") return; demoCss();
     if (!demoFrameEl) { demoFrameEl = document.createElement("div"); demoFrameEl.className = "fl-demo-frame"; document.documentElement.append(demoFrameEl); }
     if (on) {   // Golan 4.11: the game shrinks to fit inside the frame (the frame, tint, arrow and hand stay outside the game, at full size)

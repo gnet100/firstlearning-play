@@ -1146,12 +1146,24 @@
   canvas.addEventListener("pointermove", moveHammer);
   hammer.addEventListener("animationend", () => hammer.classList.remove("hit"));   // otherwise coming back over the island replays the knock (Golan 28.10)
   canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show", "hit"); });
+  // Golan 5.11: the whole hammer head counts, from one striking face to the other, not only its middle;
+  // so a knock with the end of the hammer on the mole's head is a knock on that mole
+  function headMole(r) {
+    if (!hammer.classList.contains("show")) return null;
+    const caps = [...hammer.querySelectorAll('rect[fill="#ffd34d"]')].map((k) => { const b = k.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+    if (caps.length < 2) return null;
+    for (const t of [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95]) {
+      const m = moleAt(caps[0].x + (caps[1].x - caps[0].x) * t - r.left, caps[0].y + (caps[1].y - caps[0].y) * t - r.top, true);
+      if (m) return m;
+    }
+    return null;
+  }
   canvas.addEventListener("pointerdown", (e) => {
     if (state.demo) return;   // the demo plays by itself
     moveHammer(e);
     if (hammer.classList.contains("show")) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
-    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
+    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true) || headMole(r);
     if (!m) return;
     // Golan 4.11: every knock gets a reaction. A knock that is not counted (a mole already going down, the short rest after a mistake,
     // a double touch, the game already solving it) still shakes that mole with the mistake sound; a right mole is always taken
@@ -1184,10 +1196,16 @@
     setTimeout(() => { if (state.q === q && !q.done && r.letter === q.letter && r.state !== "off") { hammerAt(r); found(r, q, true); } else if (state.q === q && !q.done) autoSolve(q); }, 1100);
   }
   // the hammer knocks a mole by itself (auto-solve, the demo)
-  function hammerAt(m) {
-    const s = screenOf(m), r = canvas.getBoundingClientRect();
-    hammer.style.transform = `translate(${r.left + s.x}px, ${r.top + s.y}px)`; hammer.classList.add("show"); hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit");
-    setTimeout(() => { if (!canvas.classList.contains("hammering") || state.demo) hammer.classList.remove("show"); }, 900);
+  // fly (the demo, Golan 5.11): the hammer first flies in from the bottom right to the mole, then knocks; then() runs at the knock
+  function hammerAt(m, fly, then) {
+    const s = screenOf(m), r = canvas.getBoundingClientRect(), b = document.body.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width) || 1;
+    const x = (r.left - b.left) / k + s.x, y = (r.top - b.top) / k + s.y;   // in the page's own size: the demo makes the whole page smaller
+    const knock = () => { hammer.style.transition = ""; hammer.classList.add("show"); hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit");
+      setTimeout(() => { if (!canvas.classList.contains("hammering") || state.demo) hammer.classList.remove("show"); }, 900); if (then) then(); };
+    if (!fly) { hammer.style.transform = `translate(${x}px, ${y}px)`; return knock(); }
+    hammer.style.transition = "none"; hammer.style.transform = `translate(${x + 300}px, ${y + 260}px)`; hammer.classList.remove("hit"); hammer.classList.add("show"); void hammer.offsetWidth;
+    hammer.style.transition = "transform .75s ease-in-out"; hammer.style.transform = `translate(${x}px, ${y}px)`;
+    setTimeout(knock, 780);
   }
   const WAKE_S = 2.2;   // the right mole stays up this long, its picture awake, before it goes down
   function found(m, q, auto) {
@@ -1574,7 +1592,7 @@
   // and knocks it (its sound and word are said, the picture wakes); then "נַחֲזֹר לְשַׂחֵק" (demo_back, silent until recorded).
   // The shared demo look: FL.demoFrame + FL.demoArrow; the hourglass waits; no star and no record.
   const demoKey = () => "fl-soundmole-demo-" + (prof() ? prof().id : "guest");
-  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const demoSeen = () => true;   // Golan 5.11: the demo never starts by itself, only from its button (the "?" card or the start window)
   const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
   const hand = $("demoHand"); let demoRaf = 0, demoTok = 0, demoCont = null;
   function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
@@ -1588,7 +1606,10 @@
   function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
   function runDemo(done) {
     const my = ++demoTok; hush(); state.demo = true; demoCont = null;
-    if (window.FL && FL.demoFrame) FL.demoFrame(true);
+    // the demo's door (Golan 5.11): stop the demo now, it all flies up, then the game
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { demoTok++; demoCont = null; hush(); hideHand(); hammer.classList.remove("show", "hit"); if (window.FL && FL.demoArrow) FL.demoArrow(null); const q = state.q; if (q) q.done = true;
+      const fin = () => { endDemoMarks(); markDemo(); state.q = null; moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); if (done) done(); };
+      if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
     const alive = () => my === demoTok && state.demo;
     const at = (m) => { const s = screenOf(m), r = canvas.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width); return { x: r.left + s.x * k, y: r.top + s.y * k, top: r.top + (s.y - s.r * 0.75) * k }; };   // k: the demo makes the game smaller
     let last = null;
@@ -1605,14 +1626,18 @@
         const q = state.q, m = q && !q.done && state.mode === "play" && q.armed && moles.find((k) => k.letter === q.letter && k.state === "up");
         if (!m || busy()) return setTimeout(wait, 150);
         const p = at(m);
+        // Golan 5.11: an arrow shows the right mole (no hand), then the hammer flies in and knocks it
         if (window.FL && FL.demoArrow) FL.demoArrow(p.x, p.top);
-        moveHand(last || { x: p.x + 60, y: innerHeight + 40 }, p, 1100, () => setTimeout(() => {
+        setTimeout(() => {
           if (!alive()) return;
-          if (state.q !== q || q.done || m.state !== "up") return wait();
-          last = at(m); if (window.FL && FL.demoArrow) FL.demoArrow(null);
-          demoCont = (mm, qq) => { if (!alive()) return; if (n === 0) { replaceMole(mm, qq); example(1); } else finish(); };
-          hammerAt(m); answer(m);
-        }, 300));
+          if (state.q !== q || q.done || m.state !== "up") { if (window.FL && FL.demoArrow) FL.demoArrow(null); return wait(); }
+          hammerAt(m, true, () => {
+            if (!alive()) return; if (window.FL && FL.demoArrow) FL.demoArrow(null);
+            if (state.q !== q || q.done || m.state !== "up") return wait();
+            demoCont = (mm, qq) => { if (!alive()) return; if (n === 0) { replaceMole(mm, qq); example(1); } else finish(); };
+            answer(m);
+          });
+        }, 1300);
       };
       wait();
     };

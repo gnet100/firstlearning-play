@@ -1771,7 +1771,7 @@
   // Hila says "sd_demo", the names and the question; a hand touches the right picture; the balloon flies there and drops the cube.
   // The child only watches; nothing is recorded and no star. Seen = kept per child.
   const demoKey = () => { const p = LRN && LRN.profile(); return "fl-soundtrain-demo-" + (p ? p.id : "guest"); };
-  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const demoSeen = () => true;   // Golan 5.11: the demo never starts by itself, only from its button (the "?" card or the start window)
   const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
   const hand = $("demoHand"); let demoRaf = 0;
   function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
@@ -1790,7 +1790,10 @@
   }
   function runDemo() {
     const L = state.letter, T = state.train;
-    if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays, an arrow at each picture as it is named
+    // Golan 29.10 20:22: a yellow wavy frame while the demo plays, an arrow at each picture as it is named;
+    // 5.11: its door stops the demo now: it all flies up, and a real train replaces the demo train
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { stopSeq(); hideHand(); state.autoDrop = false; if (window.FL && FL.demoArrow) FL.demoArrow(null);
+      const fin = () => { endDemo(); replaceTrain(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
     const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = signScreen(c, true); FL.demoArrow(a.x, a.y); }, noArrow = () => FL.demoArrow && FL.demoArrow(null);
     const names = []; for (const c of activeCars().slice().sort((a, b) => a.root.getAbsolutePosition().x - b.root.getAbsolutePosition().x)) names.push(() => { drawCarSign(c, "glow"); arrow(c); }, PICS[c.pic] && PICS[c.pic].clip, () => { drawCarSign(c, "normal"); noArrow(); });
     playIds([...(state.demoEx ? [] : ["sd_demo"]), ...names, ...qIds(L)], () => {   // two examples (Golan 30.10 16:04); the opening line only before the first

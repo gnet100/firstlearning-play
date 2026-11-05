@@ -1070,7 +1070,7 @@
 
   // ---------- the demo (Golan 28.10: every new kind of question; spec 9) ----------
   const demoKey = () => { const p = kid(); return "fl-wheel-demo-" + (p ? p.id : "guest"); };
-  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const demoSeen = () => true;   // Golan 5.11: the demo never starts by itself, only from its button (the "?" card or the start window)
   const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
   const hand = $("demoHand"); let demoRaf = 0, demoAfter = null;
   function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
@@ -1085,7 +1085,8 @@
   // a hand presses "סובב", then "עצור"; Hila says the word and the sounds; the hand touches the right ball; the picture wakes
   function runDemo(done) {
     stopVoice(); state.mode = "demo";
-    if (window.FL && FL.demoFrame) FL.demoFrame(true);   // Golan 29.10 20:22: a yellow wavy frame while the demo plays
+    // the demo's door (Golan 5.11): stop the demo now and start the game
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { epoch++; stopVoice(); hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null); if (demoAfter) { const f = demoAfter; demoAfter = null; f(); } });   // Golan 29.10 20:22: a yellow wavy frame while the demo plays
     demoAfter = () => { hideHand(); const fin = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); markDemo(); if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };   // Golan 4.11: it all flies up, then the game
     readySpin(); state.mode = "demo";
     const my = epoch;

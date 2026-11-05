@@ -1209,7 +1209,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   // A board is dealt as usual; a hand flips a sound card (its sound is said), then the picture card that opens with it (its word
   // is said); the pair stays open and the picture wakes up. The shared demo look: FL.demoFrame + FL.demoArrow; the hourglass waits.
   const demoKey = () => { const p = kid(); return "fl-soundmemory-demo-" + (p ? p.id : "guest"); };
-  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const demoSeen = () => true;   // Golan 5.11: the demo never starts by itself, only from its button (the "?" card or the start window)
   const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
   const hand = $("demoHand"); let demoRaf = 0, demoAfter = null;
   function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
@@ -1223,7 +1223,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function endDemoMarks() { if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; demoAfter = null; }
   function runDemo(done) {
     epoch++; stopVoice(); state.demo = true;
-    if (window.FL && FL.demoFrame) FL.demoFrame(true);
+    // the demo's door (Golan 5.11): stop the demo now and start the game
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { epoch++; stopVoice(); hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null); if (demoAfter) { const f = demoAfter; demoAfter = null; f(); } });
     demoAfter = () => { hideHand(); const fin = () => { endDemoMarks(); markDemo(); $("board").hidden = true; $("fx").innerHTML = ""; if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };   // Golan 4.11: it all flies up, then the game
     newBoard();   // dealt as usual; the end of the deal calls demoPlay
   }

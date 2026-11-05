@@ -1139,11 +1139,23 @@
   canvas.addEventListener("pointermove", moveHammer);
   hammer.addEventListener("animationend", () => hammer.classList.remove("hit"));   // otherwise coming back over the island replays the knock (Golan 28.10)
   canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show", "hit"); });
+  // Golan 5.11: the whole hammer head counts, from one striking face to the other, not only its middle;
+  // so a knock with the end of the hammer on the mole's head is a knock on that mole
+  function headMole(r) {
+    if (!hammer.classList.contains("show")) return null;
+    const caps = [...hammer.querySelectorAll('rect[fill="#ffd34d"]')].map((k) => { const b = k.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+    if (caps.length < 2) return null;
+    for (const t of [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95]) {
+      const m = moleAt(caps[0].x + (caps[1].x - caps[0].x) * t - r.left, caps[0].y + (caps[1].y - caps[0].y) * t - r.top, true);
+      if (m) return m;
+    }
+    return null;
+  }
   canvas.addEventListener("pointerdown", (e) => {
     moveHammer(e);
     if (hammer.classList.contains("show")) { hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit"); }
     const q = state.q; if (state.mode !== "play" || !q || q.done) return;
-    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true);
+    const r = canvas.getBoundingClientRect(), m = moleAt(e.clientX - r.left, e.clientY - r.top, true) || headMole(r);
     if (!m) return;
     // Golan 4.11: every knock gets a reaction. A knock that is not counted (a mole already going down, the short rest after a mistake,
     // a double touch, the game already solving it) still shakes that mole with the mistake sound; a right mole is always taken
