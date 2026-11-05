@@ -187,6 +187,9 @@
   ];
   const isleOf = (g) => g.isle || 0;
   let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
+  // back from a game (its door): that game's island, also when it was opened from another game ("המשך למשחק הבא") (Golan 5.11)
+  try { const ref = decodeURI(document.referrer || ""), g = location.hash === "#games" && ref && GAMES.find((x) => ref.includes(x.path));
+    if (g) { isleNow = isleOf(g); localStorage.setItem("fl-hub-isle", isleNow); } } catch (e) {}
   // the sound detective's card: the detective's clouds and magnifier with pictures of the game (waking-letter/pictures.js) in place of letters
   function soundPic() {
     const P = window.PICTURES || {}, pic = (l, x, y, s) => P[l] ? `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 1000})">${P[l].svg}</g>` : "";
@@ -392,6 +395,8 @@
   document.addEventListener("keydown", (e) => { const k = e.target.closest && e.target.closest(".spk[role=button]"); if (k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); say(k.dataset.clip, k.dataset.fallback); } });
   let opening = false;
   function openGame(g, b) {
+    // Golan 5.11: the door of a game always comes back to that game's own island
+    isleNow = isleOf(g); try { localStorage.setItem("fl-hub-isle", isleNow); } catch (e) {}
     if (opening) return; opening = true; hush(); b.classList.add("go");   // the chosen card grows, like the balloon pick in the games
     setTimeout(() => {
       if (PREVIEW) { b.classList.remove("go"); opening = false; toast("כאן נפתח המשחק: " + g.name.replace(/[֑-ׇ]/g, "")); return; }
