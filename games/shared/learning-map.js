@@ -9,6 +9,7 @@
   "use strict";
   const FL = (window.FL = window.FL || {});
   const BJS = "https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js";
+  try { const u = new URLSearchParams(location.search).get("isles"); if (u !== null) localStorage.setItem("fl-isles-open", u); } catch (e) {}   // Golan 5.11: ?isles=2 / ?isles=0, read as soon as the hub loads
   const UNLOCK_AT = 15;   // letters recognised with confidence that open island 2 (Golan 20.10)
   // Golan 20.10: every title says "מִשְׂחֲקֵי ..." (the island holds the games of that topic)
   const STOPS = [
@@ -434,7 +435,7 @@
     const p = o.profile || {}; seenKey = "fl-map-seen-" + (p.id || "x");
     open = 1 + ((o.known || 0) >= UNLOCK_AT ? 1 : 0);   // islands 3-9: no games measure them yet
     // Golan 5.11: to try island 2 before 15 letters: open the hub once with ?isles=2 (remembered on this device); ?isles=0 closes it again
-    try { const u = new URLSearchParams(location.search).get("isles"); if (u !== null) localStorage.setItem("fl-isles-open", u); open = Math.max(open, Math.min(2, +localStorage.getItem("fl-isles-open") || 0)); } catch (e) {}
+    try { open = Math.max(open, Math.min(2, +localStorage.getItem("fl-isles-open") || 0)); } catch (e) {}
     try { await loadBabylon(); if (document.fonts) await Promise.race([document.fonts.load('800 40px "Noto Sans Hebrew"'), new Promise((r) => setTimeout(r, 1500))]); }
     catch (e) { if (o.onFail) o.onFail(); return; }
     if (!visible) return;
