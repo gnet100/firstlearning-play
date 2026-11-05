@@ -1,0 +1,1476 @@
+<meta charset="utf-8">
+<title>הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר</title>
+<script>document.documentElement.lang = "he"; document.documentElement.dir = "rtl";   /* like the race game's <html lang="he" dir="rtl"> (the artifact adds its own <html>) */</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- the shared self-hosted font (no internet needed) -->
+<link rel="stylesheet" href="../shared/fonts/fonts.css">
+<style>
+<style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
+/* Screens standard (/mnt/project-files/screens/screens-standard.md, 16.10): every size is a number of --u (one pixel of a
+   1280x720 board, 720x1280 when the screen stands), with a floor in mm for fingers (--tap-s 10 mm, --tap 15 mm,
+   --tap-play 20 mm, --gap 5 mm), and every distance from an edge is --edge-* (safe area or 12 --u). The variables come from
+   games/shared/screen.js. No breakpoints by width: only standing (portrait) or lying (landscape).
+   Look: same as "מרוץ השערים", one daylight look in light and dark. */
+  :root {
+    --sky: #bfe6ff; --ink: #1d2a3a; --card: #ffffffee; --accent: #ff8a3d; --accent-ink: #ffffff; --good: #2bb673; --muted: #5b6b7f;
+    color-scheme: light;
+    /* fallbacks until screen.js has measured (and on a page without it) */
+    --u: 1px; --tap-s: 59px; --tap: 88px; --tap-play: 118px; --gap: 29px;
+    --edge-t: max(12px, env(safe-area-inset-top)); --edge-r: max(12px, env(safe-area-inset-right));
+    --edge-b: max(12px, env(safe-area-inset-bottom)); --edge-l: max(12px, env(safe-area-inset-left));
+    /* the game's own sizes */
+    --btn-s: max(calc(64 * var(--u)), var(--tap-s));     /* door, settings */
+    --btn: max(calc(96 * var(--u)), var(--tap));          /* the child's speaker */
+    --col-gap: max(calc(14 * var(--u)), var(--gap));      /* space between two buttons in the door column */
+    --pill-h: var(--btn-s);                               /* the star pill is as tall as the door */
+    --t-body: max(calc(26 * var(--u)), 17px);             /* parent text */
+    --t-h1: max(calc(44 * var(--u)), 26px);
+    --t-btn: max(calc(38 * var(--u)), 24px);
+    --panel-w: min(100%, max(calc(640 * var(--u)), 320px));
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    position: fixed; inset: 0; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  /* ---------- buttons ---------- */
+  .round-btn {
+    width: var(--btn-s); height: var(--btn-s); border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: calc(var(--btn-s) * .46); display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d; padding: 0;
+  }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
+  .round-btn[hidden] { display: none; }
+  /* the door column at the top left, on every screen: door, then settings under it (Golan 14.10-16.10) */
+  .door-btn, .gear { position: absolute; left: var(--edge-l); background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; }
+  .door-btn { top: var(--edge-t); z-index: 30; font-size: calc(var(--btn-s) * .62); }
+  .gear, .under-door { top: calc(var(--edge-t) + var(--btn-s) + var(--col-gap)); }
+  .gear .gear-ico { width: 1.45em; height: 1.45em; color: #5b6470; }
+  .door-ico { width: 1em; height: 1em; display: block; }
+  /* "יציאה" tip on mouse hover (Golan 15.10) */
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  #pause, .pause-btn { display: none !important; }   /* no pause in this game (Golan 16.10) */
+
+  /* ---------- the game screen ---------- */
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  /* top letter pill = the detective's standard (Golan 16.10, all games), fixed size for the whole game. This game never shows
+     the letter, so it is the detective's "listening sky" pill: same width and height, the speaker centred, emoji 0.7x */
+  :root {
+    --lp-spk: max(calc(46 * var(--u)), var(--tap-s));
+    --lp-t: max(calc(56 * var(--u)), 40px);
+    --lp-lw: max(calc(64 * var(--u)), 48px);
+    --lp-h: calc(max(var(--lp-t), var(--lp-spk)) + 16 * var(--u));
+    --lp-w: calc(var(--lp-lw) + var(--lp-spk) + 46 * var(--u));
+    --lp-top: var(--edge-t);
+    --dots-gap: max(calc(8 * var(--u)), 6px);
+  }
+  html[data-screen~="portrait"] { --lp-top: calc(var(--edge-t) + var(--btn-s) + 10 * var(--u)); }   /* standing phone: one row down, under the door */
+  .prompt { position: absolute; left: 50%; transform: translateX(-50%); top: var(--lp-top); box-sizing: border-box;
+    width: var(--lp-w); height: var(--lp-h); padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 999px; box-shadow: 0 4px 16px #0002; z-index: 5; }
+  /* the letter pill of every game (Golan 23.10): the letter on the right, the orange speaker on the left; a letter the child
+     already met: the speaker alone, centred */
+  .prompt .pips { display: none !important; }
+  .prompt .target { width: var(--lp-lw); height: var(--lp-t); font-size: var(--lp-t); font-weight: 800; line-height: 1; text-align: center; color: var(--ink); }
+  .prompt.listen { justify-content: center; padding: 0; }
+  .prompt.listen .target { display: none; }
+  .prompt.hint { box-shadow: 0 0 0 4px #ffc233, 0 4px 16px #0002; }
+  .prompt.yay { animation: pJump .55s ease-out 2; }
+  @keyframes pJump { 0%, 100% { transform: translateX(-50%); } 40% { transform: translateX(-50%) translateY(-8px) scale(1.05); } }
+  .prompt.oops { animation: pShake .6s ease-in-out; }
+  @keyframes pShake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 8px)); } 60% { transform: translateX(calc(-50% + 7px)); } }
+  .prompt #replay { width: var(--lp-spk); height: var(--lp-spk); min-width: 0; min-height: 0; font-size: calc(var(--lp-spk) * 0.7); padding: 0; line-height: 1; overflow: hidden; }
+  .stars { position: absolute; top: var(--edge-t); right: var(--edge-r); min-height: var(--pill-h); display: flex; align-items: center;
+    background: var(--card); border-radius: 999px; padding: 0 max(calc(20 * var(--u)), 12px); font-size: max(calc(30 * var(--u)), 20px); font-weight: 800;
+    box-shadow: 0 4px 16px #0002; }
+  .stars.fl-sc-host { max-width: calc(100vw - var(--edge-l) - var(--edge-r) - var(--btn-s) - var(--col-gap)); }
+  .dots-wrap { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; top: calc(var(--lp-top) + var(--lp-h) + var(--dots-gap)); }
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: max(calc(6 * var(--u)), 4px); max-width: 70vw; }
+  .dots span { width: max(calc(12 * var(--u)), 9px); height: max(calc(12 * var(--u)), 9px); border-radius: 50%; background: #0002; }
+  .dots span.done { background: var(--good); }
+
+  .perf { position: absolute; bottom: var(--edge-b); left: var(--edge-l); direction: ltr; text-align: left;
+    font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace; background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none; }
+  .perf[hidden] { display: none; }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  /* 3-2-1 before the round (Golan 14.10): each glowing green circle appears big and fades away */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; --c: max(calc(240 * var(--u)), 150px); }
+  .count span { position: absolute; left: calc(var(--c) / -2); top: calc(var(--c) / -2); width: var(--c); height: var(--c); border-radius: 50%;
+    display: grid; place-items: center; font-size: calc(var(--c) * .6); font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  .toast { display: none; }   /* no "oops" and no text after a touch in this game */
+
+  /* ---------- screens over the game: start, balloon pick, end, settings ---------- */
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20;
+    padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+  .overlay[hidden], .row[hidden] { display: none; }
+  .letters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* a hidden settings row really disappears (.row sets display: flex) */
+  /* a screen with the door column keeps its panel clear of it */
+  .overlay:has(> .door-btn) { padding-left: calc(var(--edge-l) + var(--btn-s) + var(--col-gap)); padding-right: calc(var(--edge-r) + var(--btn-s) + var(--col-gap)); }
+  html[data-screen~="portrait"] .overlay:has(> .door-btn) { padding-left: var(--edge-l); padding-right: var(--edge-r);
+    padding-top: calc(var(--edge-t) + var(--btn-s) * 2 + var(--col-gap) * 2); }
+  .panel { background: #fff; border-radius: max(calc(36 * var(--u)), 20px); padding: max(calc(36 * var(--u)), 16px) max(calc(32 * var(--u)), 16px);
+    width: var(--panel-w); max-height: 100%; overflow-y: auto; text-align: center; box-shadow: 0 10px 40px #0003; }
+  .panel h1 { margin: 0 0 .25em; font-size: var(--t-h1); }
+  .panel p { margin: .3em 0 .9em; font-size: var(--t-body); color: var(--muted); }
+  .big-btn { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 var(--t-btn) "Noto Sans Hebrew", system-ui, sans-serif; padding: 0 1.3em; min-height: var(--tap); box-shadow: 0 5px 0 #c45f1d; }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  /* start screen: "יוצאים לדרך" in the middle, the speaker at the end of the row (Golan 14.10) */
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: max(calc(20 * var(--u)), 8px); align-items: center; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  /* the start-screen 🔊: a circle as tall as the start button, the icon centred inside it (Golan 16.10, all games, as in detective) */
+  .spk { --spk: max(calc(76 * var(--u)), var(--tap)); width: var(--spk); min-width: var(--spk); height: var(--spk); min-height: 0; padding: 0;
+    border-radius: 50%; display: grid; place-items: center; line-height: 1; font-size: calc(var(--spk) * .47); overflow: hidden; }
+  #start #go { min-height: var(--spk, max(calc(76 * var(--u)), var(--tap))); }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .seg button { transition: transform .15s ease, filter .15s ease; }
+    .big-btn:hover, .round-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .seg button:hover { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+  /* pause screen (kept for the code; there is no pause button in this game) */
+  .panel.pause-panel { background: none; box-shadow: none; width: auto; }
+  #resume { background: var(--good); color: #fff; box-shadow: 0 5px 0 #1d8a55; display: inline-flex; align-items: center; gap: 22px; }
+
+  /* age question: only on a page without the shared child card (the age is in the profile now) */
+  .age-pick .ages { display: flex; gap: max(calc(12 * var(--u)), 8px); justify-content: center; margin: 14px 0 6px; }
+  .age-pick .ages button { width: var(--tap); height: var(--tap); border-radius: 22%; border: 3px solid #d5dde6; background: #eaf6ff; cursor: pointer;
+    font: 800 calc(var(--tap) * .45) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+
+  /* ---------- settings (for the parent: may go down to 9 mm buttons and 14px text, standard sec 3) ---------- */
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: max(calc(34 * var(--u)), 22px); text-align: center; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 12px; row-gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid #eee; font-size: max(calc(24 * var(--u)), 17px); }
+  /* every settings row: title on its own line, then the choices, then the explanation (Golan 16.10) */
+  .settings .row > span:first-child { flex: 0 0 100%; font-weight: 700; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { min-width: max(calc(96 * var(--u)), 64px); min-height: max(calc(64 * var(--u)), 53px); border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 max(calc(22 * var(--u)), 16px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer; padding: 0 10px; }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  #ageSeg { flex-wrap: nowrap; }
+  #ageSeg button { min-width: 53px; padding-inline: 0; flex: 0 0 auto; }
+  .row-note { display: block; width: 100%; font-size: max(calc(19 * var(--u)), 14px); color: var(--muted); line-height: 1.4; }
+  .card-title { width: 100%; font-weight: 700; font-size: max(calc(24 * var(--u)), 17px); margin-top: 6px; }
+  .report { text-align: right; font-size: max(calc(23 * var(--u)), 16px); line-height: 1.5; }
+  .report .info { color: var(--muted); font-size: max(calc(20 * var(--u)), 14px); margin-top: 6px; }
+  .child-card { width: 100%; }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+  #closeSettings { margin-top: 4px; }
+  /* X at the top right of settings, closes like "חזרה למשחק" (Golan 16.10, all games); stays in view while the panel scrolls */
+  #settings .panel.settings { display: flex; flex-direction: column; overflow: hidden; max-height: 100%; box-sizing: border-box; }
+  .set-head { position: relative; flex: 0 0 auto; padding-inline: calc(var(--tap-s) + 4px); }   /* room for the X on both sides keeps the title centred */
+  .set-head h2 { min-height: var(--tap-s); display: flex; align-items: center; justify-content: center; }
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  html[data-screen~="phone"] #settings .panel.settings { width: 100%; padding-inline: max(calc(12 * var(--u)), 10px); }
+  .x-btn { position: absolute; top: 0; right: 0; z-index: 2; width: var(--tap-s); height: var(--tap-s); padding: 0;
+    border: 0; border-radius: 50%; background: #eef2f6; color: var(--ink); font: 700 calc(var(--tap-s) * .45) system-ui, sans-serif; cursor: pointer;
+    display: grid; place-items: center; box-shadow: 0 2px 8px #0002; }
+  .x-btn:active { transform: scale(.95); }
+
+  @media (prefers-reduced-motion: reduce) { .go-btn.pressed, .balloons button.flash, .count span { animation-duration: .01s; } }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+  .prompt .target { width: auto; min-width: var(--lp-lw); }
+  /* the small speaker at the bottom left of every picture says its word (as the sound detective's clouds) */
+  #picSpks { position: absolute; inset: 0; pointer-events: none; }
+  .pic-spk { position: absolute; z-index: 6; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 0; padding: 0;
+    background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d, 0 4px 10px #0003; cursor: pointer; display: none; pointer-events: auto;
+    line-height: 44px; font-size: 22px; text-align: center; }
+  .pic-spk.on { display: block; }
+  .pic-spk:active { transform: scale(.92); }
+  /* the right picture wakes up: its moving drawing over the sign for a moment (pictures-animated, as in sound memory) */
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 16%; background: #fffaf0;
+    box-shadow: 0 0 0 5px #ffc233, 0 6px 18px #0003; }
+  #wake.on { display: block; animation: wakeIn .35s cubic-bezier(.3, 1.6, .5, 1) both; }
+  #wake svg { width: 100%; height: 100%; display: block; }
+  @keyframes wakeIn { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* the "?" card bottom left plays the demo again (as in the sound wheel / sound memory) */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
+  .demo-hand { position: fixed; z-index: 47; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
+  .demo-hand.show { display: block; }
+  .demo-hand svg { display: block; width: 100%; height: auto; }
+  .big-btn.small { font-size: max(calc(26 * var(--u)), 18px); min-height: var(--tap-s); padding: 0 1em; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+
+  /* ===== הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר (Golan 5.11.2026): plan the bunny's steps, then run them ===== */
+  html, body { background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
+  :root {
+    --cmd: max(calc(104 * var(--u)), var(--tap));          /* the 4 big step buttons */
+    --cgap: max(calc(10 * var(--u)), 8px);
+    --stp: max(calc(72 * var(--u)), var(--tap-s));          /* the inside height of the plan row */
+    --plan-pad: max(calc(8 * var(--u)), 5px);
+    --plan-h: calc(var(--stp) + 2 * var(--plan-pad));
+    --help-w: max(calc(84 * var(--u)), 64px);
+  }
+  /* the 4 step buttons: bottom right on a lying screen (2 x 2), one row at the bottom on a standing one */
+  .cmds { position: absolute; right: var(--edge-r); bottom: var(--edge-b); display: grid; grid-template-columns: repeat(2, var(--cmd)); gap: var(--cgap); direction: ltr; z-index: 7; }
+  .cmd { width: var(--cmd); height: var(--cmd); border: 0; border-radius: 22%; cursor: pointer; padding: 0; color: #fff; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2%; font: 800 max(calc(22 * var(--u)), 15px) "Noto Sans Hebrew", system-ui, sans-serif; line-height: 1.05;
+    background: var(--c); box-shadow: 0 5px 0 var(--d), 0 6px 14px #0003; }
+  .cmd svg { width: 52%; height: 52%; display: block; }
+  .cmd:active, .cmd.tap { transform: translateY(3px); box-shadow: 0 2px 0 var(--d), 0 3px 8px #0003; }
+  .cmd:disabled { filter: saturate(.3) brightness(1.08); cursor: default; }
+  .c-F { --c: #3da5ff; --d: #1f6fc0; } .c-J { --c: #ff5a8a; --d: #c22d5c; } .c-L { --c: #7c5cff; --d: #5236c9; } .c-R { --c: #ff8a3d; --d: #c45f1d; }
+  html[data-screen~="portrait"] .cmds { left: var(--edge-l); grid-template-columns: repeat(4, 1fr); }
+  html[data-screen~="portrait"] .cmd { width: auto; }
+  html[data-screen~="portrait"] .cmd.c-L { order: 0; } html[data-screen~="portrait"] .cmd.c-F { order: 1; }
+  html[data-screen~="portrait"] .cmd.c-J { order: 2; } html[data-screen~="portrait"] .cmd.c-R { order: 3; }
+  /* the plan row: the arrows the child added (first on the right), the green "צא לדרך" at its end */
+  .plan { position: absolute; bottom: var(--edge-b); right: calc(var(--edge-r) + 2 * var(--cmd) + var(--cgap) + var(--cgap) * 1.5);
+    left: calc(var(--edge-l) + var(--help-w) + var(--cgap) * 1.5); min-height: var(--plan-h); padding: var(--plan-pad); box-sizing: border-box;
+    display: flex; direction: rtl; align-items: center; gap: var(--plan-pad); background: var(--card); border-radius: max(calc(28 * var(--u)), 18px); box-shadow: 0 4px 16px #0002; z-index: 7; }
+  html[data-screen~="portrait"] .plan { left: var(--edge-l); right: var(--edge-r); bottom: calc(var(--edge-b) + var(--cmd) + var(--cgap) * 1.5); }
+  html[data-screen~="portrait"] #helpCard { bottom: calc(var(--edge-b) + var(--cmd) + var(--plan-h) + var(--cgap) * 3); }
+  #steps { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; direction: rtl; align-items: center; align-content: center; gap: 4px; --cell: calc(var(--stp) - 6px); min-height: var(--cell); }
+  #steps .st { width: var(--cell); height: var(--cell); border: 0; border-radius: 22%; padding: 0; cursor: pointer; color: #fff; background: var(--c); box-shadow: 0 3px 0 var(--d);
+    display: grid; place-items: center; animation: stIn .25s cubic-bezier(.3, 1.6, .5, 1); position: relative; }
+  #steps .st svg { width: 64%; height: 64%; display: block; }
+  #steps .st.now { outline: 4px solid #ffc233; outline-offset: 2px; transform: scale(1.12); z-index: 1; }
+  #steps .st.done { opacity: .45; }
+  #steps .st.bad { outline: 4px solid #ff5a4e; outline-offset: 2px; }
+  #steps .ghost { width: var(--cell); height: var(--cell); border-radius: 22%; border: 3px dashed #c9d6e2; box-sizing: border-box; }
+  @keyframes stIn { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+  #goBtn { flex: 0 0 auto; min-height: var(--stp); height: var(--stp); font-size: max(calc(30 * var(--u)), 19px); padding: 0 .9em; white-space: nowrap; }
+  #goBtn:disabled { opacity: .45; }
+  #goBtn.hot { animation: goGlow 1.4s ease-in-out infinite; }
+  @keyframes goGlow { 50% { box-shadow: 0 0 0 6px #34b36b44, 0 5px 0 #1f8048; } }
+  /* the ice cream cone next to the stars: one scoop for every river crossed */
+  #cone { position: absolute; top: calc(var(--edge-t) + var(--pill-h) + 8px); width: auto; height: calc(var(--pill-h) * 1.25); z-index: 5; pointer-events: none; filter: drop-shadow(0 3px 4px #0003); }
+  #cone svg { height: 100%; width: auto; display: block; overflow: visible; }
+  #cone.add { animation: coneAdd .6s cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes coneAdd { 40% { transform: scale(1.25) rotate(-6deg); } }
+  .prompt.hint { box-shadow: 0 0 0 4px #ffc233, 0 4px 16px #0002; }
+</style>
+
+<canvas id="game" aria-label="הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר"></canvas>
+<div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+<div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
+  <div id="picSpks"></div>
+  <!-- the sign: the sound with its nikud (as the sound mole); 🔊 says it (syl_*) -->
+  <div class="prompt listen" id="prompt" role="status">
+    <span class="target" id="target"></span>
+    <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
+  </div>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר"></div>
+  <div id="cone" aria-hidden="true"></div>
+  <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn gear pause-btn" id="pause" aria-label="עצירה">⏸</button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="cmds" id="cmds">
+    <button class="cmd c-F" id="cmdF" type="button" data-k="F" aria-label="יָשָׁר"><span>יָשָׁר</span></button>
+    <button class="cmd c-J" id="cmdJ" type="button" data-k="J" aria-label="קְפִיץ"><span>קְפִיץ</span></button>
+    <button class="cmd c-L" id="cmdL" type="button" data-k="L" aria-label="שְׂמֹאלָה"><span>שְׂמֹאלָה</span></button>
+    <button class="cmd c-R" id="cmdR" type="button" data-k="R" aria-label="יָמִינָה"><span>יָמִינָה</span></button>
+  </div>
+  <div class="plan" id="plan">
+    <div id="steps" aria-label="הַצְּעָדִים"></div>
+    <button class="big-btn go-btn" id="goBtn" type="button" disabled>צֵא לַדֶּרֶךְ</button>
+  </div>
+  <div class="perf" id="perf"></div>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="overlay" id="paused" hidden>
+  <button class="round-btn door-btn" id="doorPause" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearPause" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel pause-panel">
+    <button class="big-btn" id="resume"><span>המשך</span><span aria-hidden="true">▶</span></button>
+  </div>
+</div>
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="חזרה" data-tip="חזרה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1>הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר</h1>
+    <p><span id="startText">מְתַכְנְנִים אֶת הַצְּעָדִים שֶׁל הָאַרְנָבוֹן</span></p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוען…</button>
+      <button class="big-btn spk" id="hear" aria-label="הקשבה להוראות" title="הקשבה להוראות">🔊</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <!-- the panel inside is the shared end panel (FL.learner.endPanel, Golan 16.10, all games) -->
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <div class="set-head"><button class="x-btn" id="xSettings" aria-label="סגירה">✕</button>
+      <h2>הגדרות (להורה או למורה)</h2></div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
+    <div id="flForm"></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ איך משחקים?</button></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="../waking-letter/pictures.js"></script>
+<script src="../sound-detective/sound-pictures.js"></script>
+<script src="../shared/screen.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
+<script>
+(() => {
+  "use strict";
+  // הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר (Golan 5.11.2026). A bunny on one bank of a river wants to reach the other bank. The river is a
+  // grid of stones, each with a picture (the sound pictures). The sign shows a sound with its nikud (בַּ) and its small speaker
+  // says it (syl_*). Only stones whose picture starts with that sound hold the bunny; the others sink. The child first PLANS
+  // the whole path with 4 buttons (straight, right, left, spring), then "צא לדרך" runs it. Right / left turn the bunny in place
+  // 90° (the next straight goes the new way). A wrong plan: a funny fall into the water, a swim back, a shake; the plan stays.
+  // The shell (start window, 3-2-1, hourglass, settings, end window, endFly, demo, "?" card) is the sound mole's; the sounds,
+  // pictures and ALIKE rule are the sound detective's; the bunny is design "A" (scratchpad/bunny, approved by Golan 5.11).
+  const T0 = performance.now();
+  const $ = (id) => document.getElementById(id);
+  const GAME = "river";
+  const LRN = window.FL && window.FL.learner ? window.FL.learner : null;
+
+  // ---------- content: the sound detective's sounds and pictures (3 pictures per sound) ----------
+  const PICS = window.PICTURES || {};
+  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
+    "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
+    "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
+  const PICS_OF = { "ב": ["ב", "ן", "banana"], "ג": ["camel", "socks", "gnome"], "נ": ["נ", "shoe", "tiger"], "ט": ["ט", "ring", "chef"],
+    "י": ["י", "ם", "hand"], "כ": ["כ", "teaspoon", "firefighter"], "א": ["א", "rabbit", "watermelon"], "ח": ["ח", "donkey", "window"],
+    "צ": ["צ", "plate", "painter"], "ר": ["ר", "rattle", "trafficLight"], "ת": ["ת", "rooster", "crocodile"] };
+  const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
+  // sounds that sound alike never meet in one river: ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  const SOUND_L = Object.keys(SOUNDS).filter((l) => picsOf(l).length);
+  const wordOf = (k) => (PICS[k] || {}).clip;
+  if (LRN && LRN.setGame) LRN.setGame(GAME, { autoCount: () => SOUND_L.length });
+
+  // ---------- settings (kept per device) ----------
+  const settings = { quality: "high", perf: "off", letters: [] };
+  const motionK = () => { try { return LRN && LRN.speed ? LRN.speed(GAME) : 1; } catch (e) { return 1; } };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-river-settings") || "{}")); } catch (e) {}
+  settings.lettersMode = "auto";
+  const saveSettings = () => { try { localStorage.setItem("fl-river-settings", JSON.stringify(settings)); } catch (e) {} };
+  const prof = () => (LRN ? LRN.profile() : null);
+  const lvl = () => (LRN && LRN.level ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const cardOf = (l) => { try { return (LRN && LRN.card && LRN.card(l)) || null; } catch (e) { return null; } };
+  const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
+  function soundPool() {
+    const name = (prof() && prof().name) || "";
+    const first = SOUND_L.filter((l) => { const c = cardOf(l); return (c && c.recognize && c.recognize.state === "known") || name.includes(l); });
+    const rest = shuffle(SOUND_L.filter((l) => !first.includes(l)));
+    const extra = Math.max(4 - first.length, first.filter(soundKnown).length);
+    return LRN && LRN.withAutoForce ? LRN.withAutoForce([...first, ...rest.slice(0, extra)]) : [...first, ...rest.slice(0, extra)];
+  }
+
+  // ---------- audio: Hila's clips from the shared bank (voice/audio). Never the browser voice; a missing clip stays silent ----------
+  let actx = null;
+  function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  function sweep(f0, f1, dur, vol = 0.2, type = "sine") {
+    if (!actx) return; const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, f, vol) {
+    if (!actx) return; try {
+      const n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+      const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(); s.buffer = b; lp.type = "lowpass"; lp.frequency.value = f; g.gain.value = vol;
+      s.connect(lp).connect(g).connect(actx.destination); s.start();
+    } catch (e) {}
+  }
+  const sfx = { tap: () => tone([440], 0.05, "sine", 0.06), add: () => tone([620 + Math.random() * 60], 0.06, "sine", 0.12),
+    oops: () => tone([300, 220], 0.18, "sine", 0.6), hop: () => sweep(420, 760, 0.12, 0.12), spring: () => sweep(260, 1200, 0.32, 0.18, "triangle"),
+    turn: () => tone([520, 600], 0.05, "triangle", 0.08), slide: () => sweep(1000, 170, 0.6, 0.16, "sine"), splash: () => noise(0.55, 1400, 0.5),
+    yay: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.35), scoop: () => tone([880, 1320], 0.08, "sine", 0.22),
+    yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => noise(0.35, 3000, 0.18) };
+  const AUDIO = "../../voice/audio/";
+  // hub_g_river (the name), river_start2 (_m / _f: the description) and river_demo are new lines of the voice thread: silent until recorded
+  const LINES = { go: "fb_go", done: "fb_round_done", demo: "river_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2" };
+  const CHILD_LINES = ["river_start2"];
+  const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = 0.85; a.preservesPitch = true; }
+      a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  function voiceId(id) {
+    if (!CHILD_LINES.includes(id)) return id;
+    if (LRN) for (const x of LRN.lineIds(id)) if (getClip(x)._ok) return x;
+    return id;
+  }
+  [...Object.values(LINES), ...Object.values(SOUNDS).map((o) => o.s), ...SOUND_L.flatMap(picsOf).map(wordOf), "river_start2_m", "river_start2_f"].forEach(getClip);
+  let seqTok = 0, seqBusy = false;
+  let voiceHold = () => false, heldSeq = null, curSeq = null;
+  function playSeq(ids, rate = 1, onEnd, onEach) {
+    if (voiceHold()) { heldSeq = [ids, rate, onEnd, onEach]; return; }
+    curSeq = [ids, rate, onEnd, onEach];
+    const my = ++seqTok; if (clipNow) clipNow.pause(); seqBusy = true;
+    const list = ids.slice(); let i = 0; list.forEach((x) => { if (typeof x === "string") getClip(voiceId(x)); });
+    const finish = () => { if (my !== seqTok) return; seqBusy = false; clipNow = null; curSeq = null; if (onEnd) onEnd(); };
+    const next = () => {
+      if (my !== seqTok) return;
+      if (i >= list.length) return finish();
+      const item = list[i++], last = i >= list.length;
+      if (typeof item === "number") return setTimeout(next, item);
+      if (!item) return next();
+      const id = voiceId(vary(item)), a = getClip(id);
+      if (a._bad) return next();   // a missing clip stays silent (never a browser voice)
+      let gone = false; const done = () => { if (gone || my !== seqTok) return; gone = true; setTimeout(next, 60); };
+      try {
+        a.currentTime = 0; a.playbackRate = (a.defaultPlaybackRate || 1) * rate; clipNow = a;
+        a.onended = done;
+        const p = a.play(); if (p && p.catch) p.catch(() => { if (!a._ok) a._bad = true; done(); });
+        setTimeout(() => { if (!gone && my === seqTok && (a.paused || a._bad) && !voiceHold()) done(); }, 6000);
+        if (onEach) onEach(i - 1, last);
+      } catch (e) { done(); }
+    };
+    next();
+  }
+  const say = (id, then) => playSeq([id], 1, then);
+  function hush() { seqTok++; seqBusy = false; if (clipNow) clipNow.pause(); clipNow = null; }
+  let screenTok = 0;
+  const later = (fn, ms) => { const my = screenTok; return setTimeout(() => { if (my === screenTok) fn(); }, ms); };
+  function leaveScreen() { screenTok++; heldSeq = null; hush(); }
+  const busy = () => seqBusy || (clipNow && !clipNow.paused && !clipNow.ended);
+  function whenQuiet(cb) { let n = 0; const tick = () => { if (busy() && n++ < 60) return setTimeout(tick, 100); cb(); }; setTimeout(tick, 200); }
+  const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  // ---------- engine & scene ----------
+  const canvas = $("game");
+  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false, antialias: true, powerPreference: "high-performance" }, false);
+  const SCR = window.FL && window.FL.screen ? window.FL.screen : null;
+  const applyQuality = SCR ? SCR.attachEngine(engine, () => settings.quality)
+    : () => engine.setHardwareScalingLevel(1 / (settings.quality === "eco" ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)));
+  if (!SCR) applyQuality();
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+  scene.skipPointerMovePicking = true;
+  // the bunny page's light (scratchpad/bunny): two soft sky lights and a sun
+  const hemi = new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0.3, 1, -0.4), scene); hemi.intensity = 0.6;
+  const hemi2 = new BABYLON.HemisphericLight("h2", new BABYLON.Vector3(-0.2, 0.6, 1), scene); hemi2.intensity = 0.32; hemi2.specular = BABYLON.Color3.Black();
+  const sun = new BABYLON.DirectionalLight("d", new BABYLON.Vector3(-0.4, -1, 0.6), scene); sun.intensity = 0.45;
+  const mats = {};
+  function mat(hex, em = 0.12, spec = 0.12) {
+    const k = hex + "|" + em + "|" + spec; if (mats[k]) return mats[k];
+    const m = new BABYLON.StandardMaterial("m" + k, scene), c = BABYLON.Color3.FromHexString(hex);
+    m.diffuseColor = c; m.emissiveColor = c.scale(em); m.specularColor = new BABYLON.Color3(spec, spec, spec);
+    return (mats[k] = m);
+  }
+  const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 8, -10), scene);
+  cam.fov = 0.72; cam.minZ = 0.3; cam.maxZ = 300; cam.inputs.clear();
+
+  // ---------- the river: water, two banks, a grid of stones ----------
+  const COLS = 5, SP = 1.75;                 // 5 columns; stone to stone
+  const BANK_Y = 0.66;                       // the banks' grass level (the stones stand about as high)
+  const START_Z = -SP * 1.1, BANK_EDGE = -SP * 0.68;
+  const colX = (c) => (c - (COLS - 1) / 2) * SP, rowZ = (r) => r * SP;
+  const water = BABYLON.MeshBuilder.CreateGround("water", { width: 90, height: 140 }, scene);
+  water.material = mat("#2a7fb2", 0.0, 0.2); water.position.z = 20; water.isPickable = false;
+  const waterDeep = BABYLON.MeshBuilder.CreateGround("deep", { width: 90, height: 140 }, scene);   // a darker band under the far water (depth)
+  waterDeep.material = mat("#2f86ad", 0.05, 0.1); waterDeep.position.set(0, -0.01, 20); waterDeep.isPickable = false;
+  waterDeep.setEnabled(false);
+  // the start bank: dirt with grass on top, reeds and flowers on its sides
+  function makeBank(name, front) {
+    const root = new BABYLON.TransformNode(name, scene);
+    const dirt = BABYLON.MeshBuilder.CreateBox(name + "d", { width: 44, height: 1.6, depth: 9 }, scene); dirt.material = mat("#a9784a", 0.06, 0.04); dirt.parent = root; dirt.position.y = BANK_Y - 0.8 - 0.06;
+    const grass = BABYLON.MeshBuilder.CreateBox(name + "g", { width: 44, height: 0.14, depth: 9 }, scene); grass.material = mat("#5fae40", 0.0, 0.03); grass.parent = root; grass.position.y = BANK_Y - 0.07;
+    const lip = BABYLON.MeshBuilder.CreateCylinder(name + "l", { diameter: 0.34, height: 44, tessellation: 10 }, scene); lip.material = mat("#4f9e35", 0.0, 0.03); lip.parent = root; lip.rotation.z = Math.PI / 2; lip.position.set(0, BANK_Y - 0.12, 4.5 * front);
+    [dirt, grass, lip].forEach((m) => (m.isPickable = false));
+    return root;
+  }
+  const startBank = makeBank("bankA", 1);
+  const farBank = makeBank("bankB", -1); farBank.rotation.y = 0;
+  // decorations (made once): reeds on both banks, bushes, two trees and a striped ice cream umbrella on the far bank
+  function deco() {
+    const reedM = mat("#5aa843", 0.12), bushM = mat("#5fb54a", 0.14), bush2 = mat("#78c95a", 0.14), trunkM = mat("#9a6a3f", 0.1), leafM = mat("#4fa842", 0.14);
+    const fl = ["#ff7aa0", "#ffd34d", "#ffffff", "#b48cff"];
+    for (const [bank, sgn] of [[startBank, 1], [farBank, -1]]) {
+      for (let i = 0; i < 14; i++) {
+        const x = (i < 7 ? -1 : 1) * (colX(COLS - 1) + 1.6 + (i % 7) * 1.25 + Math.random() * 0.4);
+        const r = BABYLON.MeshBuilder.CreateCylinder("reed", { diameterTop: 0.02, diameterBottom: 0.09, height: 0.8 + Math.random() * 0.5, tessellation: 5 }, scene);
+        r.material = reedM; r.parent = bank; r.position.set(x, BANK_Y + 0.35, sgn * 3.9); r.rotation.z = (Math.random() - 0.5) * 0.4; r.isPickable = false;
+      }
+      for (let i = 0; i < 8; i++) {
+        const f = BABYLON.MeshBuilder.CreateSphere("flower", { diameter: 0.18, segments: 6 }, scene); f.material = mat(fl[i % 4], 0.35); f.parent = bank; f.isPickable = false;
+        f.position.set((i % 2 ? -1 : 1) * (colX(COLS - 1) + 1.0 + Math.random() * 6), BANK_Y + 0.06, (sgn > 0 ? 1 : -1) * (1.5 + Math.random() * 2.2));
+      }
+    }
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const b = BABYLON.MeshBuilder.CreateSphere("bush", { diameter: 1.0 + i * 0.25, segments: 10 }, scene); b.material = i % 2 ? bush2 : bushM; b.parent = farBank; b.isPickable = false;
+        b.position.set(sx * (colX(COLS - 1) + 1.8 + i * 1.3), BANK_Y + 0.3, -2.2 + i * 1.1); b.scaling.y = 0.75;
+      }
+      const tr = BABYLON.MeshBuilder.CreateCylinder("trunk", { diameter: 0.32, height: 1.6, tessellation: 8 }, scene); tr.material = trunkM; tr.parent = farBank; tr.position.set(sx * (colX(COLS - 1) + 3.6), BANK_Y + 0.8, 0.8); tr.isPickable = false;
+      for (let k = 0; k < 3; k++) { const l = BABYLON.MeshBuilder.CreateSphere("leaf", { diameter: 1.7 - k * 0.3, segments: 10 }, scene); l.material = leafM; l.parent = farBank; l.isPickable = false; l.position.set(sx * (colX(COLS - 1) + 3.6) + (k - 1) * 0.35, BANK_Y + 1.9 + k * 0.45, 0.8); }
+    }
+    // the ice cream umbrella behind the landing (the bunny's reward waits there)
+    const pole = BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07, height: 2.2, tessellation: 8 }, scene); pole.material = mat("#ffffff", 0.3); pole.parent = farBank; pole.position.set(-1.6, BANK_Y + 1.1, 1.4); pole.isPickable = false;
+    for (let i = 0; i < 8; i++) {
+      const seg = BABYLON.MeshBuilder.CreateCylinder("umb", { diameterTop: 0, diameterBottom: 2.0, height: 0.55, tessellation: 8, arc: 1 / 8 }, scene);
+      seg.material = mat(i % 2 ? "#ffffff" : "#ff5a8a", 0.25); seg.parent = farBank; seg.position.set(-1.6, BANK_Y + 2.3, 1.4); seg.rotation.y = i * Math.PI / 4; seg.isPickable = false;
+    }
+  }
+  deco();
+  // the decorations never move inside their bank: one mesh per colour (fewer draw calls, the cloud test browser draws on the CPU)
+  for (const bank of [startBank, farBank]) {
+    const groups = {};
+    bank.getChildMeshes(true).filter((m) => !/^bank/.test(m.name)).forEach((m) => { (groups[m.material.name] = groups[m.material.name] || []).push(m); });
+    for (const g of Object.values(groups)) if (g.length > 1) { const m = BABYLON.Mesh.MergeMeshes(g, true, true); if (m) { m.parent = bank; m.isPickable = false; } }
+  }
+  startBank.position.z = BANK_EDGE - 4.5;
+
+  // ---------- the bunny: design "A" (soft and round, cream and beige, tall ears; Golan 5.11) ----------
+  const bunny = (() => {
+    const root = new BABYLON.TransformNode("bunny", scene), yaw = new BABYLON.TransformNode("bYaw", scene), hop = new BABYLON.TransformNode("bHop", scene), p = new BABYLON.TransformNode("bBody", scene);
+    yaw.parent = root; hop.parent = yaw; p.parent = hop; p.scaling.setAll(0.37);
+    const S = (d, seg = 20) => BABYLON.MeshBuilder.CreateSphere("bp", { diameter: d, segments: seg }, scene);
+    const put = (mesh, m, parent, x, y, z, sx = 1, sy = 1, sz = 1) => { mesh.material = m; mesh.parent = parent; mesh.position.set(x, y, z); mesh.scaling.set(sx, sy, sz); mesh.isPickable = false; return mesh; };
+    const fur = mat("#f2e2c9", 0.18), white = mat("#fffaf2", 0.22), beige = mat("#dcc19b", 0.12), pink = mat("#ffb3c7", 0.3), nose = mat("#ff7aa0", 0.35);
+    put(S(1.5), fur, p, 0, 0.75, 0.05, 1, 0.95, 1);
+    put(S(1.0), white, p, 0, 0.7, -0.32, 0.85, 0.9, 0.6);
+    put(S(0.62), white, p, 0, 1.52, -0.55, 1.1, 0.75, 0.6);
+    put(S(1.2), fur, p, 0, 1.7, -0.15, 1, 0.95, 0.95);
+    const ears = [];
+    for (const s of [-1, 1]) {
+      const pivot = new BABYLON.TransformNode("ear", scene); pivot.parent = p; pivot.position.set(s * 0.22, 2.05, -0.05); pivot.rotation.z = -s * 0.12;
+      put(S(0.5), beige, pivot, 0.0, 0.5, 0, 0.6, 2.1, 0.45);
+      put(S(0.36), pink, pivot, 0.0, 0.5, -0.12, 0.5, 1.75, 0.2);
+      ears.push({ pivot, s });
+      put(S(0.42), white, p, s * 0.42, 0.18, -0.5, 1, 0.55, 1.5);
+      put(S(0.32), pink, p, s * 0.34, 1.5, -0.68, 1, 0.6, 0.4);
+    }
+    const e = mat("#1b1b24", 0.05), g = mat("#ffffff", 1);
+    for (const s of [-1, 1]) { put(S(0.2, 14), e, p, s * 0.24, 1.82, -0.66, 1, 1.15, 0.7); put(S(0.07, 8), g, p, s * 0.24 + 0.04, 1.86, -0.72); }
+    put(S(0.14), nose, p, 0, 1.62, -0.74, 1.3, 0.9, 0.8);
+    put(S(0.5), white, p, 0, 0.7, 0.8);
+    const tongue = put(S(0.2, 10), mat("#ff6f91", 0.35), p, 0, 1.36, -0.8, 1, 0.5, 1.3); tongue.setEnabled(false);
+    const ring = BABYLON.MeshBuilder.CreateTorus("bRing", { diameter: 1.1, thickness: 0.05, tessellation: 28 }, scene);
+    ring.material = mat("#ffffff", 0.7); ring.material.alpha = 0.55; ring.isPickable = false; ring.setEnabled(false);
+    return { root, yaw, hop, body: p, ears, tongue, ring, r: -1, c: 2, d: 0, yawV: Math.PI };
+  })();
+  const yawOfDir = (d) => Math.PI + d * Math.PI / 2;
+
+  // ---------- the pictures on the stones: each picture once as an image, painted on a round cream plate ----------
+  const PIC_IMG = {};
+  for (const k of SOUND_L.flatMap(picsOf)) { const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${PICS[k].svg}</svg>`); PIC_IMG[k] = im; }
+  const picsReady = Promise.race([Promise.all(Object.values(PIC_IMG).map((im) => (im.decode ? im.decode() : new Promise((r) => { im.onload = im.onerror = r; })).catch(() => {}))), new Promise((r) => setTimeout(r, 5000))]);
+  const picMats = {};
+  function picMat(key, glow) {
+    const id = key + (glow ? "*" : ""); if (picMats[id]) return picMats[id];
+    const tex = new BABYLON.DynamicTexture("pt" + id, { width: 256, height: 256 }, scene, true), ctx = tex.getContext();
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.fillStyle = glow ? "#fff6c9" : "#fffaf0"; ctx.fill();
+    ctx.lineWidth = glow ? 14 : 7; ctx.strokeStyle = glow ? "#ffc233" : "#c9b59a"; ctx.stroke();
+    const im = PIC_IMG[key];
+    if (im && im.complete && im.naturalWidth) { try { if (window.FL && FL.drawPicCentred) FL.drawPicCentred(ctx, im, 40, 40, 176, 176); else ctx.drawImage(im, 40, 40, 176, 176); } catch (e) {} }
+    tex.hasAlpha = true; tex.update(true);
+    const m = new BABYLON.StandardMaterial("pm" + id, scene); m.diffuseTexture = tex; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new BABYLON.Color3(1, 1, 1); m.disableLighting = true;
+    return (picMats[id] = m);
+  }
+
+  // ---------- stones: several kinds (Golan 5.11: round flat, tall rough, mossy, square-ish, boulder, red), standing well above the water ----------
+  const KINDS = [
+    { k: "round", col: "#a7a19a" }, { k: "tall", col: "#8f8b86" }, { k: "mossy", col: "#9c9a8e" },
+    { k: "square", col: "#b8a68f" }, { k: "boulder", col: "#8e969e" }, { k: "red", col: "#b38d79" } ];
+  const PL = 1.0, TILT = 0.36;   // the picture plate: size, and leaned a little toward the camera so it reads better
+  let world = null, stones = [], grid = [];
+  function makeStone(cell, kindI) {
+    const K = KINDS[kindI], root = new BABYLON.TransformNode("stone", scene); root.parent = world;
+    root.position.set(colX(cell.c), 0, rowZ(cell.r));
+    const top = (K.k === "tall" ? 0.78 : K.k === "boulder" ? 0.62 : 0.66) + Math.random() * 0.08, base = -0.6, h = top - base;
+    const sm = mat(K.col, 0.08, 0.06), parts = [];
+    const add = (m, mt) => { m.material = mt || sm; m.parent = root; parts.push(m); return m; };
+    if (K.k === "round") { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.2, diameterBottom: 1.42, height: h, tessellation: 12 }, scene)); b.position.y = base + h / 2; b.scaling.z = 0.92;
+      const e = add(BABYLON.MeshBuilder.CreateTorus("ste", { diameter: 1.12, thickness: 0.14, tessellation: 24 }, scene)); e.position.y = top - 0.05; e.scaling.z = 0.92; }
+    else if (K.k === "tall") { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.06, diameterBottom: 1.4, height: h, tessellation: 6 }, scene)); b.position.y = base + h / 2; b.rotation.y = Math.random();
+      for (let i = 0; i < 3; i++) { const a = Math.random() * 6.3, n = add(BABYLON.MeshBuilder.CreateSphere("stb", { diameter: 0.34, segments: 6 }, scene), mat("#7f7b76", 0.08, 0.06)); n.position.set(Math.cos(a) * 0.6, 0.05 + i * 0.18, Math.sin(a) * 0.6); n.scaling.y = 1.4; } }
+    else if (K.k === "mossy") { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.18, diameterBottom: 1.44, height: h, tessellation: 9 }, scene)); b.position.y = base + h / 2;
+      const moss = mat("#6f9a4a", 0.14, 0.02);
+      for (let i = 0; i < 4; i++) { const a = i * 1.7 + Math.random(), m = add(BABYLON.MeshBuilder.CreateSphere("stm", { diameter: 0.5, segments: 8 }, scene), moss); m.position.set(Math.cos(a) * 0.56, top - 0.12 - (i % 2) * 0.18, Math.sin(a) * 0.56); m.scaling.set(1, 0.45, 1); }
+      const cap = add(BABYLON.MeshBuilder.CreateCylinder("stc", { diameter: 1.2, height: 0.08, tessellation: 9 }, scene), moss); cap.position.y = top - 0.02; }
+    else if (K.k === "square") { const b = add(BABYLON.MeshBuilder.CreateBox("st", { width: 1.2, height: h, depth: 1.12 }, scene)); b.position.y = base + h / 2; b.rotation.y = (Math.random() - 0.5) * 0.35;
+      const t = add(BABYLON.MeshBuilder.CreateBox("stt", { width: 1.06, height: 0.1, depth: 0.98 }, scene), mat("#c9b8a0", 0.1, 0.06)); t.position.y = top; t.rotation.y = b.rotation.y; }
+    else if (K.k === "boulder") { const b = add(BABYLON.MeshBuilder.CreateSphere("st", { diameter: 1.45, segments: 12 }, scene)); b.scaling.set(1, 0.95, 0.92); b.position.y = top - 0.69; }
+    else { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.14, diameterBottom: 1.38, height: h, tessellation: 8 }, scene)); b.position.y = base + h / 2; b.rotation.y = Math.random();
+      const band = add(BABYLON.MeshBuilder.CreateCylinder("str", { diameter: 1.3, height: 0.1, tessellation: 8 }, scene), mat("#9c7563", 0.08, 0.06)); band.position.y = top - 0.32; band.rotation.y = b.rotation.y; }
+    // a wet dark band at the water line and a soft white ripple round the stone (the bunny page's water look)
+    const wet = add(BABYLON.MeshBuilder.CreateCylinder("stw", { diameter: 1.5, height: 0.12, tessellation: 14 }, scene), mat("#5f6a70", 0.05, 0.1)); wet.position.y = 0.04;
+    const rip = BABYLON.MeshBuilder.CreateTorus("rip", { diameter: 1.75, thickness: 0.04, tessellation: 28 }, scene); rip.parent = root; rip.position.y = 0.02; rip.isPickable = false;
+    rip.material = mat("#ffffff", 0.6); if (rip.material.alpha === 1) rip.material.alpha = 0.35;
+    const plate = BABYLON.MeshBuilder.CreatePlane("plate", { size: PL }, scene); plate.parent = root;
+    plate.rotation.x = Math.PI / 2 - TILT; plate.position.set(0, top + Math.sin(TILT) * PL / 2 + 0.02, 0);
+    plate.material = picMat(cell.pic, false);
+    const st = { ...cell, root, top, plate, parts, rip, sunk: 0, ph: Math.random() * 6.3 };
+    parts.forEach((m) => { m.isPickable = true; m.metadata = { stone: st }; }); plate.isPickable = true; plate.metadata = { stone: st };
+    return st;
+  }
+
+  // ---------- path generation ----------
+  // Levels (Golan 5.11): L1 a short path, one sidestep (a turn away and a turn back), no spring; L2 longer, one sidestep and one
+  // spring over a sinking stone; L3 the longest, two sidesteps, springs, one of them over open water. "steps" = the arrows in the
+  // plan row. Turns come in pairs, because the bunny has to face forward again to step onto the far bank.
+  const LV = { 1: { n: [5, 6], jogs: 1, springs: 0 }, 2: { n: [6, 8], jogs: 1, springs: 1 }, 3: { n: [9, 12], jogs: 2, springs: 1, water: true } };
+  const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // [dRow, dCol] for facing forward, right, back, left
+  function randomSplit(total, parts) {   // total into `parts` whole numbers, each at least 1
+    const cuts = shuffle(Array.from({ length: total - 1 }, (_, i) => i + 1)).slice(0, parts - 1).sort((a, b) => a - b);
+    const out = []; let prev = 0; for (const c of [...cuts, total]) { out.push(c - prev); prev = c; } return out;
+  }
+  function makePath(L, prog) {
+    const cfg = LV[L], nT = Math.min(cfg.n[1], cfg.n[0] + Math.max(0, prog | 0));
+    for (let tries = 0; tries < 6000; tries++) {
+      const n = tries < 4000 ? nT : cfg.n[0] + Math.floor(Math.random() * (cfg.n[1] - cfg.n[0] + 1));
+      const J = cfg.jogs, springs = L === 3 && n >= 11 ? 2 : cfg.springs;
+      const side = Array.from({ length: J }, () => 1 + (Math.random() < 0.3 ? 1 : 0));
+      const fwd = n - 2 * J - side.reduce((a, b) => a + b, 0); if (fwd < J + 1 || fwd < springs) continue;
+      const segs = randomSplit(fwd, J + 1);
+      const springAt = new Set(shuffle(Array.from({ length: fwd }, (_, i) => i)).slice(0, springs));
+      const c0 = 1 + Math.floor(Math.random() * 3);
+      let r = -1, c = c0, fi = 0, ok = true; const cmds = [], cells = [], overs = [];
+      for (let s = 0; s <= J && ok; s++) {
+        for (let k = 0; k < segs[s]; k++, fi++) {
+          if (springAt.has(fi)) { overs.push({ r: r + 1, c }); r += 2; cmds.push("J"); } else { r += 1; cmds.push("F"); }
+          cells.push({ r, c });
+        }
+        if (s < J) {
+          const dirs = shuffle([1, -1]).filter((d) => c + d * side[s] >= 0 && c + d * side[s] < COLS);
+          if (!dirs.length) { ok = false; break; }
+          const d = dirs[0]; cmds.push(d > 0 ? "R" : "L");
+          for (let k = 0; k < side[s]; k++) { c += d; cmds.push("F"); cells.push({ r, c }); }
+          cmds.push(d > 0 ? "L" : "R");
+        }
+      }
+      const R = r;   // the far bank is the row the last step lands on
+      if (!ok || R < 1 || R > 9) continue;
+      if (overs.some((o) => o.r < 0 || o.r >= R)) continue;
+      const path = cells.filter((x) => x.r < R);
+      if (path.some((x) => x.r < 0)) continue;
+      if (path.some((x) => overs.some((o) => o.r === x.r && o.c === x.c))) continue;
+      return { c0, R, cmds, path, overs, water: !!cfg.water };
+    }
+    return { c0: 2, R: 2, cmds: ["F", "R", "F", "L", "F", "F"], path: [{ r: 0, c: 2 }, { r: 0, c: 3 }, { r: 1, c: 3 }], overs: [], water: false };
+  }
+
+  // ---------- building a river ----------
+  const state = { mode: "intro", q: null, stars: 0, starKinds: [], scoops: 0, n: 0, lastLetter: null, demo: false, pool: null, prog: { 1: 0, 2: 0, 3: 0 }, roundOpen: false };
+  let chosen = null;
+  function chosenLetters() { return settings.lettersMode === "auto" ? [] : [...new Set(settings.letters || [])].filter((l) => SOUND_L.includes(l)); }
+  const basePool = () => { const mine = chosenLetters(); if (mine.length) return mine; if (!state.pool) state.pool = soundPool().filter((l) => SOUND_L.includes(l)); return state.pool.length ? state.pool : SOUND_L.slice(); };
+  function pickSound() {
+    const pool = basePool().filter((l) => l !== state.lastLetter), src = pool.length ? pool : basePool();
+    const fresh = src.filter((l) => !soundKnown(l));
+    return pick(fresh.length && Math.random() < 0.7 ? fresh : src);
+  }
+  // the other pictures of a river: only from sounds that are not ALIKE the sound on the sign (the child's sounds first)
+  function otherSounds(t, n) {
+    const out = [];
+    for (const l of [...shuffle(basePool().slice()), ...shuffle(SOUND_L.slice())]) if (out.length < n && l !== t && !out.includes(l) && !alike(l, t)) out.push(l);
+    return out;
+  }
+  let riverN = 0;
+  function buildRiver(t, P) {
+    if (world) world.dispose(false, false);
+    world = new BABYLON.TransformNode("world", scene); stones = []; grid = [];
+    const others = otherSounds(t, 4), otherPics = others.flatMap(picsOf), myPics = picsOf(t);
+    const isPath = (r, c) => P.path.some((x) => x.r === r && x.c === c);
+    const over = (r, c) => P.overs.findIndex((x) => x.r === r && x.c === c);
+    let lastKind = -1, waterOver = P.water ? 0 : -1;   // level 3: the first spring goes over open water
+    for (let r = 0; r < P.R; r++) {
+      grid.push([]);
+      for (let c = 0; c < COLS; c++) {
+        let type;
+        if (isPath(r, c)) type = "good";
+        else if (over(r, c) >= 0) type = over(r, c) === waterOver ? "water" : "sink";
+        else type = Math.random() < 0.26 ? "water" : "sink";
+        const cell = { r, c, type, pic: null, letter: null };
+        if (type === "good") { cell.pic = pick(myPics); cell.letter = t; }
+        else if (type === "sink") { cell.pic = pick(otherPics.length ? otherPics : myPics); cell.letter = (PICS[cell.pic] || {}).sound || others[0]; }
+        grid[r].push(cell);
+        if (type !== "water") {
+          let k = Math.floor(Math.random() * KINDS.length); if (k === lastKind) k = (k + 1) % KINDS.length; lastKind = k;
+          const st = makeStone(cell, k); cell.stone = st; stones.push(st);
+        }
+      }
+    }
+    farBank.position.z = rowZ(P.R) - SP * 0.42 + 4.5;
+    // the water only between the banks (and a little under them), so it flies away with the rest at the end of the round
+    { const z0 = BANK_EDGE - 2, z1 = rowZ(P.R) - SP * 0.42 + 2; water.scaling.set(60 / 90, 1, (z1 - z0) / 140); water.position.z = (z0 + z1) / 2; }
+    // sound letters of the pictures, for the record
+    return [...new Set([t, ...stones.map((s) => s.letter).filter(Boolean)])];
+  }
+  // a stone's picture letter: PICS[k].sound for the new pictures; the letter pictures are keyed by their letter
+  for (const l of SOUND_L) for (const k of picsOf(l)) if (PICS[k] && !PICS[k].sound) PICS[k].sound = l;
+  function placeBunnyStart(q) {
+    bunny.r = -1; bunny.c = q.P.c0; bunny.d = 0; bunny.yawV = yawOfDir(0);
+    bunny.root.position.set(colX(q.P.c0), BANK_Y, START_Z); bunny.yaw.rotation.y = bunny.yawV;
+    bunny.hop.position.set(0, 0, 0); bunny.hop.rotation.set(0, 0, 0); bunny.hop.scaling.setAll(1); bunny.tongue.setEnabled(false); bunny.ring.setEnabled(false);
+    bunny.ears.forEach((e) => { e.pivot.rotation.x = 0; e.pivot.rotation.z = -e.s * 0.12; });
+  }
+  function newRiver(opt = {}) {
+    clearTasks(); dropFinale();
+    const L = opt.demo ? 1 : lvl(), t = opt.letter || pickSound();
+    const P = opt.P || makePath(L, opt.demo ? opt.prog || 0 : state.prog[L]);
+    const opts = buildRiver(t, P);
+    const q = { id: ++riverN, letter: t, P, level: L, runs: 0, fails: 0, sinkWrong: null, hint: false, demo: !!opt.demo, rec: false, opts, t0: performance.now() };
+    state.q = q; plan.length = 0; runIdx = -1; badIdx = -1;
+    placeBunnyStart(q);
+    setSign(SOUNDS[t].syl);
+    state.mode = opt.ready ? "ready" : "plan"; renderPlan();
+    onScreen();
+    if (!opt.silent) whenQuiet(() => { if (state.q === q && !q.demo) playSeq([SOUNDS[t].s]); });
+    return q;
+  }
+
+  // ---------- the plan row ----------
+  const ICONS = {
+    F: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V4M5 10.5L12 3.5l7 7"/></svg>',
+    J: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l7-7 7 7M5 20l7-7 7 7"/></svg>',
+    R: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21v-7.5A5.5 5.5 0 0 1 11.5 8H19M14.5 3.5L19 8l-4.5 4.5"/></svg>',
+    L: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21v-7.5A5.5 5.5 0 0 0 12.5 8H5M9.5 3.5L5 8l4.5 4.5"/></svg>' };
+  ["F", "J", "L", "R"].forEach((k) => $("cmd" + k).insertAdjacentHTML("afterbegin", ICONS[k]));
+  const plan = [], MAXP = 24;
+  let runIdx = -1, badIdx = -1;
+  const canEdit = () => state.mode === "plan" && !!state.q;
+  function renderPlan() {
+    const el = $("steps"), sig = plan.join("");
+    if (el._sig !== sig) {   // rebuilt only when the plan changed (a new arrow pops in; the others stay still)
+      const old = el._sig || "";
+      el.innerHTML = plan.map((k, i) => `<button class="st c-${k}" type="button" data-i="${i}" aria-label="${{ F: "יָשָׁר", J: "קְפִיץ", L: "שְׂמֹאלָה", R: "יָמִינָה" }[k]}">${ICONS[k]}</button>`).join("") +
+        (plan.length < 3 ? '<span class="ghost"></span>'.repeat(3 - plan.length) : "");
+      [...el.querySelectorAll(".st")].forEach((b, i) => { if (sig.startsWith(old) && i < old.length) b.style.animation = "none"; });
+      el._sig = sig; sizeSteps();
+    }
+    [...el.querySelectorAll(".st")].forEach((b, i) => { b.classList.toggle("now", i === runIdx); b.classList.toggle("done", runIdx >= 0 && i < runIdx); b.classList.toggle("bad", i === badIdx); });
+    const edit = canEdit() && !state.demo;
+    $("goBtn").disabled = !plan.length || !canEdit();
+    $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= state.q.P.cmds.length);
+    document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit()));
+  }
+  // the arrows shrink a little when the plan is long, then go to a second line
+  function sizeSteps() {
+    const el = $("steps"), n = Math.max(3, plan.length), w = el.clientWidth, full = Math.max(30, $("goBtn").offsetHeight || 60) - 6;
+    if (!w) return;
+    let cell = Math.min(full, (w - 4 * (n - 1)) / n);
+    if (cell < 38) cell = Math.min(full, Math.max(38, (w - 4 * (Math.ceil(n / 2) - 1)) / Math.ceil(n / 2)));
+    el.style.setProperty("--cell", Math.floor(cell) + "px");
+  }
+  function addStep(k, force) {
+    if (!canEdit() || (state.demo && !force)) return false;
+    if (plan.length >= MAXP) { sfx.oops(); return false; }
+    unlockAudio(); plan.push(k); badIdx = -1; renderPlan(); sfx.add(); return true;
+  }
+  ["F", "J", "L", "R"].forEach((k) => $("cmd" + k).addEventListener("click", (e) => { e.stopPropagation(); addStep(k); }));
+  $("steps").addEventListener("click", (e) => {
+    const b = e.target.closest(".st"); if (!b || !canEdit() || state.demo) return;
+    plan.splice(+b.dataset.i, 1); badIdx = -1; sfx.tap(); renderPlan();
+  });
+  $("goBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!state.demo) go(); });
+
+  // ---------- simulating a plan on the grid ----------
+  function simulate(q, cmds) {
+    let r = -1, c = q.P.c0, d = 0; const out = [];
+    for (let i = 0; i < cmds.length; i++) {
+      const k = cmds[i];
+      if (k === "R" || k === "L") { d = (d + (k === "R" ? 1 : 3)) % 4; out.push({ i, k: "turn", dd: k === "R" ? 1 : -1, d }); continue; }
+      const len = k === "J" ? 2 : 1, nr = r + DIRS[d][0] * len, nc = c + DIRS[d][1] * len;
+      let res;
+      if (nc < 0 || nc >= COLS) res = "off";
+      else if (nr >= q.P.R) res = "bank";
+      else if (nr < 0) res = "home";
+      else { const cell = grid[nr][nc]; res = cell.type === "good" ? "ok" : cell.type; }
+      out.push({ i, k: "hop", len, from: { r, c }, to: { r: nr, c: nc }, res });
+      r = nr; c = nc;
+      if (res !== "ok" && res !== "home") break;
+    }
+    const last = out[out.length - 1];
+    const result = last && last.k === "hop" && !["ok", "home"].includes(last.res) ? last.res : "short";
+    return { steps: out, result, r, c, d };
+  }
+  // where the bunny stands on a cell (stone top, bank, or the water)
+  function spotOf(r, c) {
+    const x = colX(c);
+    if (r <= -1) return new BABYLON.Vector3(x, BANK_Y, Math.max(rowZ(r) - SP * 0.1, START_Z - SP));
+    if (r >= state.q.P.R) return new BABYLON.Vector3(x, BANK_Y, rowZ(Math.min(r, state.q.P.R + 0.6)));
+    if (c < 0 || c >= COLS) return new BABYLON.Vector3(x, -0.45, rowZ(r));
+    const cell = grid[r][c];
+    return new BABYLON.Vector3(x, cell.stone && !cell.stone.sunk ? cell.stone.top + 0.06 : -0.45, rowZ(r));
+  }
+
+  // ---------- small animation runner (frozen while the game waits; the speed slider moves it too) ----------
+  let tasks = [], animTok = 0;
+  const tween = (dur, fn) => new Promise((res) => tasks.push({ t: 0, dur: Math.max(0.001, dur), fn, res }));
+  const wait = (s) => tween(s, () => {});
+  function clearTasks() { animTok++; tasks = []; }
+  const lerp = (a, b, k) => a + (b - a) * k, ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+  async function turnBy(dd, d) {
+    sfx.turn(); const y0 = bunny.yawV, y1 = y0 + dd * Math.PI / 2;
+    await tween(0.34, (k) => { bunny.yaw.rotation.y = lerp(y0, y1, ease(k)); bunny.hop.position.y = Math.sin(k * Math.PI) * 0.14; });
+    bunny.yawV = y1; bunny.d = d;
+  }
+  async function hopTo(p1, len, into) {
+    const p0 = bunny.root.position.clone(), H = len === 2 ? 1.25 : 0.6, dur = len === 2 ? 0.72 : 0.46;
+    if (len === 2) sfx.spring(); else sfx.hop();
+    await tween(0.08, (k) => bunny.hop.scaling.set(1 + 0.12 * k, 1 - 0.18 * k, 1 + 0.12 * k));
+    await tween(dur, (k) => {
+      const x = lerp(p0.x, p1.x, k), z = lerp(p0.z, p1.z, k), base = lerp(p0.y, p1.y, k);
+      bunny.root.position.set(x, base + Math.sin(k * Math.PI) * H, z);
+      const s = k < 0.2 ? 1 - 0.18 * (1 - k / 0.2) : 1; bunny.hop.scaling.set(2 - s > 1 ? 1 + (1 - s) * 0.6 : 1, s + (k > 0.2 && k < 0.8 ? 0.08 : 0), 1);
+      bunny.ears.forEach((e) => (e.pivot.rotation.x = Math.sin(k * Math.PI) * 0.5));   // the ears fly back in the air
+      if (len === 2) bunny.hop.rotation.x = -Math.sin(k * Math.PI * 2) * 0.25;
+    });
+    bunny.hop.rotation.x = 0; bunny.ears.forEach((e) => (e.pivot.rotation.x = 0));
+    if (!into) await tween(0.12, (k) => { const s = Math.sin(k * Math.PI); bunny.hop.scaling.set(1 + 0.15 * s, 1 - 0.2 * s, 1 + 0.15 * s); });
+    bunny.hop.scaling.setAll(1);
+  }
+
+  // ---------- particles: confetti for a crossing, splashes and drops for the water ----------
+  const dotTex = new BABYLON.DynamicTexture("dot", { width: 32, height: 32 }, scene, false);
+  { const c = dotTex.getContext(); c.fillStyle = "#fff"; c.beginPath(); c.arc(16, 16, 12, 0, 7); c.fill(); dotTex.update(); dotTex.hasAlpha = true; }
+  const sqTex = new BABYLON.DynamicTexture("sq", { width: 32, height: 32 }, scene, false);
+  { const c = sqTex.getContext(); c.fillStyle = "#fff"; c.fillRect(6, 6, 20, 20); sqTex.update(); sqTex.hasAlpha = true; }
+  function particles(name, tex, n, c1, c2, opt) {
+    const p = new BABYLON.ParticleSystem(name, n, scene); p.particleTexture = tex; p.emitter = new BABYLON.Vector3(0, -50, 0);
+    p.color1 = c1; p.color2 = c2; p.colorDead = new BABYLON.Color4(c2.r, c2.g, c2.b, 0); p.emitRate = 0; p.manualEmitCount = 0;
+    Object.assign(p, opt); p.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; p.start(); return p;
+  }
+  const confetti = particles("confetti", sqTex, 220, new BABYLON.Color4(1, 0.35, 0.4, 1), new BABYLON.Color4(0.3, 0.6, 1, 1),
+    { minSize: 0.1, maxSize: 0.2, minLifeTime: 0.7, maxLifeTime: 1.3, minEmitBox: new BABYLON.Vector3(-0.4, 0, -0.4), maxEmitBox: new BABYLON.Vector3(0.4, 0.4, 0.4),
+      direction1: new BABYLON.Vector3(-3, 7, -2), direction2: new BABYLON.Vector3(3, 9, 2), gravity: new BABYLON.Vector3(0, -10, 0), minAngularSpeed: -6, maxAngularSpeed: 6 });
+  const splash = particles("splash", dotTex, 160, new BABYLON.Color4(1, 1, 1, 1), new BABYLON.Color4(0.6, 0.85, 1, 1),
+    { minSize: 0.08, maxSize: 0.22, minLifeTime: 0.4, maxLifeTime: 0.8, minEmitBox: new BABYLON.Vector3(-0.35, 0, -0.35), maxEmitBox: new BABYLON.Vector3(0.35, 0.1, 0.35),
+      direction1: new BABYLON.Vector3(-2.5, 5, -2.5), direction2: new BABYLON.Vector3(2.5, 7, 2.5), gravity: new BABYLON.Vector3(0, -14, 0), minEmitPower: 0.6, maxEmitPower: 1.2 });
+  const drops = particles("drops", dotTex, 120, new BABYLON.Color4(0.85, 0.95, 1, 1), new BABYLON.Color4(0.55, 0.8, 1, 1),
+    { minSize: 0.05, maxSize: 0.11, minLifeTime: 0.3, maxLifeTime: 0.6, minEmitBox: new BABYLON.Vector3(-0.25, 0.2, -0.25), maxEmitBox: new BABYLON.Vector3(0.25, 0.8, 0.25),
+      direction1: new BABYLON.Vector3(-4, 1.5, -4), direction2: new BABYLON.Vector3(4, 3, 4), gravity: new BABYLON.Vector3(0, -9, 0) });
+  const hearts = particles("hearts", dotTex, 80, new BABYLON.Color4(1, 0.45, 0.65, 1), new BABYLON.Color4(1, 0.85, 0.3, 1),
+    { minSize: 0.1, maxSize: 0.22, minLifeTime: 0.8, maxLifeTime: 1.4, minEmitBox: new BABYLON.Vector3(-0.5, 0, -0.5), maxEmitBox: new BABYLON.Vector3(0.5, 0.5, 0.5),
+      direction1: new BABYLON.Vector3(-1, 3, -1), direction2: new BABYLON.Vector3(1, 4, 1), gravity: new BABYLON.Vector3(0, -1, 0) });
+  const burst = (ps, at, n) => { ps.emitter = at.clone(); ps.manualEmitCount = n; };
+
+  // ---------- the funny fall, the swim back and the shake ----------
+  async function splashDown(spin) {
+    const p0 = bunny.root.position.clone(); sfx.slide();
+    await tween(0.5, (k) => { bunny.root.position.y = lerp(p0.y, -0.95, k * k); bunny.yaw.rotation.y = bunny.yawV + (spin ? k * Math.PI * 2 : 0);
+      bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(k * Math.PI * 6) * 0.6))); bunny.hop.rotation.z = Math.sin(k * Math.PI * 3) * 0.3; });
+    sfx.splash(); vibrate(40); burst(splash, new BABYLON.Vector3(p0.x, 0.05, p0.z), 70);
+    bunny.yaw.rotation.y = bunny.yawV; bunny.hop.rotation.z = 0;
+    await tween(0.45, (k) => { bunny.root.position.y = lerp(-0.95, -0.42, ease(k)) + Math.sin(k * Math.PI) * 0.12; });
+    bunny.ring.setEnabled(true);
+    // pops up with its ears straight up, blinks at the camera for a moment (funny, not sad)
+    await tween(0.5, (k) => { bunny.root.position.y = -0.42 + Math.sin(k * Math.PI * 2) * 0.05; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 - Math.sin(k * Math.PI) * 0.25))); });
+  }
+  async function fall(sim) {
+    const last = sim.steps[sim.steps.length - 1], q = state.q;
+    if (sim.result === "sink") {
+      const st = grid[last.to.r][last.to.c].stone;
+      // the stone wobbles, the bunny wobbles with it ("oh!"), then both go down
+      await tween(0.45, (k) => { const w = Math.sin(k * Math.PI * 6) * 0.14 * (1 - k * 0.3); st.root.rotation.z = w; bunny.hop.rotation.z = -w * 1.4;
+        bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.abs(Math.sin(k * Math.PI * 4)) * 0.5))); });
+      st.root.rotation.z = 0; st.sunk = 1;
+      const y0 = bunny.root.position.y;
+      tween(0.7, (k) => { st.root.position.y = -1.2 * k; });
+      await tween(0.25, (k) => { bunny.root.position.y = y0 - 0.3 * k; });
+      await splashDown(true);
+    } else if (sim.result === "water" || sim.result === "off") {
+      await splashDown(true);
+    } else if (sim.result === "short") {
+      // the plan ended in the middle: the bunny looks left and right, ... and slips off its stone backwards
+      const y = bunny.yawV;
+      await tween(0.9, (k) => { bunny.yaw.rotation.y = y + Math.sin(k * Math.PI * 2) * 0.55; });
+      bunny.yaw.rotation.y = y;
+      if (bunny.r <= -1) { await tween(0.4, (k) => (bunny.hop.position.y = Math.sin(k * Math.PI) * 0.25)); return false; }   // still on the bank: a shrug, no water
+      const p0 = bunny.root.position.clone(), sx = bunny.c >= 2 ? 1 : -1, to = new BABYLON.Vector3(p0.x + sx * 0.75, p0.y, p0.z - 0.55);
+      sfx.slide();
+      await tween(0.4, (k) => { bunny.hop.rotation.x = 0.6 * k; bunny.hop.rotation.z = -sx * 0.5 * k; bunny.root.position.x = lerp(p0.x, to.x, k); bunny.root.position.z = lerp(p0.z, to.z, k); });
+      bunny.hop.rotation.set(0, 0, 0);
+      await splashDown(false);
+    }
+    return true;
+  }
+  async function swimTo(x, z) {
+    const p0 = bunny.root.position.clone(), dx = x - p0.x, dz = z - p0.z, dist = Math.hypot(dx, dz); if (dist < 0.05) return;
+    const ty = Math.atan2(-dx, -dz), y0 = bunny.yaw.rotation.y; let dy = ((ty - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+    await tween(0.18, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
+    bunny.yawV = y0 + dy;
+    await tween(dist / 4.2, (k) => { bunny.root.position.x = lerp(p0.x, x, k); bunny.root.position.z = lerp(p0.z, z, k);
+      bunny.root.position.y = -0.42 + Math.sin(k * dist * 7) * 0.04; bunny.hop.rotation.z = Math.sin(k * dist * 9) * 0.14;
+      bunny.ears.forEach((e) => (e.pivot.rotation.x = 0.35 + Math.sin(k * dist * 9 + e.s) * 0.15)); });
+    bunny.hop.rotation.z = 0;
+  }
+  async function swimBack() {
+    const q = state.q, p = bunny.root.position, lane = (p.x < 0 ? colX(0) - SP * 0.8 : colX(COLS - 1) + SP * 0.8), front = BANK_EDGE + 0.32;
+    if (Math.abs(p.x) < Math.abs(lane) - 0.1 && p.z > front) await swimTo(p.x, p.z - SP / 2);   // out between two rows first
+    await swimTo(lane, bunny.root.position.z);
+    await swimTo(lane, front);
+    await swimTo(colX(q.P.c0), front);
+    bunny.ring.setEnabled(false); bunny.ears.forEach((e) => (e.pivot.rotation.x = 0));
+    // out onto the bank, turn to the river, and shake the water off
+    const y0 = bunny.yaw.rotation.y; let dy = ((Math.PI - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+    await hopTo(new BABYLON.Vector3(colX(q.P.c0), BANK_Y, START_Z), 1);
+    await tween(0.25, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
+    bunny.yawV = yawOfDir(0); bunny.d = 0; bunny.r = -1; bunny.c = q.P.c0;
+    sfx.shake(); burst(drops, bunny.root.position.add(new BABYLON.Vector3(0, 0.1, 0)), 70);
+    await tween(0.8, (k) => { bunny.yaw.rotation.y = bunny.yawV + Math.sin(k * Math.PI * 9) * 0.45 * (1 - k); bunny.hop.rotation.z = Math.sin(k * Math.PI * 9 + 1) * 0.12 * (1 - k);
+      bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(k * Math.PI * 9) * 0.5 * (1 - k)))); });
+    bunny.yaw.rotation.y = bunny.yawV; bunny.hop.rotation.z = 0; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * 0.12));
+  }
+  function raiseStones() { for (const st of stones) if (st.sunk) { st.sunk = 0; const y0 = st.root.position.y; tween(0.5, (k) => (st.root.position.y = lerp(y0, 0, ease(k)))); } }
+
+  // ---------- running the plan ----------
+  async function go(fromDemo) {
+    const q = state.q;
+    if (!q || state.mode !== "plan" || !plan.length) return;
+    if (state.demo && !fromDemo) return;
+    unlockAudio(); hush(); q.runs++; state.mode = "run"; badIdx = -1;
+    $("goBtn").classList.add("pressed"); setTimeout(() => $("goBtn").classList.remove("pressed"), 900);
+    tone([523, 784], 0.1, "triangle", 0.3);
+    const my = animTok, alive = () => my === animTok && state.q === q;
+    const sim = simulate(q, plan.slice());
+    runIdx = 0; renderPlan();
+    await wait(0.3); if (!alive()) return;
+    for (const s of sim.steps) {
+      runIdx = s.i; renderPlan();
+      if (s.k === "turn") await turnBy(s.dd, s.d);
+      else { const into = !["ok", "home", "bank"].includes(s.res) || (s.res === "sink");
+        await hopTo(s.res === "sink" ? new BABYLON.Vector3(colX(s.to.c), grid[s.to.r][s.to.c].stone.top + 0.06, rowZ(s.to.r)) : spotOf(s.to.r, s.to.c), s.len, into && s.res !== "sink");
+        bunny.r = s.to.r; bunny.c = s.to.c; }
+      if (!alive()) return;
+    }
+    if (sim.result === "bank") { runIdx = -1; renderPlan(); return success(q, alive); }
+    // a wrong plan: the mistake sound only (no "oops" text), a funny fall, a swim back, the plan stays to be fixed
+    badIdx = sim.steps.length ? sim.steps[sim.steps.length - 1].i : plan.length - 1; if (sim.result === "short") badIdx = -1;
+    runIdx = -1; renderPlan();
+    sfx.oops(); vibrate([40, 60, 40]); guideReact("oops");
+    if (sim.result === "sink" && !q.sinkWrong) { const l = sim.steps[sim.steps.length - 1]; q.sinkWrong = grid[l.to.r][l.to.c].letter || "?"; }
+    q.fails++;
+    const wet = await fall(sim); if (!alive()) return;
+    if (wet) await swimBack(); else { await hopTo(new BABYLON.Vector3(colX(q.P.c0), BANK_Y, START_Z), 1); await turnBy(0, 0); placeBunnyStart(q); }
+    if (!alive()) return;
+    raiseStones(); placeBunnyStart(q);
+    // after 3 wrong runs the right stones glow (as the sound detective's help after 3 mistakes); the star is then silver
+    if (q.fails >= 3 && !q.hint) { q.hint = true; for (const st of stones) if (st.type === "good") st.plate.material = picMat(st.pic, true); }
+    state.mode = "plan"; renderPlan();
+    if (q.demo) return;
+    if (HG && HG.done()) return finale();
+    if (!q.fails || q.fails % 2) whenQuiet(() => { if (state.q === q && state.mode === "plan") playSeq([SOUNDS[q.letter].s]); });
+  }
+  async function success(q, alive) {
+    state.mode = "between";
+    sfx.yay(); vibrate(30); guideReact("yay");
+    burst(confetti, bunny.root.position.add(new BABYLON.Vector3(0, 0.8, 0)), q.runs === 1 ? 90 : 50);
+    // two happy jumps with a spin
+    for (let j = 0; j < 2; j++) { const y = bunny.yaw.rotation.y; await tween(0.5, (k) => { bunny.hop.position.y = Math.sin(k * Math.PI) * 0.7; bunny.yaw.rotation.y = y + (j ? Math.PI * 2 * k : 0); }); if (!alive()) return; }
+    bunny.yaw.rotation.y = bunny.yawV; bunny.hop.position.y = 0;
+    if (!q.demo) {
+      const right = q.runs === 1 && !q.hint;   // gold on the first try, silver otherwise (Golan 16.10, all games)
+      state.stars++; const kind = LRN ? LRN.star(right) : right ? "gold" : "silver"; state.starKinds.push(kind); if (starCount) starCount.add(kind);
+      state.scoops++; drawCone(true); sfx.scoop();
+      recordQ(q, true);
+      state.lastLetter = q.letter; state.prog[q.level] = (state.prog[q.level] || 0) + 1;   // a little longer next time (within the level)
+    }
+    playSeq([SOUNDS[q.letter].s]);
+    await wait(0.6); if (!alive()) return;
+    if (q.demo) { if (demoCont) { const f = demoCont; demoCont = null; f(); } return; }
+    if (HG && HG.done()) return finale();
+    whenQuiet(() => { if (state.q === q && state.mode === "between") newRiver(); });
+  }
+
+  // ---------- the ice cream: one scoop per river crossed (HUD), and a big cone to lick at the end ----------
+  const SCOOPS = ["#ff9ec4", "#fff1c1", "#8b5a3c", "#9be3c4", "#ffe066", "#b7a6ff", "#ff8a6b"];
+  function coneSvg(n) {
+    const k = Math.min(n, 9), h = 60 + Math.max(0, k - 1) * 12 + (k ? 24 : 0);
+    let s = `<svg viewBox="0 ${-h + 60} 50 ${h}" xmlns="http://www.w3.org/2000/svg">`;
+    for (let i = 0; i < k; i++) { const y = 18 - i * 12, x = 25 + (i % 2 ? 1.5 : -1.5);
+      s += `<circle cx="${x}" cy="${y}" r="15" fill="${SCOOPS[i % SCOOPS.length]}" stroke="#00000022" stroke-width="1.5"/><circle cx="${x - 6}" cy="${y - 5}" r="3.5" fill="#ffffffaa"/>`; }
+    if (k) s += `<circle cx="25" cy="${18 - (k - 1) * 12 - 15}" r="4.5" fill="#e5383b"/>`;
+    s += `<path d="M9 24 L25 59 L41 24 Z" fill="#e8a95b" stroke="#b9772f" stroke-width="2" stroke-linejoin="round"/><path d="M14 30 L33 30 M17 38 L30 38 M20 46 L28 46 M14 26 L28 52 M36 26 L22 52" stroke="#b9772f" stroke-width="1.6"/></svg>`;
+    return s;
+  }
+  function drawCone(add) {
+    const el = $("cone"); el.innerHTML = coneSvg(state.scoops); placeCone();
+    if (add) { el.classList.remove("add"); void el.offsetWidth; el.classList.add("add"); }
+  }
+  function placeCone() {
+    const st = $("stars"), el = $("cone"); if (!st || !el) return;
+    const r = st.getBoundingClientRect(); if (!r.width) return;
+    // under the star pill, left of the hourglass (the pill is wide with the game's name)
+    const hg = HG && HG.el && !HG.el.hidden ? HG.el.getBoundingClientRect() : null;
+    if (!lying() && hg && hg.width) { el.style.top = Math.round(hg.bottom + 6) + "px"; el.style.right = Math.round(innerWidth - hg.right) + "px"; return; }   // standing: under the hourglass
+    el.style.top = Math.round(r.bottom + 8) + "px";
+    el.style.right = Math.round(innerWidth - (hg && hg.width ? hg.left : r.right - 60) + 10) + "px";
+  }
+  let finaleNode = null;
+  function dropFinale() { if (finaleNode) { finaleNode.dispose(); finaleNode = null; } bunny.tongue.setEnabled(false); }
+  // the sand is out: the bunny licks a big cone with all the scoops of the round (a short celebration), then endFly + the end window
+  async function finale() {
+    if (state.mode === "celebrate" || state.mode === "end" || state.mode === "flying") return;
+    state.mode = "celebrate"; hush(); renderPlan();
+    const my = animTok, alive = () => my === animTok;
+    dropFinale(); finaleNode = new BABYLON.TransformNode("bigCone", scene);
+    const n = Math.max(3, Math.min(8, state.scoops || 1)), sideX = bunny.root.position.x > 2 ? -1 : 1;
+    finaleNode.position.set(bunny.root.position.x + sideX * 1.05, bunny.root.position.y, bunny.root.position.z + 0.15);
+    const cone = BABYLON.MeshBuilder.CreateCylinder("cone", { diameterTop: 0.62, diameterBottom: 0.04, height: 1.0, tessellation: 18 }, scene);
+    cone.material = mat("#e8a95b", 0.18); cone.parent = finaleNode; cone.position.y = 0.5;
+    for (let i = 0; i < n; i++) { const s = BABYLON.MeshBuilder.CreateSphere("scoop", { diameter: 0.7, segments: 14 }, scene);
+      s.material = mat(SCOOPS[i % SCOOPS.length], 0.25); s.parent = finaleNode; s.position.set((i % 2 ? 0.04 : -0.04), 1.08 + i * 0.44, 0); s.scaling.y = 0.85; }
+    const cherry = BABYLON.MeshBuilder.CreateSphere("cherry", { diameter: 0.22, segments: 10 }, scene); cherry.material = mat("#e5383b", 0.3); cherry.parent = finaleNode; cherry.position.y = 1.08 + (n - 1) * 0.44 + 0.38;
+    finaleNode.getChildMeshes().forEach((m) => (m.isPickable = false));
+    finaleNode.scaling.setAll(0.01); sfx.yay();
+    await tween(0.5, (k) => finaleNode.scaling.setAll(0.01 + 1.29 * (1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)))); if (!alive()) return;
+    // the bunny turns to the cone and licks it, again and again
+    const y0 = bunny.yaw.rotation.y, y1 = yawOfDir(sideX > 0 ? 1 : 3) + (sideX > 0 ? 0.25 : -0.25);
+    await tween(0.3, (k) => (bunny.yaw.rotation.y = lerp(y0, y1, k)));
+    bunny.tongue.setEnabled(true); burst(hearts, finaleNode.position.add(new BABYLON.Vector3(0, 1.4, 0)), 40);
+    await tween(2.4, (k) => { const l = Math.max(0, Math.sin(k * Math.PI * 8)); bunny.tongue.scaling.set(1, 0.5, 1.3 + l * 1.4); bunny.hop.rotation.x = l * 0.18;
+      bunny.hop.position.y = Math.abs(Math.sin(k * Math.PI * 4)) * 0.06; if (Math.floor(k * 8) !== Math.floor((k - 0.01) * 8)) sfx.yum(); });
+    if (!alive()) return;
+    bunny.tongue.setEnabled(false); bunny.hop.rotation.x = 0;
+    burst(confetti, finaleNode.position.add(new BABYLON.Vector3(0, 2, 0)), 80);
+    await wait(0.6); if (!alive()) return;
+    endRound();
+  }
+
+  // ---------- the sign at the top ----------
+  function setSign(syl) { const pr = $("prompt"), show = syl && syl !== "?"; $("target").textContent = show ? syl : ""; pr.classList.toggle("listen", !show); }
+  let reactT = null;
+  function guideReact(kind) { const g = $("prompt"); clearTimeout(reactT); g.classList.remove("yay", "oops"); void g.offsetWidth; g.classList.add(kind); reactT = setTimeout(() => g.classList.remove(kind), 1300); }
+  $("replay").addEventListener("click", () => { const q = state.q; if (!q || state.demo || !["plan", "run", "between"].includes(state.mode)) return; unlockAudio(); playSeq([SOUNDS[q.letter].s]); });
+
+  // ---------- the round ----------
+  const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null;
+  let bgHold = false;
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold || state.demo,
+    onEnd: () => { if (state.mode === "plan" && !state.demo && !$("hud").hidden) finale(); } }) : null;
+  let form = null;
+  // one record per river, at its end (the shared "sound" skill): a sinking stone stepped on is the sound mistake
+  function recordQ(q, solved) {
+    if (!LRN || q.rec || q.demo || !prof()) return; q.rec = true;
+    const ok = !q.sinkWrong;
+    try {
+      LRN.record({ game: GAME, letter: q.letter, picked: ok ? q.letter : q.sinkWrong, firstTry: ok, solved: solved && !q.hint, opts: q.opts.slice(0, 8), rtMs: null,
+        changed: false, hint: q.hint ? 1 : 0, mode: "sound", pace: LRN.pace ? LRN.pace() : 1 });
+    } catch (e) {}
+  }
+  function flushPartial() {
+    const q = state.q; if (q && !q.rec && !q.demo && q.sinkWrong) recordQ(q, false);
+    if (LRN && state.n && state.roundOpen) { try { LRN.roundEnd({ game: GAME, skillIssue: false }); } catch (e) {} state.roundOpen = false; }
+  }
+  addEventListener("pagehide", flushPartial);
+  function startRound() {
+    state.stars = 0; state.starKinds = []; state.scoops = 0; state.n = 0; state.roundOpen = true; state.pool = null; if (starCount) starCount.reset(); drawCone(false);
+    const begin = () => { if (HG) HG.start(); state.n++; newRiver(); setTimeout(onScreen, 60); };
+    setTimeout(onScreen, 60);
+    // Golan 5.11 (all games): the demo never plays by itself, not even the first time; only the "?" card plays it
+    if (state.demoNext) { state.demoNext = false; runDemo(begin); } else begin();
+  }
+  let endP = null, flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: scene, dom: [$("cone")] }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
+  function endRound() {
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
+    state.mode = "end"; if (HG) HG.stop();
+    let day = null;
+    if (LRN && state.roundOpen) { try { day = prof() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null; } catch (e) {} state.roundOpen = false; }
+    state.q = null;
+    $("end").hidden = false; $("pause").hidden = true;
+    const sug = day && day.suggest, gt = (pl, m, f) => { const g = prof() && prof().gender; return g === "m" ? m : g === "f" ? f : pl; };
+    const note = !sug ? "" : sug === "break" ? gt("זמן להתמתח! קומו רגע, ונמשיך.", "זמן להתמתח! קום רגע, ונמשיך.", "זמן להתמתח! קומי רגע, ונמשיך.") : "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.";
+    if (sug === "break" && LRN.breakShown) LRN.breakShown();
+    const opts = { stars: state.starKinds.map((k) => (k === "silver" ? "silver" : "gold")), letters: false, sounds: !!prof(), note };
+    if (LRN && LRN.endPanel) {
+      if (!endP) endP = LRN.endPanel($("end"), { ...opts, buttons: [{ text: "לסיים", ghost: true, id: "finish", onClick: () => $("doorEnd").click() }, { text: "עוד סיבוב", primary: true, id: "again", onClick: playAgain }] });
+      else endP.set(opts);
+    }
+    say(LINES.done);
+    if (sug) whenQuiet(() => later(() => { if (state.mode === "end") say(sug === "break" ? "day_break" : "day_end"); }, 300));
+  }
+
+  // ---------- settings (the one shared form) ----------
+  let modeBeforeSettings = null, levelChanged = false;
+  function syncSeg() { $("perf").hidden = true; }
+  function renderLetters() {
+    if (form) return form.refresh();
+    if (!LRN || !LRN.settingsForm) return;
+    const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
+    form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
+      levelsText: "ככל שרמת הקושי עולה, הנהר ארוך יותר ויש בו יותר פניות.",
+      levels: ["מסלול קצר: 5-6 צעדים, פנייה אחת הצידה וחזרה, בלי קפיץ.",
+        "מסלול ארוך יותר: 6-8 צעדים, פנייה הצידה וקפיץ אחד מעל אבן שוקעת.",
+        "מסלול ארוך: 9-12 צעדים, שתי פניות הצידה וקפיצים, גם מעל מים."],
+      onLevel: () => { levelChanged = true; },
+      picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); state.pool = null; } },
+      quality: seg("quality", () => applyQuality()),
+      tech: { perf: seg("perf"), diag: () => diagnostics() } });
+  }
+  function openSettings() { holdGame(); syncSeg(); renderLetters(); if (form && form.closeTech) form.closeTech(); $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0)); }
+  function holdGame() {
+    if (state.mode !== "paused") { modeBeforeSettings = state.mode; state.mode = "paused"; }
+    if (seqBusy && curSeq) { heldSeq = heldSeq || curSeq; hush(); }
+    else if (clipNow && !clipNow.paused) { heardIntro = false; hush(); }
+  }
+  function closeSettings() {
+    $("settings").hidden = true;
+    if (levelChanged) { levelChanged = false; if (modeBeforeSettings === "plan" && state.q && !state.q.demo) { modeBeforeSettings = "between"; setTimeout(() => { if (state.mode === "between") newRiver(); }, 300); } }
+    if (!bgHold) releaseGame();
+  }
+  function releaseGame() {
+    if (state.mode === "paused" && pausedFrom === null) state.mode = modeBeforeSettings || "plan";
+    if (pausedFrom !== null) return;
+    if (state.mode === "ready") { heldSeq = null; countdown(); return; }
+    if (heldSeq) { const h = heldSeq; heldSeq = null; playSeq(...h); return; }
+    if (state.mode === "plan" && HG && HG.done() && !state.demo) { finale(); return; }
+    if (!$("start").hidden && !heardIntro) later(autoIntro, 600);
+  }
+  $("gear").addEventListener("click", openSettings);
+  addEventListener("fl:gear", openSettings);
+  ["gearStart", "gearEnd", "gearPause"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("xSettings").addEventListener("click", closeSettings);
+  $("settings").addEventListener("pointerdown", (e) => { if (e.target === $("settings")) closeSettings(); });
+  syncSeg();
+
+  // ---------- pause, and the app in the background ----------
+  let pausedFrom = null, pausedClip = null;
+  voiceHold = () => !$("settings").hidden || pausedFrom !== null || bgHold;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { if (bgHold) return; if ($("settings").hidden) holdGame(); else hush(); bgHold = true; engine.stopRenderLoop(); }
+    else if (bgHold) { bgHold = false; engine.runRenderLoop(renderFrame); if ($("settings").hidden) releaseGame(); }
+  });
+  function resumeGame() {
+    if (pausedFrom === null) return;
+    state.mode = pausedFrom; pausedFrom = null;
+    if (pausedClip) pausedClip.play().catch(() => {}); pausedClip = null;
+    if (heldSeq) { const h = heldSeq; heldSeq = null; playSeq(...h); }
+    $("paused").hidden = true;
+  }
+  $("resume").addEventListener("click", resumeGame);
+  $("paused").addEventListener("pointerdown", (e) => { if (e.target === $("paused")) resumeGame(); });
+
+  // ---------- diagnostics ----------
+  const fpsSamples = []; let loadMs = 0;
+  function countTris() { let n = 0; const a = scene.getActiveMeshes(); for (let i = 0; i < a.length; i++) { const m = a.data[i]; n += (m && m.getTotalIndices ? m.getTotalIndices() : 0) / 3; } return Math.round(n); }
+  function diagnostics() {
+    const avg = fpsSamples.length ? fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length : 0;
+    return [`FPS avg: ${avg.toFixed(1)}`, `Load to ready: ${(loadMs / 1000).toFixed(1)}s`, `Render: ${engine.getRenderWidth()}x${engine.getRenderHeight()}  dpr ${window.devicePixelRatio}`,
+      `Triangles on screen: ${countTris().toLocaleString()}`, `Babylon ${BABYLON.Engine.Version}`, `Voice clips: ${clipStatus.ok} loaded, ${clipStatus.missing} missing`,
+      `Shared child card: ${LRN ? "loaded" : "missing"}`].join("\n");
+  }
+
+  // ---------- fitting the river into the free part of the screen (the camera behind the bunny, a little above) ----------
+  const css = (name) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
+  let region = { x0: 0, y0: 0, x1: 100, y1: 100 };
+  const lying = () => canvas.clientWidth >= canvas.clientHeight * 1.15;
+  const rectOf = (el) => (el && el.offsetParent !== null ? el.getBoundingClientRect() : null);
+  function measureRegion() {
+    const W = canvas.clientWidth, H = canvas.clientHeight, m = Math.max(8, Math.min(W, H) * 0.02);
+    const pr = rectOf($("prompt")), st = rectOf($("stars")), cone = rectOf($("cone")), cm = rectOf($("cmds")), pl = rectOf($("plan")), door = rectOf($("doorGame")), gear = rectOf($("gear")), rs = rectOf($("flRestart"));
+    const hg = HG && HG.el && !HG.el.hidden ? HG.el.getBoundingClientRect() : null;
+    if (lying()) region = { x0: (door ? door.right : 0) + m, x1: Math.min(cm ? cm.left : W, hg ? hg.left : W, cone ? cone.left : W) - m,
+      y0: Math.max(pr ? pr.bottom : 0, st ? st.bottom : 0) + m, y1: (pl ? pl.top : H) - m };
+    else region = { x0: m, x1: W - m, y0: Math.max(pr ? pr.bottom : 0, gear ? gear.bottom : 0, rs ? rs.bottom : 0, hg ? hg.bottom : 0, cone ? cone.bottom : 0) + m, y1: (pl ? pl.top : H - (css("--edge-b") || 12)) - m };
+  }
+  const tmpM = new BABYLON.Matrix();
+  function project(p) { const vp = cam.viewport.toGlobal(canvas.clientWidth, canvas.clientHeight); return BABYLON.Vector3.Project(p, BABYLON.Matrix.IdentityReadOnly, tmpM, vp); }
+  let pitch = 0.7;
+  function fitPoints() {
+    const q = state.q, R = q ? q.P.R : 3, xs = colX(0) - 0.8, xe = colX(COLS - 1) + 0.8, pts = [];
+    for (const x of [xs, xe]) { pts.push(new BABYLON.Vector3(x, BANK_Y, START_Z - 0.25)); pts.push(new BABYLON.Vector3(x, BANK_Y, rowZ(R) + 0.2)); pts.push(new BABYLON.Vector3(x, 0, rowZ(0) - 0.7)); }
+    pts.push(new BABYLON.Vector3(colX(q ? q.P.c0 : 2), BANK_Y + 1.15, START_Z));
+    pts.push(new BABYLON.Vector3(0, BANK_Y + 0.7, rowZ(R) + 0.2));
+    return pts;
+  }
+  function boxAt(dist, shift, pts) {
+    const dir = new BABYLON.Vector3(0, Math.sin(pitch), -Math.cos(pitch));
+    cam.position.copyFrom(shift.add(dir.scale(dist))); cam.setTarget(shift.clone());
+    cam.getViewMatrix(true).multiplyToRef(cam.getProjectionMatrix(true), tmpM);
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const p of pts) { const s = project(p); x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x); y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y); }
+    return { x0, y0, x1, y1 };
+  }
+  let fitInfo = null;
+  function fitCamera() {
+    engine.resize(); placeCone(); measureRegion();
+    const q = state.q, R = q ? q.P.R : 3;
+    const asp = (region.x1 - region.x0) / Math.max(50, region.y1 - region.y0);   // a wide, low free part (a phone lying down): a lower camera fills it better
+    pitch = Math.max(0.55, Math.min(0.98, 0.8 - 0.2 * (asp - 1.6) + 0.02 * R));   // a longer river: the camera a little higher, so the far stones stay readable
+    const pts = fitPoints(), rw = Math.max(50, region.x1 - region.x0), rh = Math.max(50, region.y1 - region.y0);
+    const shift = new BABYLON.Vector3(0, BANK_Y, rowZ(R) / 2);
+    let lo = 2, hi = 300, dist = hi;
+    for (let n = 0; n < 2; n++) {
+      lo = 2; hi = 300;
+      for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2, b = boxAt(mid, shift, pts); if (b.x1 - b.x0 <= rw && b.y1 - b.y0 <= rh) hi = mid; else lo = mid; }
+      dist = hi;
+      const b = boxAt(dist, shift, pts), H = canvas.clientHeight || 1, wpp = (2 * dist * Math.tan(cam.fov / 2)) / H;
+      const dx = (region.x0 + region.x1) / 2 - (b.x0 + b.x1) / 2, dy = (region.y0 + region.y1) / 2 - (b.y0 + b.y1) / 2;
+      shift.addInPlace(new BABYLON.Vector3(1, 0, 0).scale(-dx * wpp)).addInPlace(new BABYLON.Vector3(0, Math.cos(pitch), Math.sin(pitch)).scale(dy * wpp));
+    }
+    fitInfo = { dist, region: { ...region }, box: boxAt(dist, shift, pts) };
+  }
+  // a stone's picture on the screen (CSS pixels)
+  function plateRect(st) {
+    const W = st.plate.getWorldMatrix(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const p = project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(sx * PL / 2, sy * PL / 2, 0), W));
+      x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    return { x0, y0, x1, y1 };
+  }
+
+  // ---------- the small speaker at the bottom left of every picture says its word; a tap on a stone does too ----------
+  const spkPool = [];
+  function spkFor(i) {
+    if (!spkPool[i]) {
+      const b = document.createElement("button"); b.className = "pic-spk"; b.type = "button"; b.setAttribute("aria-label", "שם התמונה"); b.textContent = "🔊";
+      b.addEventListener("pointerdown", (e) => e.stopPropagation());
+      b.addEventListener("click", (e) => { e.stopPropagation(); const st = b._st; if (state.demo || !st || st.sunk) return; unlockAudio(); playSeq([wordOf(st.pic)]); });
+      $("picSpks").append(b); spkPool[i] = b;
+    }
+    return spkPool[i];
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    if (state.demo || $("hud").hidden || !["plan", "run", "between"].includes(state.mode)) return;
+    const r = canvas.getBoundingClientRect(), hit = scene.pick(e.clientX - r.left, e.clientY - r.top, (m) => !!(m.metadata && m.metadata.stone) && m.isEnabled());
+    if (hit && hit.hit) { const st = hit.pickedMesh.metadata.stone; if (st && !st.sunk) { unlockAudio(); playSeq([wordOf(st.pic)]); } }
+  });
+
+  // ---------- main loop ----------
+  scene.onBeforeRenderObservable.add(() => {
+    const rdt = Math.min(engine.getDeltaTime() / 1000, 0.25), dt = rdt * motionK(), paused = state.mode === "paused";
+    const T = performance.now() / 1000;
+    if (!paused && tasks.length) {
+      const list = tasks.slice();
+      for (const t of list) { t.t += dt; const k = Math.min(1, t.t / t.dur); try { t.fn(k); } catch (e) {} if (k >= 1) { const i = tasks.indexOf(t); if (i >= 0) tasks.splice(i, 1); t.res(); } }
+    }
+    // the ripples breathe, and an idle bunny bobs a little
+    for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s); }
+    if (bunny.ring.isEnabled()) { bunny.ring.position.set(bunny.root.position.x, 0.03, bunny.root.position.z); const s = 1 + Math.sin(T * 4) * 0.08; bunny.ring.scaling.set(s, 1, s); }
+    if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
+    const fps = engine.getFps(); if (isFinite(fps) && fps > 0 && state.mode === "plan") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); }
+  });
+  let coneTick = 0;
+  scene.onAfterRenderObservable.add(() => {
+    if (++coneTick % 20 === 0) placeCone();
+    const live = !state.demo && !$("hud").hidden && ["plan", "run", "between"].includes(state.mode) && !!state.q;
+    if (live) cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    let i = 0;
+    if (live) for (const st of stones) {
+      if (st.sunk) continue;
+      const b = spkFor(i++), r = plateRect(st), w = r.x1 - r.x0, h = r.y1 - r.y0, d = Math.round(Math.max(16, Math.min(36, w * 0.28)));
+      b._st = st; b.classList.add("on");
+      if (b._d !== d) { b._d = d; Object.assign(b.style, { width: d + "px", height: d + "px", margin: -d / 2 + "px 0 0 " + -d / 2 + "px", lineHeight: d + "px", fontSize: Math.round(d / 2) + "px" }); }
+      b.style.left = Math.round(r.x0 + w * 0.12) + "px"; b.style.top = Math.round(r.y1 - h * 0.14) + "px";
+    }
+    for (; i < spkPool.length; i++) if (spkPool[i]) { spkPool[i].classList.remove("on"); spkPool[i]._st = null; }
+  });
+  const renderFrame = () => scene.render();
+  engine.runRenderLoop(renderFrame);
+  const onScreen = () => { fitCamera(); placeCone(); sizeSteps(); };
+  if (SCR) SCR.onChange(onScreen); else window.addEventListener("resize", () => { applyQuality(); onScreen(); });
+  window.addEventListener("resize", () => setTimeout(onScreen, 50));
+
+  // ---------- start screen ----------
+  const fontReady = (document.fonts && document.fonts.load) ? Promise.race([
+    document.fonts.load(`800 150px "Noto Sans Hebrew"`, "בַּגָּ"), new Promise((r) => setTimeout(r, 4000))]).catch(() => {}) : Promise.resolve();
+  Promise.all([fontReady, picsReady]).then(() => {
+    newRiver({ letter: SOUND_L[0], silent: true, ready: true, P: makePath(1, 1) }); state.mode = "intro"; state.q.demo = true;   // the river behind the start window
+    return scene.whenReadyAsync();
+  }).then(() => {
+    loadMs = performance.now() - T0; onScreen();
+    $("go").disabled = false; $("go").textContent = "יוצאים לדרך";
+  });
+  let heardIntro = false;
+  const gl = (id) => voiceId(id);
+  function nameFirst(then, auto) {
+    const n = getClip(LINES.name);
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say(gl(LINES.intro))); }
+  function autoIntro() {
+    if (heardIntro || $("start").hidden || !$("settings").hidden || document.querySelector(".fl-ov")) return;
+    const a = getClip(gl(LINES.intro)); if (a._bad) { if (!getClip(LINES.name)._bad) nameFirst(() => {}, true).then(() => { heardIntro = true; }).catch(() => {}); return; }
+    const my = screenTok;
+    if (!a._ok) { const again = () => { if (my === screenTok) autoIntro(); }; a.addEventListener("canplaythrough", again, { once: true }); a.addEventListener("error", again, { once: true }); return; }
+    nameFirst(() => { if (my !== screenTok) return; clipNow = a; a.currentTime = 0; a.play().catch(() => {}); }, true)
+      .then(() => { if (my !== screenTok) { if (clipNow) clipNow.pause(); return; } heardIntro = true; }).catch(() => {});
+  }
+  const whoReady = LRN ? LRN.chooseChild() : Promise.resolve();
+  whoReady.then(() => { renderLetters(); }).then(() => later(autoIntro, 1500));
+  $("doorStart").addEventListener("click", (e) => {
+    e.stopPropagation(); leaveScreen(); $("go").classList.remove("pressed");
+    if (LRN && LRN.fromHub && LRN.hubUrl) { location.href = LRN.hubUrl + "#games"; return; }
+    if (document.referrer && history.length > 1) { history.back(); return; }
+    if (LRN) LRN.chooseChild().then(() => { syncSeg(); if (form) form.refresh(); }).then(() => { heardIntro = false; later(autoIntro, 1500); });
+  });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(); });
+  $("start").addEventListener("pointerdown", (e) => { if (document.querySelector(".fl-ov")) return; if (!heardIntro && !e.target.closest("#go, #hear, #gearStart, #doorStart")) { unlockAudio(); sayIntro(); } });
+  $("go").addEventListener("click", () => {
+    hush(); unlockAudio();
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
+    leaveScreen(); say(LINES.go);
+    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; startPlay(); }, 1600);
+  });
+  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; startPlay(); }
+  function startPlay() { if (starCount) starCount.reset(); state.scoops = 0; $("hud").hidden = false; drawCone(false); countdown(); }
+
+  // ---------- the demo (every sound game: the first game of each child; the "?" card plays it again) ----------
+  // Two easy rivers: a hand taps the arrow buttons that build the right plan, taps "צא לדרך", and the bunny crosses; then
+  // "נַחֲזֹר לְשַׂחֵק" (demo_back) and everything flies up (FL.demoOut) into the game. No star and no record; the hourglass waits.
+  const demoKey = () => "fl-river-demo-" + (prof() ? prof().id : "guest");
+  const demoSeen = () => { try { return !!localStorage.getItem(demoKey()); } catch (e) { return true; } };
+  const markDemo = () => { try { localStorage.setItem(demoKey(), "1"); } catch (e) {} };
+  const hand = $("demoHand"); let demoRaf = 0, demoTok = 0, demoCont = null;
+  function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
+  function moveHand(from, to, dur, then) {
+    const t0 = performance.now();
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      hand.style.left = from.x + (to.x - from.x) * e + "px"; hand.style.top = from.y + (to.y - from.y) * e + "px";
+      if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
+    hand.classList.add("show"); step();
+  }
+  function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
+  function runDemo(done) {
+    const my = ++demoTok; hush(); state.demo = true; demoCont = null;
+    // the demo's door (Golan 5.11): stop the demo now, it all flies up, then the game
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { demoTok++; demoCont = null; hush(); hideHand(); clearTasks(); if (window.FL && FL.demoArrow) FL.demoArrow(null);
+      const fin = () => { endDemoMarks(); markDemo(); state.q = null; if (done) done(); [600, 1200].forEach((ms) => setTimeout(onScreen, ms)); };
+      if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
+    const alive = () => my === demoTok && state.demo;
+    const center = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; };
+    let last = null;
+    const finish = () => {
+      if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand();
+      playSeq([LINES.back], 1, () => setTimeout(() => { if (!alive()) return; hideHand();
+        const fin = () => { if (!alive()) return endDemoMarks(); endDemoMarks(); markDemo(); state.q = null; if (done) done(); [600, 1200].forEach((ms) => setTimeout(onScreen, ms)); };   // the page is still growing back from the demo size
+        if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); }, 500));
+    };
+    const example = (n) => {
+      if (!alive()) return;
+      const q = newRiver({ demo: true, prog: n, silent: true }); state.mode = "plan"; renderPlan(); setTimeout(onScreen, 30);
+      const cmds = q.P.cmds.slice(); let i = 0;
+      const tapNext = () => {
+        if (!alive() || state.q !== q) return;
+        const btn = i < cmds.length ? $("cmd" + cmds[i]) : $("goBtn"), p = center(btn);
+        if (window.FL && FL.demoArrow) FL.demoArrow(p.x, p.top);
+        moveHand(last || { x: p.x - 80, y: innerHeight + 40 }, p, i ? 520 : 1000, () => setTimeout(() => {
+          if (!alive() || state.q !== q) return;
+          last = p; btn.classList.add("tap"); setTimeout(() => btn.classList.remove("tap"), 180);
+          if (i < cmds.length) { addStep(cmds[i], true); i++; setTimeout(tapNext, 260); return; }
+          if (window.FL && FL.demoArrow) FL.demoArrow(null);
+          setTimeout(hideHand, 400); last = null;
+          demoCont = () => { if (!alive()) return; setTimeout(() => (n === 0 ? example(1) : finish()), 500); };
+          go(true);
+        }, 220));
+      };
+      playSeq([SOUNDS[q.letter].s], 1, () => setTimeout(tapNext, 300));
+    };
+    playSeq([LINES.demo], 1, () => { if (!alive()) return; example(0); });
+  }
+  // the "?" card at the bottom left plays the demo again; then the game goes on with a new river
+  function demoAgain() {
+    if (state.demo || !["plan", "between"].includes(state.mode) || $("hud").hidden) return;
+    unlockAudio(); hush(); clearTasks(); state.q = null; state.mode = "between";
+    setTimeout(() => runDemo(() => newRiver()), 400);
+  }
+  $("helpCard").addEventListener("click", (e) => { e.stopPropagation(); demoAgain(); });
+  $("demoSettings").addEventListener("click", (e) => { e.stopPropagation(); const m = modeBeforeSettings; closeSettings(); if (["plan", "between"].includes(state.mode) || ["plan", "between"].includes(m)) setTimeout(demoAgain, 350); });
+
+  // ---------- 3, 2, 1, then the first river ----------
+  let countToken = 0;
+  function countdown() {
+    const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");
+    clearTasks(); dropFinale();
+    newRiver({ silent: true, ready: true }); setSign("?"); plan.length = 0; renderPlan();
+    const box = $("count");
+    [0, 1, 2].forEach((i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = String(3 - i); sp.style.background = "#10b947"; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready") return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      startRound();
+    }, 700 + 3 * 1000);
+  }
+
+  // ---------- door = back to the start screen (or the hub), from every screen ----------
+  function backToStart() {
+    flushPartial(); leaveScreen(); $("go").classList.remove("pressed");
+    if (pausedFrom !== null) resumeGame();
+    endDemoMarks(); clearTasks(); dropFinale();
+    state.mode = "intro"; if (starCount) starCount.reset(); if (HG) HG.stop();
+    countToken++; $("count").innerHTML = "";
+    if (state.q) placeBunnyStart(state.q);
+    ["hud", "end", "settings", "paused"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; endDemoMarks(); flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
+  ["doorGame", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
+
+  // test hook for automated checks (games/tests/check-games.js): solution() = the arrows of a plan that crosses this river;
+  // ready() = the river id while the child can plan (null otherwise); press(k) taps a step button, go() taps "צא לדרך"
+  window.__river = { state, settings, plan, grid: () => grid, stones: () => stones, simulate: (cmds) => (state.q ? simulate(state.q, cmds) : null), makePath, newRiver, endRound, finale, runDemo,
+    fitCamera, engine, scene, cam, canvas, hg: HG, lvl, SOUNDS, SOUND_L, PICS_OF, alike, region: () => fitInfo, demoSeen: () => demoSeen(), plateRect,
+    solution: () => (state.q ? state.q.P.cmds.slice() : null),
+    ready: () => (state.q && state.mode === "plan" && !state.demo && !$("hud").hidden ? state.q.id : null),
+    clearPlan: () => { if (!canEdit()) return false; plan.length = 0; renderPlan(); return true; },
+    press: (k) => $("cmd" + k).click(), go: () => $("goBtn").click(),
+    buttonIds: { F: "cmdF", R: "cmdR", L: "cmdL", J: "cmdJ", go: "goBtn" } };
+})();
+</script>

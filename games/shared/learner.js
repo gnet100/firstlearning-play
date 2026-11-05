@@ -1466,6 +1466,7 @@ ${items[item]}</svg>`;
     { id: "soundtrain", g: "soundtrain", path: "games/sound-train/index.html", tier: "isle2" },   // Golan 29.10
     { id: "soundmemory", g: "soundmemory", path: "games/sound-memory/index.html", tier: "isle2" },   // Golan 30.10
     { id: "soundmole", g: "soundmole", path: "games/sound-mole/index.html", tier: "isle2" },   // Golan 30.10, summaries/sound-mole-spec.md
+    { id: "river", g: "river", path: "games/river/index.html", tier: "isle2" },   // Golan 5.11: the bunny crosses the river (summaries/river-game-spec.md)
   ];
   function confidentCount() { const p = cur(); if (!p) return 0; const c = cardsFor(p);
     return [...FL.LETTERS, ...FL.FINALS].filter((l) => c[l] && (c[l].recognize || c[l]).state === "known").length; }
@@ -1477,7 +1478,7 @@ ${items[item]}</svg>`;
   // Golan 4.11: the games are ranked easy -> hard (RANK). The known letters (sounds on the sound island) choose a window of 3
   // neighbouring games; inside it the last round moves the choice: a good round = one game up, a hard round = one down.
   // The child's last 2 games and the game just played are not offered (when the window has nothing else, the whole island).
-  const RANK = { isle1: ["wake", "detective", "circle", "mole", "memory", "train", "race"], isle2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain"] };
+  const RANK = { isle1: ["wake", "detective", "circle", "mole", "memory", "train", "race"], isle2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain", "river"] };
   function lastRoundScore(g) {   // share of first-try answers in this game's last round (answers of the last 10 minutes)
     const p = cur(); if (!p || !g) return null; const since = Date.now() - 10 * 60 * 1000, ev = p.events.filter((e) => e.g === g && e.t >= since);
     return ev.length >= 3 ? ev.filter((e) => e.ok).length / ev.length : null; }
