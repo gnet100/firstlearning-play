@@ -424,8 +424,8 @@
     yay: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.35), scoop: () => tone([880, 1320], 0.08, "sine", 0.22),
     yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => noise(0.35, 3000, 0.18) };
   const AUDIO = "../../voice/audio/";
-  // hub_g_river (the name), river_start2 (_m / _f: the description) and river_demo are new lines of the voice thread: silent until recorded
-  const LINES = { go: "fb_go", done: "fb_round_done", demo: "river_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2" };
+  // hub_g_river (the name) and river_start2 (_m / _f: the description) are new lines of the voice thread: silent until recorded; the demo opens with sd_demo, as the other sound games
+  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2" };
   const CHILD_LINES = ["river_start2"];
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
