@@ -640,8 +640,8 @@
   }
   // hub_g_soundmemory (the name) and smem_start2 (the description) are new lines of the voice thread: silent until recorded.
   // sd_demo ("בואו נראה איך משחקים") is the sound detective's. Golan 30.10: no fb_correct on a pair, the open cards are the feedback.
-  const LINES = ["fb_bravo", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "hub_g_soundmemory", "smem_start2", "ins_balloon", "mem_next", "sd_demo", "day_break", "day_end"];
-  const CHILD_LINES = ["smem_start2", "ins_balloon", "mem_next", "day_break"];   // boy / girl versions first, else the plural clip
+  const LINES = ["fb_bravo", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "hub_g_soundmemory", "smem_start2", "ins_balloon", "mem_next", "sd_demo", "day_break", "day_end", "smem_pair"];
+  const CHILD_LINES = ["smem_start2", "ins_balloon", "mem_next", "day_break", "smem_pair"];   // boy / girl versions first, else the plural clip
   LINES.forEach(getClip); Object.values(SOUNDS).forEach((o) => getClip(o.s));
   if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
   const wordOf = (k) => (PICS[k] || {}).clip;
@@ -1048,7 +1048,8 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function startRound() {
     epoch++;
     state.starRow = []; state.boards = 0; state.roundWins = 0; starCount.reset();
-    const go = () => { if (HG) HG.start(); newBoard(); };
+    // Golan 6.11 20:06: entering the game, Hila says "יֵשׁ לְחַבֵּר תְּמוּנָה וְצְלִיל פּוֹתֵחַ" (smem_pair, boy / girl versions; silent until recorded)
+    const go = () => { if (HG) HG.start(); newBoard(); say("smem_pair"); };
     // Golan 30.10 (every sound game): the first game of a child starts with the demo; "איך משחקים?" plays it again
     if (state.demoNext || !demoSeen()) { state.demoNext = false; runDemo(go); } else go();
   }
