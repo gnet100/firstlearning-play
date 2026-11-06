@@ -1127,7 +1127,26 @@
       const s = screenOf(m), d = Math.min(Math.hypot(s.x - px, s.y - py), Math.hypot(s.hx - px, s.hy - py) * 1.15);
       if (d < s.r * (loose ? 1.25 : 1) && d < bd) { bd = d; best = m; }
     }
+    if (best) return best;
+    // Golan 6.11 20:27: a big touch area: the whole mole with its sign on the screen (hat to sign), and a margin of a third around it
+    for (const m of moles) {
+      if (!live(m)) continue;
+      const b = moleBox(m); if (!b) continue;
+      const mx = (b.x1 - b.x0) * 0.33, my = (b.y1 - b.y0) * 0.2;
+      if (px < b.x0 - mx || px > b.x1 + mx || py < b.y0 - my || py > b.y1 + my) continue;
+      const d = Math.hypot((b.x0 + b.x1) / 2 - px, (b.y0 + b.y1) / 2 - py); if (d < bd) { bd = d; best = m; }
+    }
     return best;
+  }
+  // the mole's box on the screen (CSS pixels of the canvas): every mesh of the mole, its hat, head, hands and sign
+  function moleBox(m) {
+    cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const k of m.root.getChildMeshes(false)) {
+      if (!k.isEnabled() || !k.isVisible || !k.getBoundingInfo) continue;
+      const bb = k.getBoundingInfo().boundingBox; for (const v of bb.vectorsWorld) { const p = project(v); if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
+    }
+    return x1 > x0 ? { x0, y0, x1, y1 } : null;
   }
   let lastTap = 0, lastMole = null;
   // a knock that is not counted as a new mistake: a quick shake of the whole mole and the mistake sound (Golan 4.11)
