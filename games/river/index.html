@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר</title>
+<title>לַחֲצוֹת אֶת הַנָּהָר</title>
 <script>document.documentElement.lang = "he"; document.documentElement.dir = "rtl";   /* like the race game's <html lang="he" dir="rtl"> (the artifact adds its own <html>) */</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <!-- the shared self-hosted font (no internet needed) -->
@@ -213,7 +213,7 @@
   .big-btn.small { font-size: max(calc(26 * var(--u)), 18px); min-height: var(--tap-s); padding: 0 1em; }
   .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
 
-  /* ===== הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר (Golan 5.11.2026): plan the bunny's steps, then run them ===== */
+  /* ===== לַחֲצוֹת אֶת הַנָּהָר (Golan 5.11.2026): plan the bunny's steps, then run them ===== */
   html, body { background: linear-gradient(#8fd0ff 0%, #bfe6ff 55%, #e6f6ff 100%); }
   :root {
     --cmd: max(calc(104 * var(--u)), var(--tap));          /* the 4 big step buttons */
@@ -242,6 +242,11 @@
     display: flex; direction: rtl; align-items: center; gap: var(--plan-pad); background: var(--card); border-radius: max(calc(28 * var(--u)), 18px); box-shadow: 0 4px 16px #0002; z-index: 7; }
   html[data-screen~="portrait"] .plan { left: var(--edge-l); right: var(--edge-r); bottom: calc(var(--edge-b) + var(--cmd) + var(--cgap) * 1.5); }
   html[data-screen~="portrait"] #helpCard { bottom: calc(var(--edge-b) + var(--cmd) + var(--plan-h) + var(--cgap) * 3); }
+  /* Golan 6.11: an eraser button removes the last arrow */
+  .erase-btn { flex: 0 0 auto; width: calc(var(--stp, 60px) * 1.05); height: calc(var(--stp, 60px) * 1.05); border: 0; border-radius: 22%; background: #fff; box-shadow: 0 3px 0 #c9d3dd, 0 0 0 2px #dfe6ee inset; padding: 4px; cursor: pointer; display: grid; place-items: center; }
+  .erase-btn svg { width: 86%; height: 86%; display: block; }
+  .erase-btn:disabled { opacity: .4; cursor: default; }
+  .erase-btn:not(:disabled):active { box-shadow: 0 1px 0 #c9d3dd, 0 0 0 2px #dfe6ee inset; }
   #steps { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; direction: rtl; align-items: center; align-content: center; gap: 4px; --cell: calc(var(--stp) - 6px); min-height: var(--cell); }
   #steps .st { width: var(--cell); height: var(--cell); border: 0; border-radius: 22%; padding: 0; cursor: pointer; color: #fff; background: var(--c); box-shadow: 0 3px 0 var(--d);
     display: grid; place-items: center; animation: stIn .25s cubic-bezier(.3, 1.6, .5, 1); position: relative; }
@@ -263,7 +268,7 @@
   .prompt.hint { box-shadow: 0 0 0 4px #ffc233, 0 4px 16px #0002; }
 </style>
 
-<canvas id="game" aria-label="הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר"></canvas>
+<canvas id="game" aria-label="לַחֲצוֹת אֶת הַנָּהָר"></canvas>
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
 <div class="hud" id="hud" hidden>
   <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
@@ -273,7 +278,7 @@
     <span class="target" id="target"></span>
     <button class="round-btn" id="replay" aria-label="שוב">🔊</button>
   </div>
-  <div class="stars" id="stars" data-fl-stars data-fl-title="הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר"></div>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="לַחֲצוֹת אֶת הַנָּהָר"></div>
   <div id="cone" aria-hidden="true"></div>
   <button class="round-btn gear" id="gear" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <button class="round-btn gear pause-btn" id="pause" aria-label="עצירה">⏸</button>
@@ -286,6 +291,7 @@
   </div>
   <div class="plan" id="plan">
     <div id="steps" aria-label="הַצְּעָדִים"></div>
+    <button class="erase-btn" id="eraseBtn" type="button" aria-label="מְחִיקָה" disabled><svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-35 24 24)"><rect x="6" y="15" width="36" height="18" rx="4" fill="#ff8fab" stroke="#7a3b4c" stroke-width="2.4"/><rect x="6" y="15" width="13" height="18" rx="4" fill="#7ec8f2" stroke="#7a3b4c" stroke-width="2.4"/><path d="M10 19h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".8"/></g><path d="M9 41h30" stroke="#b9a7ad" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 4"/></svg></button>
     <button class="big-btn go-btn" id="goBtn" type="button" disabled>צֵא לַדֶּרֶךְ</button>
   </div>
   <div class="perf" id="perf"></div>
@@ -304,7 +310,7 @@
   <button class="round-btn door-btn" id="doorStart" aria-label="חזרה" data-tip="חזרה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <button class="round-btn gear under-door" id="gearStart" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
   <div class="panel">
-    <h1>הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר</h1>
+    <h1>לַחֲצוֹת אֶת הַנָּהָר</h1>
     <p><span id="startText">מְתַכְנְנִים אֶת הַצְּעָדִים שֶׁל הָאַרְנָבוֹן</span></p>
     <div class="start-row">
       <button class="big-btn go-btn" id="go" disabled>טוען…</button>
@@ -341,7 +347,7 @@
 <script>
 (() => {
   "use strict";
-  // הָאַרְנָבוֹן חוֹצֶה אֶת הַנָּהָר (Golan 5.11.2026). A bunny on one bank of a river wants to reach the other bank. The river is a
+  // לַחֲצוֹת אֶת הַנָּהָר (Golan 5.11.2026). A bunny on one bank of a river wants to reach the other bank. The river is a
   // grid of stones, each with a picture (the sound pictures). The sign shows a sound with its nikud (בַּ) and its small speaker
   // says it (syl_*). Only stones whose picture starts with that sound hold the bunny; the others sink. The child first PLANS
   // the whole path with 4 buttons (straight, right, left, spring), then "צא לדרך" runs it. Right / left turn the bunny in place
@@ -506,7 +512,7 @@
   cam.fov = 0.72; cam.minZ = 0.3; cam.maxZ = 300; cam.inputs.clear();
 
   // ---------- the river: water, two banks, a grid of stones ----------
-  const COLS = 5, SP = 1.75;                 // 5 columns; stone to stone
+  const COLS = 5, SP = 2.3;                  // 5 columns; stone to stone (Golan 6.11: more room between the stones)
   const BANK_Y = 0.66;                       // the banks' grass level (the stones stand about as high)
   const START_Z = -SP * 1.1, BANK_EDGE = -SP * 0.68;
   const colX = (c) => (c - (COLS - 1) / 2) * SP, rowZ = (r) => r * SP;
@@ -731,7 +737,7 @@
         else if (type === "sink") { cell.pic = pick(otherPics.length ? otherPics : myPics); cell.letter = (PICS[cell.pic] || {}).sound || others[0]; }
         grid[r].push(cell);
         if (type !== "water") {
-          let k = Math.floor(Math.random() * KINDS.length); if (k === lastKind) k = (k + 1) % KINDS.length; lastKind = k;
+          const k = KINDS.findIndex((x) => x.k === "red"); lastKind = k;   // Golan 6.11: one kind only, the warm many-sided stone with layers
           const st = makeStone(cell, k); cell.stone = st; stones.push(st);
         }
       }
@@ -789,6 +795,7 @@
     $("goBtn").disabled = !plan.length || !canEdit();
     $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= state.q.P.cmds.length);
     document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit()));
+    $("eraseBtn").disabled = !plan.length || !canEdit() || state.demo;
   }
   // the arrows shrink a little when the plan is long, then go to a second line
   function sizeSteps() {
@@ -809,6 +816,7 @@
     plan.splice(+b.dataset.i, 1); badIdx = -1; sfx.tap(); renderPlan();
   });
   $("goBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!state.demo) go(); });
+  $("eraseBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!canEdit() || state.demo || !plan.length) return; plan.pop(); badIdx = -1; sfx.tap(); renderPlan(); });
 
   // ---------- simulating a plan on the grid ----------
   function simulate(q, cmds) {
@@ -897,26 +905,26 @@
   // ---------- the funny fall, the swim back and the shake ----------
   async function splashDown(spin) {
     const p0 = bunny.root.position.clone(); sfx.slide();
-    await tween(0.5, (k) => { bunny.root.position.y = lerp(p0.y, -0.95, k * k); bunny.yaw.rotation.y = bunny.yawV + (spin ? k * Math.PI * 2 : 0);
+    await tween(0.9, (k) => { bunny.root.position.y = lerp(p0.y, -0.95, k * k); bunny.yaw.rotation.y = bunny.yawV + (spin ? k * Math.PI * 2 : 0);
       bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(k * Math.PI * 6) * 0.6))); bunny.hop.rotation.z = Math.sin(k * Math.PI * 3) * 0.3; });
     sfx.splash(); vibrate(40); burst(splash, new BABYLON.Vector3(p0.x, 0.05, p0.z), 70);
     bunny.yaw.rotation.y = bunny.yawV; bunny.hop.rotation.z = 0;
-    await tween(0.45, (k) => { bunny.root.position.y = lerp(-0.95, -0.42, ease(k)) + Math.sin(k * Math.PI) * 0.12; });
+    await tween(0.75, (k) => { bunny.root.position.y = lerp(-0.95, -0.42, ease(k)) + Math.sin(k * Math.PI) * 0.12; });
     bunny.ring.setEnabled(true);
     // pops up with its ears straight up, blinks at the camera for a moment (funny, not sad)
-    await tween(0.5, (k) => { bunny.root.position.y = -0.42 + Math.sin(k * Math.PI * 2) * 0.05; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 - Math.sin(k * Math.PI) * 0.25))); });
+    await tween(0.7, (k) => { bunny.root.position.y = -0.42 + Math.sin(k * Math.PI * 2) * 0.05; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 - Math.sin(k * Math.PI) * 0.25))); });
   }
   async function fall(sim) {
     const last = sim.steps[sim.steps.length - 1], q = state.q;
     if (sim.result === "sink") {
       const st = grid[last.to.r][last.to.c].stone;
       // the stone wobbles, the bunny wobbles with it ("oh!"), then both go down
-      await tween(0.45, (k) => { const w = Math.sin(k * Math.PI * 6) * 0.14 * (1 - k * 0.3); st.root.rotation.z = w; bunny.hop.rotation.z = -w * 1.4;
+      await tween(0.75, (k) => { const w = Math.sin(k * Math.PI * 6) * 0.14 * (1 - k * 0.3); st.root.rotation.z = w; bunny.hop.rotation.z = -w * 1.4;
         bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.abs(Math.sin(k * Math.PI * 4)) * 0.5))); });
       st.root.rotation.z = 0; st.sunk = 1;
       const y0 = bunny.root.position.y;
-      tween(0.7, (k) => { st.root.position.y = -1.2 * k; });
-      await tween(0.25, (k) => { bunny.root.position.y = y0 - 0.3 * k; });
+      tween(1.1, (k) => { st.root.position.y = -1.2 * k; });
+      await tween(0.45, (k) => { bunny.root.position.y = y0 - 0.3 * k; });
       await splashDown(true);
     } else if (sim.result === "water" || sim.result === "off") {
       await splashDown(true);
@@ -928,7 +936,7 @@
       if (bunny.r <= -1) { await tween(0.4, (k) => (bunny.hop.position.y = Math.sin(k * Math.PI) * 0.25)); return false; }   // still on the bank: a shrug, no water
       const p0 = bunny.root.position.clone(), sx = bunny.c >= 2 ? 1 : -1, to = new BABYLON.Vector3(p0.x + sx * 0.75, p0.y, p0.z - 0.55);
       sfx.slide();
-      await tween(0.4, (k) => { bunny.hop.rotation.x = 0.6 * k; bunny.hop.rotation.z = -sx * 0.5 * k; bunny.root.position.x = lerp(p0.x, to.x, k); bunny.root.position.z = lerp(p0.z, to.z, k); });
+      await tween(0.7, (k) => { bunny.hop.rotation.x = 0.6 * k; bunny.hop.rotation.z = -sx * 0.5 * k; bunny.root.position.x = lerp(p0.x, to.x, k); bunny.root.position.z = lerp(p0.z, to.z, k); });
       bunny.hop.rotation.set(0, 0, 0);
       await splashDown(false);
     }
@@ -937,9 +945,9 @@
   async function swimTo(x, z) {
     const p0 = bunny.root.position.clone(), dx = x - p0.x, dz = z - p0.z, dist = Math.hypot(dx, dz); if (dist < 0.05) return;
     const ty = Math.atan2(-dx, -dz), y0 = bunny.yaw.rotation.y; let dy = ((ty - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-    await tween(0.18, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
+    await tween(0.3, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
     bunny.yawV = y0 + dy;
-    await tween(dist / 4.2, (k) => { bunny.root.position.x = lerp(p0.x, x, k); bunny.root.position.z = lerp(p0.z, z, k);
+    await tween(dist / 2.4, (k) => { bunny.root.position.x = lerp(p0.x, x, k); bunny.root.position.z = lerp(p0.z, z, k);
       bunny.root.position.y = -0.42 + Math.sin(k * dist * 7) * 0.04; bunny.hop.rotation.z = Math.sin(k * dist * 9) * 0.14;
       bunny.ears.forEach((e) => (e.pivot.rotation.x = 0.35 + Math.sin(k * dist * 9 + e.s) * 0.15)); });
     bunny.hop.rotation.z = 0;
@@ -964,6 +972,30 @@
   function raiseStones() { for (const st of stones) if (st.sunk) { st.sunk = 0; const y0 = st.root.position.y; tween(0.5, (k) => (st.root.position.y = lerp(y0, 0, ease(k)))); } }
 
   // ---------- running the plan ----------
+  // Golan 6.11: until "צא לדרך" the bunny hops back and forth along the bank; then it goes to the start (marked by an arrow)
+  const wander = { on: false, dir: 1, x: 0 };
+  async function walkToStart(q) {
+    wander.on = false; const x0 = bunny.root.position.x, x1 = colX(q.P.c0), dx = x1 - x0;
+    if (Math.abs(dx) > 0.05) {
+      const y0 = bunny.yaw.rotation.y, yt = yawOfDir(dx > 0 ? 1 : 3); let dy = ((yt - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+      await tween(0.22, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
+      const n = Math.max(1, Math.round(Math.abs(dx) / 0.7));
+      await tween(0.3 * n, (k) => { bunny.root.position.x = lerp(x0, x1, k); bunny.hop.position.y = Math.abs(Math.sin(k * n * Math.PI)) * 0.16; });
+      bunny.hop.position.y = 0;
+    }
+    const y0 = bunny.yaw.rotation.y, yt = yawOfDir(0); let dy = ((yt - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+    if (Math.abs(dy) > 0.01) await tween(0.22, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
+    bunny.root.position.set(x1, BANK_Y, START_Z); bunny.yaw.rotation.y = bunny.yawV = yt; bunny.d = 0;
+  }
+  // the start mark: a golden arrow on the grass, pointing at the river
+  const startMark = (() => {
+    const tx = new BABYLON.DynamicTexture("startTx", { width: 256, height: 256 }, scene, true), c = tx.getContext();
+    c.clearRect(0, 0, 256, 256); c.beginPath(); c.moveTo(128, 18); c.lineTo(230, 128); c.lineTo(172, 128); c.lineTo(172, 238); c.lineTo(84, 238); c.lineTo(84, 128); c.lineTo(26, 128); c.closePath();
+    c.fillStyle = "#ffc233"; c.fill(); c.lineWidth = 14; c.strokeStyle = "#c47f00"; c.lineJoin = "round"; c.stroke(); tx.hasAlpha = true; tx.update(true);
+    const m = new BABYLON.StandardMaterial("startM", scene); m.diffuseTexture = tx; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new BABYLON.Color3(1, 1, 1); m.disableLighting = true;
+    const p = BABYLON.MeshBuilder.CreatePlane("startMark", { size: 0.95 }, scene); p.material = m; p.rotation.x = Math.PI / 2; p.isPickable = false; p.setEnabled(false);
+    return p;
+  })();
   async function go(fromDemo) {
     const q = state.q;
     if (!q || state.mode !== "plan" || !plan.length) return;
@@ -974,6 +1006,7 @@
     const my = animTok, alive = () => my === animTok && state.q === q;
     const sim = simulate(q, plan.slice());
     runIdx = 0; renderPlan();
+    await walkToStart(q); if (!alive()) return;   // Golan 6.11: from where it wandered on the bank, to the marked start, facing the river
     await wait(0.3); if (!alive()) return;
     for (const s of sim.steps) {
       runIdx = s.i; renderPlan();
@@ -1295,6 +1328,18 @@
     for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s); }
     if (bunny.ring.isEnabled()) { bunny.ring.position.set(bunny.root.position.x, 0.03, bunny.root.position.z); const s = 1 + Math.sin(T * 4) * 0.08; bunny.ring.scaling.set(s, 1, s); }
     if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
+    { const q = state.q, show = !!q && ["plan", "ready"].includes(state.mode);
+      startMark.setEnabled(show);
+      if (show) { startMark.position.set(colX(q.P.c0), BANK_Y + 0.03, START_Z + 0.95); const s = 1 + Math.sin(T * 4) * 0.08; startMark.scaling.set(s, s, 1); }
+      if (q && state.mode === "plan" && !state.demo && !tasks.length && bunny.r === -1 && !bunny.ring.isEnabled()) {
+        if (!wander.on) { wander.on = true; wander.x = bunny.root.position.x; wander.dir = Math.random() < 0.5 ? 1 : -1; }
+        const lo = colX(0), hi = colX(COLS - 1); wander.x += wander.dir * 0.75 * rdt;
+        if (wander.x > hi) { wander.x = hi; wander.dir = -1; } if (wander.x < lo) { wander.x = lo; wander.dir = 1; }
+        bunny.root.position.x = wander.x; bunny.root.position.z = START_Z; bunny.hop.position.y = Math.abs(Math.sin(T * 5.5)) * 0.13;
+        const yt = yawOfDir(wander.dir > 0 ? 1 : 3); let dy = ((yt - bunny.yaw.rotation.y) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+        bunny.yaw.rotation.y += dy * Math.min(1, rdt * 8);
+      } else if (wander.on && state.mode !== "plan") { wander.on = false; bunny.hop.position.y = 0; }
+    }
     const fps = engine.getFps(); if (isFinite(fps) && fps > 0 && state.mode === "plan") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); }
   });
   let coneTick = 0;
