@@ -423,6 +423,21 @@
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.03);
   }
+  // Golan 6.11 20:11: a soft water splash (the old one cracked like a shot): a swelling, falling wash and a few bubbles
+  function softSplash() {
+    if (!actx) return; try {
+      const t = actx.currentTime, dur = 0.9, n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
+      let br = 0; for (let i = 0; i < n; i++) { br = 0.92 * br + 0.08 * (Math.random() * 2 - 1); d[i] = br * 2.2; }
+      const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(); s.buffer = b;
+      lp.type = "lowpass"; lp.frequency.setValueAtTime(1600, t); lp.frequency.exponentialRampToValueAtTime(260, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(lp).connect(g).connect(actx.destination); s.start(t);
+      [0.12, 0.26, 0.38, 0.55].forEach((dt, i) => { const o = actx.createOscillator(), og = actx.createGain(), f = 380 + Math.random() * 260;
+        o.type = "sine"; o.frequency.setValueAtTime(f, t + dt); o.frequency.exponentialRampToValueAtTime(f * 1.9, t + dt + 0.07);
+        og.gain.setValueAtTime(0.0001, t + dt); og.gain.exponentialRampToValueAtTime(0.07 - i * 0.012, t + dt + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.08);
+        o.connect(og).connect(actx.destination); o.start(t + dt); o.stop(t + dt + 0.1); });
+    } catch (e) {}
+  }
   function noise(dur, f, vol) {
     if (!actx) return; try {
       const n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
@@ -432,8 +447,8 @@
     } catch (e) {}
   }
   const sfx = { tap: () => tone([440], 0.05, "sine", 0.06), add: () => tone([620 + Math.random() * 60], 0.06, "sine", 0.12),
-    oops: () => tone([300, 220], 0.18, "sine", 0.6), hop: () => sweep(420, 760, 0.12, 0.12), spring: () => sweep(260, 1200, 0.32, 0.18, "triangle"),
-    turn: () => tone([520, 600], 0.05, "triangle", 0.08), slide: () => sweep(1000, 170, 0.6, 0.16, "sine"), splash: () => noise(0.55, 1400, 0.5),
+    oops: () => tone([300, 220], 0.18, "sine", 0.6), hop: () => sweep(420, 760, 0.12, 0.12), spring: () => { sweep(220, 900, 0.22, 0.2, "triangle"); setTimeout(() => sweep(300, 1400, 0.3, 0.2, "triangle"), 170); setTimeout(() => tone([1320, 1760], 0.07, "sine", 0.1), 420); },   // Golan 6.11 20:11: a double boing for the spring
+    turn: () => tone([520, 600], 0.05, "triangle", 0.08), slide: () => sweep(1000, 170, 0.6, 0.16, "sine"), splash: () => softSplash(),
     yay: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.35), scoop: () => tone([880, 1320], 0.08, "sine", 0.22),
     yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => noise(0.35, 3000, 0.18) };
   const AUDIO = "../../voice/audio/";
@@ -558,12 +573,6 @@
       }
       const tr = BABYLON.MeshBuilder.CreateCylinder("trunk", { diameter: 0.32, height: 1.6, tessellation: 8 }, scene); tr.material = trunkM; tr.parent = farBank; tr.position.set(sx * (colX(COLS - 1) + 3.6), BANK_Y + 0.8, 0.8); tr.isPickable = false;
       for (let k = 0; k < 3; k++) { const l = BABYLON.MeshBuilder.CreateSphere("leaf", { diameter: 1.7 - k * 0.3, segments: 10 }, scene); l.material = leafM; l.parent = farBank; l.isPickable = false; l.position.set(sx * (colX(COLS - 1) + 3.6) + (k - 1) * 0.35, BANK_Y + 1.9 + k * 0.45, 0.8); }
-    }
-    // the ice cream umbrella behind the landing (the bunny's reward waits there)
-    const pole = BABYLON.MeshBuilder.CreateCylinder("pole", { diameter: 0.07, height: 2.2, tessellation: 8 }, scene); pole.material = mat("#ffffff", 0.3); pole.parent = farBank; pole.position.set(-1.6, BANK_Y + 1.1, 1.4); pole.isPickable = false;
-    for (let i = 0; i < 8; i++) {
-      const seg = BABYLON.MeshBuilder.CreateCylinder("umb", { diameterTop: 0, diameterBottom: 2.0, height: 0.55, tessellation: 8, arc: 1 / 8 }, scene);
-      seg.material = mat(i % 2 ? "#ffffff" : "#ff5a8a", 0.25); seg.parent = farBank; seg.position.set(-1.6, BANK_Y + 2.3, 1.4); seg.rotation.y = i * Math.PI / 4; seg.isPickable = false;
     }
   }
   deco();
@@ -987,10 +996,17 @@
     bunny.hop.rotation.z = 0;
   }
   async function swimBack() {
-    const q = state.q, p = bunny.root.position, lane = (p.x < 0 ? colX(0) - SP * 0.8 : colX(COLS - 1) + SP * 0.8), front = BANK_EDGE + 0.32;
-    if (Math.abs(p.x) < Math.abs(lane) - 0.1 && p.z > front) await swimTo(p.x, p.z - SP / 2);   // out between two rows first
-    await swimTo(lane, bunny.root.position.z);
-    await swimTo(lane, front);
+    // Golan 6.11 20:11: back to the bank the short way, between the stones: out to the nearest gap between two rows, along it to the
+    // nearest gap between two columns, then straight down that gap to the bank, and along the bank edge to the start
+    const q = state.q, p = bunny.root.position, front = BANK_EDGE + 0.32;
+    if (p.z > front) {
+      const rowGap = Math.max(-0.5, Math.round(p.z / SP - 0.5) + 0.5) * SP;                 // the nearest line between two rows
+      const cg = Math.max(-0.5, Math.min(COLS - 0.5, Math.round((p.x / SP + (COLS - 1) / 2) - 0.5) + 0.5));
+      const colGap = (cg - (COLS - 1) / 2) * SP;                                              // the nearest line between two columns
+      if (Math.abs(p.z - rowGap) > 0.05) await swimTo(p.x, Math.max(front, rowGap));
+      await swimTo(colGap, bunny.root.position.z);
+      await swimTo(colGap, front);
+    }
     await swimTo(colX(q.P.c0), front);
     bunny.ring.setEnabled(false); bunny.ears.forEach((e) => (e.pivot.rotation.x = 0));
     // out onto the bank, turn to the river, and shake the water off
@@ -1106,13 +1122,19 @@
       hopRest(); if (!alive()) return;
       const yb = bunny.yaw.rotation.y, yc = yawOfDir(2); dy = ((yc - yb) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;   // turns to the child
       await tween(0.22, (k) => (bunny.yaw.rotation.y = yb + dy * k)); if (!alive()) return; bunny.yawV = bunny.yaw.rotation.y; }
-    // two happy jumps with a spin
-    for (let j = 0; j < 2; j++) { const y = bunny.yaw.rotation.y; await tween(0.75, (k) => { hopPose(k >= 1 ? 0 : k, 0.7); const m = k < 0.2 ? 0 : k < 0.75 ? (k - 0.2) / 0.55 : 1; bunny.yaw.rotation.y = y + (j ? Math.PI * 2 * m : 0); }); if (!alive()) return; }
+    // Golan 6.11 20:12: on the far side the bunny dances: sways side to side with its ears waving, two hops with a spin, a little wiggle
+    { const y0 = bunny.yaw.rotation.y;
+      await tween(1.4, (k) => { const w = Math.sin(k * Math.PI * 6); bunny.hop.rotation.z = w * 0.28; bunny.hop.position.y = Math.abs(Math.sin(k * Math.PI * 6)) * 0.12;
+        bunny.yaw.rotation.y = y0 + Math.sin(k * Math.PI * 3) * 0.5; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + 0.45 * Math.max(0, w * e.s)))); bunny.feet.forEach((f, i) => (f.rotation.x = (i ? 1 : -1) * w * 0.5)); });
+      bunny.hop.rotation.z = 0; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * 0.12)); bunny.feet.forEach((f) => (f.rotation.x = 0)); if (!alive()) return;
+      for (let j = 0; j < 2; j++) { const y = bunny.yaw.rotation.y; await tween(0.75, (k) => { hopPose(k >= 1 ? 0 : k, 0.7); const m = k < 0.2 ? 0 : k < 0.75 ? (k - 0.2) / 0.55 : 1; bunny.yaw.rotation.y = y + (j ? -1 : 1) * Math.PI * 2 * m; }); if (!alive()) return; }
+      await tween(0.6, (k) => { bunny.hop.rotation.z = Math.sin(k * Math.PI * 8) * 0.18 * (1 - k); bunny.hop.scaling.y = 1 + Math.sin(k * Math.PI * 8) * 0.06; });
+      bunny.hop.rotation.z = 0; }
     bunny.yaw.rotation.y = bunny.yawV; hopRest();
     if (!q.demo) {
       const right = q.runs === 1 && !q.hint;   // gold on the first try, silver otherwise (Golan 16.10, all games)
       state.stars++; const kind = LRN ? LRN.star(right) : right ? "gold" : "silver"; state.starKinds.push(kind); if (starCount) starCount.add(kind);
-      state.scoops++; drawCone(true); sfx.scoop();
+      state.scoops++;
       recordQ(q, true);
       state.lastLetter = q.letter; state.prog[q.level] = (state.prog[q.level] || 0) + 1;   // a little longer next time (within the level)
     }
@@ -1135,7 +1157,7 @@
     return s;
   }
   function drawCone(add) {
-    const el = $("cone"); el.innerHTML = coneSvg(state.scoops); placeCone();
+    const el = $("cone"); el.hidden = true; el.style.display = "none"; return;   // Golan 6.11 20:12: no ice cream / cone any more
     if (add) { el.classList.remove("add"); void el.offsetWidth; el.classList.add("add"); }
   }
   function placeCone() {
@@ -1154,34 +1176,10 @@
     if (state.mode === "celebrate" || state.mode === "end" || state.mode === "flying") return;
     state.mode = "celebrate"; hush(); renderPlan();
     const my = animTok, alive = () => my === animTok;
-    if (!state.scoops) {   // Golan 6.11 13:32: no crossing this round (it never left the bank): no ice cream, just a little sigh
-      await tween(0.9, (k) => { const q = Math.sin(k * Math.PI); bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + 0.5 * q))); bunny.hop.scaling.set(1 + 0.05 * q, 1 - 0.08 * q, 1 + 0.05 * q); });
-      bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * 0.12)); bunny.hop.scaling.setAll(1);
-      await wait(0.4); if (!alive()) return; endRound(); return;
-    }
-    dropFinale(); finaleNode = new BABYLON.TransformNode("bigCone", scene);
-    const n = Math.max(3, Math.min(8, state.scoops || 1)), sideX = bunny.root.position.x > 2 ? -1 : 1;
-    finaleNode.position.set(bunny.root.position.x + sideX * 1.05, bunny.root.position.y, bunny.root.position.z + 0.15);
-    const cone = BABYLON.MeshBuilder.CreateCylinder("cone", { diameterTop: 0.62, diameterBottom: 0.04, height: 1.0, tessellation: 18 }, scene);
-    cone.material = mat("#e8a95b", 0.18); cone.parent = finaleNode; cone.position.y = 0.5;
-    for (let i = 0; i < n; i++) { const s = BABYLON.MeshBuilder.CreateSphere("scoop", { diameter: 0.7, segments: 14 }, scene);
-      s.material = mat(SCOOPS[i % SCOOPS.length], 0.25); s.parent = finaleNode; s.position.set((i % 2 ? 0.04 : -0.04), 1.08 + i * 0.44, 0); s.scaling.y = 0.85; }
-    const cherry = BABYLON.MeshBuilder.CreateSphere("cherry", { diameter: 0.22, segments: 10 }, scene); cherry.material = mat("#e5383b", 0.3); cherry.parent = finaleNode; cherry.position.y = 1.08 + (n - 1) * 0.44 + 0.38;
-    finaleNode.getChildMeshes().forEach((m) => (m.isPickable = false));
-    finaleNode.scaling.setAll(0.01); sfx.yay();
-    await tween(0.5, (k) => finaleNode.scaling.setAll(0.01 + 1.29 * (1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)))); if (!alive()) return;
-    // the bunny turns to the cone and licks it, again and again
-    const y0 = bunny.yaw.rotation.y, y1 = yawOfDir(sideX > 0 ? 1 : 3) + (sideX > 0 ? 0.25 : -0.25);
-    await tween(0.3, (k) => (bunny.yaw.rotation.y = lerp(y0, y1, k)));
-    bunny.tongue.setEnabled(true); burst(hearts, finaleNode.position.add(new BABYLON.Vector3(0, 1.4, 0)), 40);
-    await tween(2.4, (k) => { const l = Math.max(0, Math.sin(k * Math.PI * 8)); bunny.tongue.scaling.set(1, 0.5, 1.3 + l * 1.4); bunny.hop.rotation.x = l * 0.18;
-      bunny.hop.position.y = Math.abs(Math.sin(k * Math.PI * 4)) * 0.06; if (Math.floor(k * 8) !== Math.floor((k - 0.01) * 8)) sfx.yum(); });
-    if (!alive()) return;
-    bunny.tongue.setEnabled(false); bunny.hop.rotation.x = 0;
-    burst(confetti, finaleNode.position.add(new BABYLON.Vector3(0, 2, 0)), 80);
-    await wait(0.6); if (!alive()) return;
+    await wait(0.3); if (!alive()) return;   // Golan 6.11 20:12: no ice cream at the end (the bunny dances at every crossing instead)
     endRound();
   }
+
 
   // ---------- the sign at the top ----------
   function setSign(syl) { const pr = $("prompt"), show = syl && syl !== "?"; $("target").textContent = show ? syl : ""; pr.classList.toggle("listen", !show); }
