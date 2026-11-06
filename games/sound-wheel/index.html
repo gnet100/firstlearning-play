@@ -1409,6 +1409,13 @@
   // test hook for automated checks
   window.__wheel = { state, settings, spin, stop, judge, endRound, lvl, layout, balls: () => [...$("balls").children], get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
 })();
+
+  // Golan 6.11 19:28: the mouse over a row slows its bracelet (the other rows keep their pace); smooth, no jump
+  (() => {
+    const rate = (t, r) => { const ring = t && t.querySelector(".ring"); if (!ring || !ring.getAnimations) return; ring.getAnimations().forEach((a) => { try { if (a.updatePlaybackRate) a.updatePlaybackRate(r); else a.playbackRate = r; } catch (e) {} }); };
+    document.addEventListener("mouseover", (e) => { const t = e.target.closest && e.target.closest(".topic:not(.locked)"); if (t && !t.contains(e.relatedTarget)) rate(t, 0.3); });
+    document.addEventListener("mouseout", (e) => { const t = e.target.closest && e.target.closest(".topic"); if (t && !t.contains(e.relatedTarget)) rate(t, 1); });
+  })();
 </script>
 </body>
 </html>

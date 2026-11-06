@@ -1223,7 +1223,7 @@
     }
     // Golan 30.10 (as sound memory): the sound, then the word; no "יֵשׁ! נָכוֹן!". Solved by the game: + "מַתְחִיל בַּצְּלִיל... בַּ"
     const S = SOUNDS[q.letter], W = wordOf(m.pic), explain = window.FL && FL.explainClip ? FL.explainClip((PICS[m.pic] || {}).word) : "sd_explain";
-    setTimeout(() => { if (state.q === q) playSeq(auto ? [S.s, 250, W, 300, explain, S.s] : [S.s, 250, W]); }, 250);
+    setTimeout(() => { if (state.q === q) playSeq([S.s, 250, W]); }, 250);   // Golan 6.11 19:36: no repeat of the sound at the end (also when the game solves it)
     // Golan 23.10: only this mole goes down; a mole with a new picture comes up instead, and the next sound is one of the signs
     setTimeout(() => {
       if (state.q !== q) return;
