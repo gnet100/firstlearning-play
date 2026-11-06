@@ -244,8 +244,11 @@
   html[data-screen~="portrait"] #helpCard { bottom: calc(var(--edge-b) + var(--cmd) + var(--plan-h) + var(--cgap) * 3); }
   /* Golan 6.11: an eraser button removes the last arrow */
   .erase-btn { flex: 0 0 auto; width: calc(var(--stp, 60px) * 1.05); height: calc(var(--stp, 60px) * 1.05); border: 0; border-radius: 22%; background: #fff; box-shadow: 0 3px 0 #c9d3dd, 0 0 0 2px #dfe6ee inset; padding: 4px; cursor: pointer; display: grid; place-items: center; }
-  #steps .erase-btn { width: var(--cell); height: var(--cell); padding: 3px; }
-  #steps .erase-btn[hidden] { display: none; }
+  /* Golan 6.11 19:25: the eraser stands in the middle of the strip; the arrows fill the right half */
+  #goBtn { margin-right: auto; }
+  #steps .st.fixed { cursor: default; opacity: .8; }
+  #eraseBtn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  #steps { max-width: calc(50% - var(--stp, 60px) * 0.53 - var(--plan-pad) * 2); }
   .erase-btn svg { width: 86%; height: 86%; display: block; }
   .erase-btn:disabled { opacity: .4; cursor: default; }
   .erase-btn:not(:disabled):active { box-shadow: 0 1px 0 #c9d3dd, 0 0 0 2px #dfe6ee inset; }
@@ -292,7 +295,8 @@
     <button class="cmd c-R" id="cmdR" type="button" data-k="R" aria-label="יָמִינָה"><span>יָמִינָה</span></button>
   </div>
   <div class="plan" id="plan">
-    <div id="steps" aria-label="הַצְּעָדִים"><button class="erase-btn" id="eraseBtn" type="button" aria-label="מְחִיקָה" disabled hidden><svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-35 24 24)"><rect x="6" y="15" width="36" height="18" rx="4" fill="#ff8fab" stroke="#7a3b4c" stroke-width="2.4"/><rect x="6" y="15" width="13" height="18" rx="4" fill="#7ec8f2" stroke="#7a3b4c" stroke-width="2.4"/><path d="M10 19h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".8"/></g><path d="M9 41h30" stroke="#b9a7ad" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 4"/></svg></button></div>
+    <div id="steps" aria-label="הַצְּעָדִים"></div>
+    <button class="erase-btn" id="eraseBtn" type="button" aria-label="מְחִיקָה" disabled><svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-35 24 24)"><rect x="6" y="15" width="36" height="18" rx="4" fill="#ff8fab" stroke="#7a3b4c" stroke-width="2.4"/><rect x="6" y="15" width="13" height="18" rx="4" fill="#7ec8f2" stroke="#7a3b4c" stroke-width="2.4"/><path d="M10 19h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".8"/></g><path d="M9 41h30" stroke="#b9a7ad" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 4"/></svg></button>
     <button class="big-btn go-btn" id="goBtn" type="button" disabled>צֵא לַדֶּרֶךְ</button>
   </div>
   <div class="perf" id="perf"></div>
@@ -515,7 +519,7 @@
   // ---------- the river: water, two banks, a grid of stones ----------
   const COLS = 5, SP = 2.3;                  // 5 columns; stone to stone (Golan 6.11: more room between the stones)
   const BANK_Y = 0.66;                       // the banks' grass level (the stones stand about as high)
-  const START_Z = -SP * 1.1, BANK_EDGE = -SP * 0.68;
+  const START_Z = -SP * 0.93, BANK_EDGE = -SP * 0.68;   // the start (Golan 6.11 19:24: closer to the water)
   const colX = (c) => (c - (COLS - 1) / 2) * SP, rowZ = (r) => r * SP;
   const water = BABYLON.MeshBuilder.CreateGround("water", { width: 90, height: 140 }, scene);
   water.material = mat("#2a7fb2", 0.0, 0.2); water.position.z = 20; water.isPickable = false;
@@ -693,7 +697,7 @@
         }
       }
       const R = r;   // the far bank is the row the last step lands on
-      if (!ok || R < 1 || R > 9) continue;
+      if (!ok || R < 1 || R > 9 || cmds[0] !== "F") continue;   // Golan 6.11 19:26: the first step off the bank is always a plain forward (given)
       if (overs.some((o) => o.r < 0 || o.r >= R)) continue;
       const path = cells.filter((x) => x.r < R);
       if (path.some((x) => x.r < 0)) continue;
@@ -765,7 +769,7 @@
     const P = opt.P || makePath(L, opt.demo ? opt.prog || 0 : state.prog[L]);
     const opts = buildRiver(t, P);
     const q = { id: ++riverN, letter: t, P, level: L, runs: 0, fails: 0, sinkWrong: null, hint: false, demo: !!opt.demo, rec: false, opts, t0: performance.now() };
-    state.q = q; plan.length = 0; runIdx = -1; badIdx = -1;
+    state.q = q; resetPlan(); runIdx = -1; badIdx = -1;
     placeBunnyStart(q);
     setSign(SOUNDS[t].syl);
     state.mode = opt.ready ? "ready" : "plan"; renderPlan();
@@ -782,29 +786,31 @@
     L: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21v-7.5A5.5 5.5 0 0 0 12.5 8H5M9.5 3.5L5 8l4.5 4.5"/></svg>' };
   ["F", "J", "L", "R"].forEach((k) => $("cmd" + k).insertAdjacentHTML("afterbegin", ICONS[k]));
   const plan = [], MAXP = 24;
+  // Golan 6.11 19:26: the first arrow (forward, off the bank) is always there and fixed; the dashed squares show how many arrows the crossing needs
+  const resetPlan = () => { plan.length = 0; plan.push("F"); };
+  const needN = () => (state.q ? state.q.P.cmds.length : 3);
   let runIdx = -1, badIdx = -1;
   const canEdit = () => state.mode === "plan" && !!state.q;
   function renderPlan() {
     const el = $("steps"), sig = plan.join("");
     if (el._sig !== sig) {   // rebuilt only when the plan changed (a new arrow pops in; the others stay still)
-      const old = el._sig || "", er = $("eraseBtn");
+      const old = el._sig || "";
       el.innerHTML = plan.map((k, i) => `<button class="st c-${k}" type="button" data-i="${i}" aria-label="${{ F: "יָשָׁר", J: "קְפִיץ", L: "שְׂמֹאלָה", R: "יָמִינָה" }[k]}">${ICONS[k]}</button>`).join("") +
-        (plan.length < 3 ? '<span class="ghost"></span>'.repeat(3 - plan.length) : "");
+        (plan.length < needN() ? '<span class="ghost"></span>'.repeat(needN() - plan.length) : "");
+      const f0 = el.querySelector('.st[data-i="0"]'); if (f0) { f0.classList.add("fixed"); f0.disabled = true; }
       [...el.querySelectorAll(".st")].forEach((b, i) => { if (sig.startsWith(old) && i < old.length) b.style.animation = "none"; });
-      const sts = el.querySelectorAll(".st"); el.insertBefore(er, sts.length ? sts[sts.length - 1].nextSibling : el.firstChild);   // Golan 6.11: the eraser sits right after the last arrow
-      er.hidden = !plan.length;
       el._sig = sig; sizeSteps();
     }
     [...el.querySelectorAll(".st")].forEach((b, i) => { b.classList.toggle("now", i === runIdx); b.classList.toggle("done", runIdx >= 0 && i < runIdx); b.classList.toggle("bad", i === badIdx); });
     const edit = canEdit() && !state.demo;
-    $("goBtn").disabled = !plan.length || !canEdit();
+    $("goBtn").disabled = plan.length < 2 || !canEdit();
     $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= state.q.P.cmds.length);
     document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit()));
-    $("eraseBtn").disabled = !plan.length || !canEdit() || state.demo;
+    $("eraseBtn").disabled = plan.length < 2 || !canEdit() || state.demo;
   }
   // the arrows shrink a little when the plan is long, then go to a second line
   function sizeSteps() {
-    const el = $("steps"), n = Math.max(3, plan.length + (plan.length ? 1 : 0)), w = el.clientWidth, full = Math.max(30, $("goBtn").offsetHeight || 60) - 6;
+    const el = $("steps"), n = Math.max(3, needN(), plan.length), w = el.clientWidth, full = Math.max(30, $("goBtn").offsetHeight || 60) - 6;
     if (!w) return;
     let cell = Math.min(full, (w - 4 * (n - 1)) / n);
     if (cell < 38) cell = Math.min(full, Math.max(38, (w - 4 * (Math.ceil(n / 2) - 1)) / Math.ceil(n / 2)));
@@ -817,11 +823,11 @@
   }
   ["F", "J", "L", "R"].forEach((k) => $("cmd" + k).addEventListener("click", (e) => { e.stopPropagation(); addStep(k); }));
   $("steps").addEventListener("click", (e) => {
-    const b = e.target.closest(".st"); if (!b || !canEdit() || state.demo) return;
+    const b = e.target.closest(".st"); if (!b || b.dataset.i === "0" || !canEdit() || state.demo) return;
     plan.splice(+b.dataset.i, 1); badIdx = -1; sfx.tap(); renderPlan();
   });
   $("goBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!state.demo) go(); });
-  $("eraseBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!canEdit() || state.demo || !plan.length) return; plan.pop(); badIdx = -1; sfx.tap(); renderPlan(); });
+  $("eraseBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!canEdit() || state.demo || plan.length < 2) return; plan.pop(); badIdx = -1; sfx.tap(); renderPlan(); });
 
   // ---------- simulating a plan on the grid ----------
   function simulate(q, cmds) {
@@ -871,23 +877,23 @@
   // a real jump (Golan 6.11 13:28): a crouch with the ears back, the push off (the body stretches, the nose up, the hind feet
   // kick back), the flight (the ears trail), the nose down toward the landing, then a squash on landing and a little bounce back
   async function hopTo(p1, len, into) {
-    const p0 = bunny.root.position.clone(), big = len === 2, H = big ? 1.25 : 0.6, dur = big ? 0.72 : 0.46, P = big ? 0.42 : 0.3;
+    const p0 = bunny.root.position.clone(), big = len === 2, H = big ? 1.25 : 0.6, dur = big ? 0.72 : 0.46, P = big ? 0.55 : 0.42;
     const pose = (sx, sy, pitch, foot, ear) => { bunny.hop.scaling.set(sx, sy, sx); bunny.hop.rotation.x = pitch; bunny.feet.forEach((f) => (f.rotation.x = foot)); bunny.ears.forEach((e) => (e.pivot.rotation.x = ear)); };
-    await tween(0.14, (k) => { const e = ease(k); pose(1 + 0.16 * e, 1 - 0.26 * e, -0.12 * e, 0.25 * e, 0.35 * e); });   // the crouch
+    await tween(0.2, (k) => { const e = ease(k); pose(1 + 0.3 * e, 1 - 0.45 * e, -0.2 * e, 0.4 * e, 0.6 * e); });   // the crouch (Golan 6.11 19:24: big, so it is seen)
     if (big) sfx.spring(); else sfx.hop();
     await tween(dur, (k) => {
       const x = lerp(p0.x, p1.x, k), z = lerp(p0.z, p1.z, k), base = lerp(p0.y, p1.y, k);
       bunny.root.position.set(x, base + Math.sin(k * Math.PI) * H, z);
       const st = k < 0.25 ? k / 0.25 : Math.max(0, 1 - (k - 0.25) / 0.45);           // the stretch of the push off, easing out in the air
-      const sy = k < 0.08 ? lerp(0.74, 1.16, k / 0.08) : 1 + 0.16 * st, sx = 1 / Math.sqrt(sy);
+      const sy = k < 0.1 ? lerp(0.55, 1.4, k / 0.1) : 1 + 0.4 * st, sx = 1 / Math.sqrt(sy);
       const pitch = P * Math.cos(k * Math.PI);                                           // the nose up going up, down coming down
       const foot = k < 0.55 ? -1.0 * Math.sin(Math.min(1, k / 0.3) * Math.PI / 2) : lerp(-1.0, 0.35, (k - 0.55) / 0.45);   // kick back, then reach forward
       const ear = 0.35 + 0.45 * Math.sin(Math.min(1, k * 1.4) * Math.PI) * (1 - k * 0.6) - 0.15 * Math.max(0, (k - 0.7) / 0.3);
       pose(sx, sy, pitch, foot, ear);
     });
     if (!into) {
-      await tween(0.16, (k) => { const q = Math.sin(k * Math.PI); pose(1 + 0.2 * q, 1 - 0.28 * q, -P * (1 - k), 0.35 * (1 - k), -0.4 * q); });   // the landing squash, the ears flop forward
-      await tween(0.14, (k) => { const q = Math.sin(k * Math.PI); pose(1 - 0.04 * q, 1 + 0.07 * q, 0, 0, 0.12 * q); });                           // a little bounce back
+      await tween(0.24, (k) => { const q = Math.sin(k * Math.PI); pose(1 + 0.32 * q, 1 - 0.45 * q, -P * (1 - k), 0.35 * (1 - k), -0.6 * q); });   // the landing squash, the ears flop forward
+      await tween(0.18, (k) => { const q = Math.sin(k * Math.PI); pose(1 - 0.07 * q, 1 + 0.14 * q, 0, 0, 0.18 * q); });                           // a little bounce back
     }
     pose(1, 1, 0, 0, 0);
   }
@@ -1012,8 +1018,10 @@
       return m;
     };
     const both = (c, draw, w) => { c.strokeStyle = "rgba(40,90,30,0.35)"; c.lineWidth = w + 8; draw(); c.stroke(); c.strokeStyle = "rgba(255,255,255,0.92)"; c.lineWidth = w; draw(); c.stroke(); };
-    const ring = BABYLON.MeshBuilder.CreatePlane("startRing", { size: 1.1 }, scene); ring.rotation.x = Math.PI / 2; ring.isPickable = false;
-    ring.material = mk("startRing", 128, 128, (c) => { c.fillStyle = "rgba(255,255,255,0.22)"; c.beginPath(); c.arc(64, 64, 50, 0, Math.PI * 2); c.fill(); both(c, () => { c.beginPath(); c.arc(64, 64, 52, 0, Math.PI * 2); }, 6); });
+    // Golan 6.11 19:24: a race start line instead of the ring (checkered, like a crossing), right in front of the first stone
+    const ring = BABYLON.MeshBuilder.CreatePlane("startRing", { width: 1.5, height: 0.5 }, scene); ring.rotation.x = Math.PI / 2; ring.isPickable = false;
+    ring.material = mk("startRing", 384, 128, (c) => { const n = 9, w = 384 / n, h = 64;
+      for (let r = 0; r < 2; r++) for (let i = 0; i < n; i++) { c.fillStyle = (i + r) % 2 ? "rgba(40,40,48,0.85)" : "rgba(255,255,255,0.95)"; c.fillRect(i * w, r * h, w + 0.5, h + 0.5); } });
     const sign = BABYLON.MeshBuilder.CreatePlane("startSign", { size: 1.2 }, scene); sign.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; sign.isPickable = false; sign.renderingGroupId = 1;
     sign.material = mk("startSign", 256, 256, (c) => {
       both(c, () => { c.beginPath(); c.moveTo(128, 150); c.lineTo(128, 14); }, 9);
@@ -1022,7 +1030,7 @@
       c.lineWidth = 8; c.strokeStyle = "rgba(40,90,30,0.45)"; c.strokeText("הַתְחָלָה", 128, 206); c.fillStyle = "rgba(255,255,255,0.95)"; c.fillText("הַתְחָלָה", 128, 206);
     });
     const root = new BABYLON.TransformNode("startMark", scene); ring.parent = root; sign.parent = root;
-    ring.position.y = 0.015; sign.position.set(0, -0.62, -0.62);   // drawn over the grass (group 1): on the screen just under the ring
+    ring.position.y = 0.015; sign.position.set(0, -0.62, -0.78);   // drawn over the grass (group 1): on the screen just under the ring
     root.setEnabled(false);
     return root;
   })();
@@ -1309,7 +1317,7 @@
     const q = state.q, R = q ? q.P.R : 3, xs = colX(0) - 0.8, xe = colX(COLS - 1) + 0.8, pts = [];
     for (const x of [xs, xe]) { pts.push(new BABYLON.Vector3(x, BANK_Y, START_Z - 0.25)); pts.push(new BABYLON.Vector3(x, BANK_Y, rowZ(R) + 0.2)); pts.push(new BABYLON.Vector3(x, 0, rowZ(0) - 0.7)); }
     pts.push(new BABYLON.Vector3(colX(q ? q.P.c0 : 2), BANK_Y + 1.15, START_Z));
-    pts.push(new BABYLON.Vector3(colX(q ? q.P.c0 : 2), BANK_Y - 1.25, START_Z - 0.62));   // the bottom of the start sign ("הַתְחָלָה" stays in sight)
+    pts.push(new BABYLON.Vector3(colX(q ? q.P.c0 : 2), BANK_Y - 1.25, START_Z - 0.78));   // the bottom of the start sign ("הַתְחָלָה" stays in sight)
     pts.push(new BABYLON.Vector3(0, BANK_Y + 0.7, rowZ(R) + 0.2));
     return pts;
   }
@@ -1496,12 +1504,12 @@
     const example = (n) => {
       if (!alive()) return;
       const q = newRiver({ demo: true, prog: n, silent: true }); state.mode = "plan"; renderPlan(); setTimeout(onScreen, 30);
-      const cmds = q.P.cmds.slice(); let i = 0;
+      const cmds = q.P.cmds.slice(); let i = 1;   // the first arrow is already there
       const tapNext = () => {
         if (!alive() || state.q !== q) return;
         const btn = i < cmds.length ? $("cmd" + cmds[i]) : $("goBtn"), p = center(btn);
         if (window.FL && FL.demoArrow) FL.demoArrow(p.x, p.top);
-        moveHand(last || { x: p.x - 80, y: innerHeight + 40 }, p, i ? 520 : 1000, () => setTimeout(() => {
+        moveHand(last || { x: p.x - 80, y: innerHeight + 40 }, p, last ? 520 : 1000, () => setTimeout(() => {
           if (!alive() || state.q !== q) return;
           last = p; btn.classList.add("tap"); setTimeout(() => btn.classList.remove("tap"), 180);
           if (i < cmds.length) { addStep(cmds[i], true); i++; setTimeout(tapNext, 260); return; }
@@ -1530,7 +1538,7 @@
     const my = ++countToken;
     document.documentElement.classList.add("fl-counting");
     clearTasks(); dropFinale();
-    newRiver({ silent: true, ready: true }); setSign("?"); plan.length = 0; renderPlan();
+    newRiver({ silent: true, ready: true }); setSign("?"); resetPlan(); renderPlan();
     const box = $("count");
     [0, 1, 2].forEach((i) => setTimeout(() => {
       if (my !== countToken || state.mode !== "ready") return;
@@ -1563,9 +1571,9 @@
   // ready() = the river id while the child can plan (null otherwise); press(k) taps a step button, go() taps "צא לדרך"
   window.__river = { state, settings, plan, grid: () => grid, stones: () => stones, simulate: (cmds) => (state.q ? simulate(state.q, cmds) : null), makePath, newRiver, endRound, finale, runDemo,
     fitCamera, engine, scene, cam, canvas, hg: HG, lvl, SOUNDS, SOUND_L, PICS_OF, alike, region: () => fitInfo, demoSeen: () => demoSeen(), plateRect,
-    solution: () => (state.q ? state.q.P.cmds.slice() : null),
+    solution: () => (state.q ? state.q.P.cmds.slice(1) : null),   // the arrows to tap (the first is given)
     ready: () => (state.q && state.mode === "plan" && !state.demo && !$("hud").hidden ? state.q.id : null),
-    clearPlan: () => { if (!canEdit()) return false; plan.length = 0; renderPlan(); return true; },
+    clearPlan: () => { if (!canEdit()) return false; resetPlan(); renderPlan(); return true; },
     press: (k) => $("cmd" + k).click(), go: () => $("goBtn").click(),
     buttonIds: { F: "cmdF", R: "cmdR", L: "cmdL", J: "cmdJ", go: "goBtn" } };
 })();
