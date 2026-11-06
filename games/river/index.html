@@ -719,6 +719,7 @@
   }
   let riverN = 0;
   function buildRiver(t, P) {
+    (stones || []).forEach((st) => { try { st.root.dispose(false, false); } catch (e) {} });   // also stones the end fly set free
     if (world) world.dispose(false, false);
     world = new BABYLON.TransformNode("world", scene); stones = []; grid = [];
     const others = otherSounds(t, 4), otherPics = others.flatMap(picsOf), myPics = picsOf(t);
@@ -853,7 +854,8 @@
 
   // ---------- small animation runner (frozen while the game waits; the speed slider moves it too) ----------
   let tasks = [], animTok = 0;
-  const tween = (dur, fn) => new Promise((res) => tasks.push({ t: 0, dur: Math.max(0.001, dur), fn, res }));
+  const SLOW = 1.5;   // Golan 6.11 13:13: all the bunny's motion slower (turns, jumps, walking, everything)
+  const tween = (dur, fn) => new Promise((res) => tasks.push({ t: 0, dur: Math.max(0.001, dur * SLOW), fn, res }));
   const wait = (s) => tween(s, () => {});
   function clearTasks() { animTok++; tasks = []; }
   const lerp = (a, b, k) => a + (b - a) * k, ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
@@ -987,13 +989,13 @@
     if (Math.abs(dy) > 0.01) await tween(0.22, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
     bunny.root.position.set(x1, BANK_Y, START_Z); bunny.yaw.rotation.y = bunny.yawV = yt; bunny.d = 0;
   }
-  // the start mark: a golden arrow on the grass, pointing at the river
+  // the start mark (Golan 6.11 13:12: clearer): a big golden arrow standing in the air over the start spot, pointing down, bobbing
   const startMark = (() => {
     const tx = new BABYLON.DynamicTexture("startTx", { width: 256, height: 256 }, scene, true), c = tx.getContext();
-    c.clearRect(0, 0, 256, 256); c.beginPath(); c.moveTo(128, 18); c.lineTo(230, 128); c.lineTo(172, 128); c.lineTo(172, 238); c.lineTo(84, 238); c.lineTo(84, 128); c.lineTo(26, 128); c.closePath();
-    c.fillStyle = "#ffc233"; c.fill(); c.lineWidth = 14; c.strokeStyle = "#c47f00"; c.lineJoin = "round"; c.stroke(); tx.hasAlpha = true; tx.update(true);
+    c.clearRect(0, 0, 256, 256); const arrow = () => { c.beginPath(); c.moveTo(128, 240); c.lineTo(236, 122); c.lineTo(170, 122); c.lineTo(170, 16); c.lineTo(86, 16); c.lineTo(86, 122); c.lineTo(20, 122); c.closePath(); };
+    c.lineJoin = "round"; arrow(); c.lineWidth = 26; c.strokeStyle = "#ffffff"; c.stroke(); arrow(); c.fillStyle = "#ff8a00"; c.fill(); c.lineWidth = 9; c.strokeStyle = "#a34f00"; c.stroke(); tx.hasAlpha = true; tx.update(true);
     const m = new BABYLON.StandardMaterial("startM", scene); m.diffuseTexture = tx; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new BABYLON.Color3(1, 1, 1); m.disableLighting = true;
-    const p = BABYLON.MeshBuilder.CreatePlane("startMark", { size: 0.95 }, scene); p.material = m; p.rotation.x = Math.PI / 2; p.isPickable = false; p.setEnabled(false);
+    const p = BABYLON.MeshBuilder.CreatePlane("startMark", { size: 1.25 }, scene); p.material = m; p.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; p.isPickable = false; p.setEnabled(false); p.renderingGroupId = 1;
     return p;
   })();
   async function go(fromDemo) {
@@ -1147,6 +1149,7 @@
   function endFlyFirst() {
     const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
     state.mode = "flying"; if (HG) HG.stop();
+    (stones || []).forEach((st) => st.root.setParent(null));   // Golan 6.11 13:17: each island flies up on its own, not the whole river together
     L.endFly({ scene: scene, dom: [$("cone")] }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
     return true;
   }
@@ -1330,14 +1333,14 @@
     if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
     { const q = state.q, show = !!q && ["plan", "ready"].includes(state.mode);
       startMark.setEnabled(show);
-      if (show) { startMark.position.set(colX(q.P.c0), BANK_Y + 0.03, START_Z + 0.95); const s = 1 + Math.sin(T * 4) * 0.08; startMark.scaling.set(s, s, 1); }
+      if (show) startMark.position.set(colX(q.P.c0), BANK_Y + 1.75 + Math.abs(Math.sin(T * 3.2)) * 0.3, START_Z);
       if (q && state.mode === "plan" && !state.demo && !tasks.length && bunny.r === -1 && !bunny.ring.isEnabled()) {
         if (!wander.on) { wander.on = true; wander.x = bunny.root.position.x; wander.dir = Math.random() < 0.5 ? 1 : -1; }
-        const lo = colX(0), hi = colX(COLS - 1); wander.x += wander.dir * 0.75 * rdt;
+        const lo = colX(0), hi = colX(COLS - 1); wander.x += wander.dir * 0.5 * rdt;
         if (wander.x > hi) { wander.x = hi; wander.dir = -1; } if (wander.x < lo) { wander.x = lo; wander.dir = 1; }
-        bunny.root.position.x = wander.x; bunny.root.position.z = START_Z; bunny.hop.position.y = Math.abs(Math.sin(T * 5.5)) * 0.13;
+        bunny.root.position.x = wander.x; bunny.root.position.z = START_Z; bunny.hop.position.y = Math.abs(Math.sin(T * 3.7)) * 0.13;
         const yt = yawOfDir(wander.dir > 0 ? 1 : 3); let dy = ((yt - bunny.yaw.rotation.y) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-        bunny.yaw.rotation.y += dy * Math.min(1, rdt * 8);
+        bunny.yaw.rotation.y += dy * Math.min(1, rdt * 4.5);
       } else if (wander.on && state.mode !== "plan") { wander.on = false; bunny.hop.position.y = 0; }
     }
     const fps = engine.getFps(); if (isFinite(fps) && fps > 0 && state.mode === "plan") { fpsSamples.push(fps); if (fpsSamples.length > 600) fpsSamples.shift(); }
