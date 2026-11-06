@@ -321,7 +321,7 @@
     if (!(window.FL && FL.map) || !LRN || !LRN.profile()) { isleNow = 0; showGames(); return; }
     hush(); $("games").classList.remove("on"); screen = "map"; $("door").hidden = $("gear").hidden = false;
     const p = LRN.profile();
-    FL.map.show({ host: document.body, profile: p, colour: LRN.COMP_COLORS[p.color || 0], known: knownCount(), say, at: FL.map.at(),
+    FL.map.show({ host: document.body, profile: p, colour: LRN.COMP_COLORS[p.color || 0], known: knownCount(), say, at: isleNow || 0,   /* Golan 6.11 19:56: the door of an island's list goes back to that island on the map */
       has: (i) => GAMES.some((g) => isleOf(g) === i),
       onOpen: (i) => { isleNow = i || 0; try { localStorage.setItem("fl-hub-isle", isleNow); } catch (e) {} showGames(); }, onFail: () => showGames(), onSystem: systemPick });
     if (location.hash !== "#map") history.replaceState(null, "", "#map");
