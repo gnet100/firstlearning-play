@@ -1382,9 +1382,9 @@
     for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s); }
     if (bunny.ring.isEnabled()) { bunny.ring.position.set(bunny.root.position.x, 0.03, bunny.root.position.z); const s = 1 + Math.sin(T * 4) * 0.08; bunny.ring.scaling.set(s, 1, s); }
     if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
-    { const q = state.q, show = !!q && ["plan", "ready"].includes(state.mode);
+    { const q = state.q, show = !!q && !["intro", "end"].includes(state.mode);   // Golan 6.11 19:46: it stays during the run too
       startMark.setEnabled(show);
-      if (show) startMark.position.set(colX(q.P.c0), BANK_Y, START_Z);
+      if (show && state.mode !== "flying") startMark.position.set(colX(q.P.c0), BANK_Y, START_Z);
       if (q && state.mode === "plan" && !state.demo && !tasks.length && bunny.r === -1 && !bunny.ring.isEnabled()) {
         if (!wander.on) { wander.on = true; wander.x = bunny.root.position.x; wander.dir = Math.random() < 0.5 ? 1 : -1; }
         const lo = colX(0), hi = colX(COLS - 1); wander.x += wander.dir * 0.5 * rdt;
