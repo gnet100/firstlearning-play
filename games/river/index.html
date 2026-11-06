@@ -540,16 +540,13 @@
   // decorations (made once): reeds on both banks, bushes, two trees and a striped ice cream umbrella on the far bank
   function deco() {
     const reedM = mat("#5aa843", 0.12), bushM = mat("#5fb54a", 0.14), bush2 = mat("#78c95a", 0.14), trunkM = mat("#9a6a3f", 0.1), leafM = mat("#4fa842", 0.14);
-    const fl = ["#ff7aa0", "#ffd34d", "#ffffff", "#b48cff"];
     for (const [bank, sgn] of [[startBank, 1], [farBank, -1]]) {
-      for (let i = 0; i < 14; i++) {
-        const x = (i < 7 ? -1 : 1) * (colX(COLS - 1) + 1.6 + (i % 7) * 1.25 + Math.random() * 0.4);
-        const r = BABYLON.MeshBuilder.CreateCylinder("reed", { diameterTop: 0.02, diameterBottom: 0.09, height: 0.8 + Math.random() * 0.5, tessellation: 5 }, scene);
-        r.material = reedM; r.parent = bank; r.position.set(x, BANK_Y + 0.35, sgn * 3.9); r.rotation.z = (Math.random() - 0.5) * 0.4; r.isPickable = false;
-      }
-      for (let i = 0; i < 8; i++) {
-        const f = BABYLON.MeshBuilder.CreateSphere("flower", { diameter: 0.18, segments: 6 }, scene); f.material = mat(fl[i % 4], 0.35); f.parent = bank; f.isPickable = false;
-        f.position.set((i % 2 ? -1 : 1) * (colX(COLS - 1) + 1.0 + Math.random() * 6), BANK_Y + 0.06, (sgn > 0 ? 1 : -1) * (1.5 + Math.random() * 2.2));
+      // Golan 6.11 19:44: no spiky plants on the grass; many small colourful pebbles instead
+      const pebC = ["#ff7aa0", "#ffd34d", "#b48cff", "#7ec8f2", "#ff9a3d", "#ffffff", "#8be3b0"].map((c) => mat(c, 0.35));
+      for (let i = 0; i < 46; i++) {
+        const x = (i % 2 ? -1 : 1) * (0.6 + Math.random() * (colX(COLS - 1) + 7.5)), z = sgn * (0.9 + Math.random() * 3.4), d = 0.12 + Math.random() * 0.12;
+        const pb = BABYLON.MeshBuilder.CreateSphere("pebble", { diameter: d, segments: 6 }, scene); pb.material = pebC[i % pebC.length]; pb.parent = bank; pb.isPickable = false;
+        pb.scaling.set(1.25, 0.55, 1); pb.rotation.y = Math.random() * Math.PI; pb.position.set(x, BANK_Y + d * 0.2, z);
       }
     }
     for (const sx of [-1, 1]) {
