@@ -1214,7 +1214,7 @@
     m.state = "bonk"; m.t = 0; m.hold = WAKE_S; m.hint = false; m.brows.forEach((b) => b.setEnabled(false));
     if (auto) drawSign(m, m.pic, false);
     const at = m.sign.getAbsolutePosition(); confetti.emitter = new BABYLON.Vector3(at.x, at.y + 0.4, at.z); confetti.manualEmitCount = auto ? 25 : 50;
-    wake(m);
+    if (!q.demo) wake(m);   // Golan 6.11 19:38: in the demo no second (waking) picture beside the mole (the demo frame moves it off the sign)
     if (!q.demo) {
       const right = !q.wrongs && !auto;   // gold on the first try, silver after a mistake or a solved one (Golan 16.10, all games)
       state.stars++; const kind = auto ? "silver" : LRN ? LRN.star(right) : right ? "gold" : "silver"; state.starKinds.push(kind); if (starCount) starCount.add(kind);
