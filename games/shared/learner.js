@@ -83,6 +83,9 @@
     ctx.drawImage(im, x + (0.5 - b.x) * w, y + (0.5 - b.y) * h, w, h);
   };
   FL.explainClip = (word) => { const w = String(word || "").replace(/[\u0591-\u05C7]/g, ""); return WORD_P.has(w) ? "sd_explain_p" : WORD_F.has(w) ? "sd_explain_f" : "sd_explain"; };
+  // Golan 6.11 19:55 (all games): the letter + speaker pill at the top is 25% smaller (it stays at the same top line)
+  try { if (root.document && !document.getElementById("fl-pill-css")) { const st = document.createElement("style"); st.id = "fl-pill-css";
+    st.textContent = ".prompt { scale: .75 !important; transform-origin: 50% 0 !important; }"; (document.head || document.documentElement).appendChild(st); } } catch (e) {}
   // Golan 29.10 20:30 (all games): "יוצאים לדרך" and "עוד סיבוב" take one tap; more taps right after it (2-3 in a row) are
   // swallowed for 1.5 s, so a round never starts twice. Runs first (capture), before the games' own handlers.
   if (root.addEventListener) root.addEventListener("click", (e) => {
