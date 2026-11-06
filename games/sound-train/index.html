@@ -2230,12 +2230,15 @@
       const f = state.lost[i]; if (f.stuck) continue;
       const r = f.cr.root;
       if (f.plan) {   // Golan 18.10: the right car: one smooth fall to its floor, turning flat on the way
+        // Golan 6.11: one even flow: height, sideways, depth and the turn all follow the same single curve (no second motion)
         const P = f.plan, cx = P.car.root.getAbsolutePosition().x;
-        f.vy -= 16 * dt; f.vy *= Math.exp(-1.6 * dt); r.position.x += f.vx * dt; r.position.y += f.vy * dt;
-        const s0 = Math.min(1, Math.max(0, (P.y0 - r.position.y) / (P.y0 - P.yEnd))), s = s0 * s0 * (3 - 2 * s0);
-        r.rotation.z = P.rz0 + (P.rzEnd - P.rz0) * s; f.cr.plane.rotation.y = P.ry0 + (P.ryEnd - P.ry0) * s; r.position.z = P.z0 * (1 - s);
-        const xin = Math.max(cx - CAR_IN + TAG_R, Math.min(cx + CAR_IN - TAG_R, r.position.x)); r.position.x += (xin - r.position.x) * s;   // inside the walls by the bottom
-        if (r.position.y <= P.yEnd) { r.position.set(xin, P.yEnd, 0); r.rotation.z = P.rzEnd; f.cr.plane.rotation.y = P.ryEnd; state.lost.splice(i, 1); onLanded(P.car, f.cr); }
+        if (P.t == null) { P.t = 0; P.x0 = r.position.x; const h = Math.max(0.1, P.y0 - P.yEnd); P.dur = Math.max(0.6, Math.min(1.15, 0.4 + h * 0.13));
+          P.xEnd = Math.max(cx - CAR_IN + TAG_R, Math.min(cx + CAR_IN - TAG_R, P.x0 + f.vx * P.dur * 0.6)); }
+        P.t = Math.min(P.dur, P.t + dt);
+        const u = P.t / P.dur, k = u * u * (1.6 - 0.6 * u);   // starts gently like a real fall, no slow-down at the end
+        r.position.y = P.y0 + (P.yEnd - P.y0) * k; r.position.x = P.x0 + (P.xEnd - P.x0) * k; r.position.z = P.z0 * (1 - k);
+        r.rotation.z = P.rz0 + (P.rzEnd - P.rz0) * k; f.cr.plane.rotation.y = P.ry0 + (P.ryEnd - P.ry0) * k;
+        if (u >= 1) { r.position.set(P.xEnd, P.yEnd, 0); r.rotation.z = P.rzEnd; f.cr.plane.rotation.y = P.ryEnd; state.lost.splice(i, 1); onLanded(P.car, f.cr); }
         continue;
       }
       if (f.lay) {   // Golan 18.10: the right car: it eases onto a flat side, squarely, touching what is under it (no snap)
