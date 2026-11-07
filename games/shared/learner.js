@@ -337,15 +337,28 @@ ${items[item]}</svg>`;
     ask(); host.append(f);
     return { el: f, focus: () => { try { inp.focus({ preventScroll: true }); } catch (e) {} } };
   }
+  // Golan 7.11 (known-rules decision 3א): a right first-try answer that is slow for this child is half a success, in every game
+  // but tell-me (there the parent taps): over 6 s, or over twice the child's typical right-answer time in that game. Worked out
+  // here from rtMs, so no game has to pass it (a game's own `hesitant` still wins when given).
+  function slowFor(ev) {
+    if (ev.hesitant != null) return !!ev.hesitant;
+    if (!ev.firstTry || ev.rtMs == null || ev.rtMs <= 0 || ev.game === "tellme" || ev.by === "adult" || ev.mode === "name" || ev.audioOnly) return false;
+    let med = null; try { cardsFor(cur()); med = cache && cache.gameMedian ? cache.gameMedian[ev.game || ""] ?? null : null; } catch (e) {}
+    return ev.rtMs > 6000 || (med != null && ev.rtMs > 2 * med);
+  }
   function recordRaw(ev) {
+    const slow = ev && ev.letter ? slowFor(ev) : false;
     return mutate(() => {
       const p = cur(); if (!p || !ev || !ev.letter) return null;
       const now = Date.now();
       if (!p.lastAt || now - p.lastAt > SESSION_GAP) p.session++;
       p.lastAt = now;
       const e = { t: now, s: p.session, g: ev.game || "", l: ev.letter, p: ev.picked || null,
-        ok: !!ev.firstTry, hz: !!(ev.firstTry && ev.hesitant), sol: ev.solved !== false, o: (ev.opts || []).slice(0, 8), rt: ev.rtMs == null ? null : Math.round(ev.rtMs),
+        ok: !!ev.firstTry, hz: !!(ev.firstTry && slow), sol: ev.solved !== false, o: (ev.opts || []).slice(0, 8), rt: ev.rtMs == null ? null : Math.round(ev.rtMs),
         ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : ev.mode === "cursive" ? "cursive" : ev.mode === "sound" ? "sound" : "recognize", by: ev.by || "child", pc: ev.pace || null };
+      // the letter circle asks by sound only (the letter is not shown): a right, first-try, not slow answer there is the
+      // speaker-only check (Golan 7.11, decision 2א)
+      if (e.g === "circle" && e.m === "recognize" && e.ok && !e.hz) { e.ao = true; e.pf = !e.h; }
       e.fast = e.m === "recognize" && !e.ok && e.rt != null && e.rt < FAST_WRONG_MS;   // slip: not counted as a letter error
       if (ev.timeout) e.to = 1;   // the "not yet" came from no tap (time ran out), not from the adult's button
       p.events.push(e); if (p.events.length > MAX_EVENTS) p.events.splice(0, p.events.length - MAX_EVENTS);
@@ -404,17 +417,24 @@ ${items[item]}</svg>`;
   function step(k, e, quick, rel) {
     if (e.fast) return;                      // slips feed the game-skill side only
     k.n++; k.lastAsked = e.t;
+    // Golan 7.11 (decision 2א): a letter that became known by the speaker-only check is checked again in a later session; a wrong
+    // first answer there takes it back to "מוכרת" (one miss is enough); a right one confirms it.
+    if (k.known && k.aoSess != null && e.s !== k.aoSess) {
+      k.aoSess = null;
+      if (!e.ok) { k.known = false; k.half = false; k.errStreak = 1; k.okStreak = [{ s: e.s, q: false }, { s: e.s, q: false }]; return; }
+    }
     if (e.ok) {
       k.errStreak = 0; k.hard = false;
       if (rel != null) k.rts.push(+rel.toFixed(3));   // time relative to the game's typical time
       if (k.known) { k.reviews++; return; }
       // Golan 16.10: a perfect audio-only question (heard, no letter shown; it only comes after the letter was found
       // perfectly with the picture) makes the letter known at once. Losing it works as usual (2 errors in a row).
-      if (e.ao && e.pf && !e.h) { k.known = true; k.knownAt = e.t; k.reviews = 0; k.okStreak.push({ s: e.s, q: !!quick }); return; }
+      // Golan 7.11 (decision 2א): only after 3 errorless finds in a row; before that it is an ordinary success.
+      if (e.ao && e.pf && !e.h && k.okStreak.length >= 3) { k.known = true; k.knownAt = e.t; k.reviews = 0; k.aoSess = e.s; k.okStreak.push({ s: e.s, q: !!quick, two: (e.o || []).length === 2 }); return; }
       // A hesitant right answer (diagnostic: slow vs the child's own pace) is half evidence: two halves make one success.
       if (e.hz) { if (!k.half) { k.half = true; return; } k.half = false; }
-      k.okStreak.push({ s: e.s, q: !!quick });
-      if (k.okStreak.length >= 2) {
+      k.okStreak.push({ s: e.s, q: !!quick, two: (e.o || []).length === 2 });
+      if (k.okStreak.length >= streakNeed(k)) {
         const a = k.okStreak[k.okStreak.length - 2], b = k.okStreak[k.okStreak.length - 1];
         // Known: the 2nd success in another session (Golan 15.10), or two QUICK successes in a row (Golan 16.10):
         // each clearly faster than the child's own typical right answer (see quickLimit), so no wait for another session.
@@ -423,11 +443,14 @@ ${items[item]}</svg>`;
       }
     } else {
       k.okStreak = []; k.half = false; k.errStreak++;
-      if (k.errStreak >= 2) { k.hard = true; if (k.known) k.known = false; }   // known is lost only after 2 errors in a row
+      if (k.errStreak >= 2) { k.hard = true; if (k.known) k.known = false; k.aoSess = null; }   // known is lost only after 2 errors in a row
     }
   }
+  // Golan 7.11 (known-rules decision 1א + the advisor): "מוכרת" = 2 first-try successes in a row, but 3 in a row when one of
+  // them had only 2 choices on screen (guessing twice in a row with 2 choices is 25%). The next-session "known" step waits for it too.
+  const streakNeed = (k) => (k.okStreak.slice(-2).some((x) => x.two) ? 3 : 2);
   function finish(k) {
-    k.state = k.known ? "known" : k.hard ? "hard" : k.okStreak.length >= 2 ? "almost" : k.n < 2 ? "new" : "learning";
+    k.state = k.known ? "known" : k.hard ? "hard" : k.okStreak.length >= streakNeed(k) ? "almost" : k.n < 2 ? "new" : "learning";
     const m = median(k.rts.slice(-5));
     k.fluent = k.known && m != null && m <= 1;   // the last 5 times on this letter are not slower than usual in their games
     k.due = k.known && Date.now() - k.lastAsked >= REVIEW_DAYS[Math.min(k.reviews, REVIEW_DAYS.length - 1)] * DAY;
