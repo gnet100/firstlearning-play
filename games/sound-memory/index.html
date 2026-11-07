@@ -799,7 +799,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
 
   function newBoard() {
     epoch++;
-    const n = RUNGS[manualRung ?? rung()], B = BOARDS[n], pairs = B.letters / 2;
+    const n = state.demo ? 9 : RUNGS[manualRung ?? rung()], B = BOARDS[n], pairs = B.letters / 2;   // the demo always deals the 9 board (Golan 7.11)
     state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
     const letters = boardSounds(pairs); state.letters = letters;
     dealBoard(B, letters);
@@ -862,6 +862,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const W = innerWidth, H = innerHeight;
     // the demo (Golan 30.10): the buttons are hidden, the cards stand inside the yellow wavy frame (its inset + the wave + the stroke)
     const et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
+    if (state.demo) { const m = Math.max(16, Math.min(W, H) * 0.06); return [{ x0: el + m, x1: W - er - m, y0: et + m, y1: H - eb - m }]; }   // Golan 7.11: the demo cards stand centred inside the frame
     const door = $("doorGame").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
     // the hourglass under the star pill (learner.js places it the same way): its width and bottom keep the cards clear of it (Golan 29.10)
     const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), hgW = hgH * 1.012 + 8, hgBot = pill.bottom + 8 + hgH * 1.725;
