@@ -719,37 +719,62 @@
   }
   function makePath(L, prog) {
     // Golan 6.11 19:49: every round starts at the level's fewest moves, and each new river needs one more move (up to a top)
+    // Golan 7.11 18:39: the number of moves stays known; a spring is only ever over water, and the map never lets a spring
+    // land on a good stone (or the far bank) unless that spring IS the planned move: no two good stones straight ahead, and
+    // no spring over a wrong stone onto a good one. Every river is checked (pathOk) before it is used.
     const cfg = LV[L], nT = Math.min(L === 3 ? 12 : 10, cfg.n[0] + Math.max(0, prog | 0));
-    for (let tries = 0; tries < 6000; tries++) {
-      const n = tries < 3000 ? nT : tries < 4500 ? Math.max(cfg.n[0], nT - 1) : cfg.n[0] + Math.floor(Math.random() * (cfg.n[1] - cfg.n[0] + 1));
-      const J = cfg.jogs, springs = L === 3 && n >= 9 ? 2 : cfg.springs;
-      const side = Array.from({ length: J }, () => 1 + (Math.random() < 0.3 ? 1 : 0));
-      const fwd = n - side.reduce((a, b) => a + b, 0); if (fwd < J + 1 || fwd < springs) continue;
-      const segs = randomSplit(fwd, J + 1);
-      const springAt = new Set(shuffle(Array.from({ length: fwd }, (_, i) => i)).slice(0, springs));
+    for (let tries = 0; tries < 20000; tries++) {
+      const n = tries < 12000 ? nT : tries < 16000 ? Math.max(cfg.n[0], nT - 1) : cfg.n[0] + Math.floor(Math.random() * (cfg.n[1] - cfg.n[0] + 1));
+      const maxJ = L === 1 ? 0 : L === 2 ? Math.max(1, Math.round(n / 4)) : Math.max(2, Math.round(n / 3));
       const c0 = 1 + Math.floor(Math.random() * 3);
-      let r = -1, c = c0, fi = 0, ok = true; const cmds = [], cells = [], overs = [];
-      for (let s = 0; s <= J && ok; s++) {
-        for (let k = 0; k < segs[s]; k++, fi++) {
-          if (springAt.has(fi)) { overs.push({ r: r + 1, c }); r += 2; cmds.push("J"); } else { r += 1; cmds.push("F"); }
-          cells.push({ r, c });
+      let r = -1, c = c0, js = 0, sideRun = 0, sideDir = 0; const cmds = [], cells = [], overs = [];
+      for (let i = 0; i < n; i++) {
+        const last = cmds[i - 1], end = i === n - 1, opts = [];
+        if (i === 0) opts.push("F");   // Golan 6.11 19:26: the first step off the bank is always a plain forward (given)
+        else {
+          if (last !== "F" || !maxJ) opts.push("F", "F");   // never two plain forwards in a row (the spring would be a short cut); level 1 has no spring at all
+          if (js < maxJ) opts.push("J");
+          if (!end) for (const d of [1, -1]) {
+            const nc = c + d; if (nc < 0 || nc >= COLS) continue;
+            if ((last === "R" || last === "L") && (d !== sideDir || sideRun >= 2)) continue;
+            if (cells.some((x) => x.r === r && x.c === nc)) continue;
+            opts.push(d > 0 ? "R" : "L");
+          }
         }
-        if (s < J) {
-          const dirs = shuffle([1, -1]).filter((d) => c + d * side[s] >= 0 && c + d * side[s] < COLS);
-          if (!dirs.length) { ok = false; break; }
-          const d = dirs[0];
-          for (let k = 0; k < side[s]; k++) { c += d; cmds.push(d > 0 ? "R" : "L"); cells.push({ r, c }); }
-        }
+        if (!opts.length) break;
+        const k = opts[Math.floor(Math.random() * opts.length)];
+        if (k === "F") { r += 1; sideRun = 0; } else if (k === "J") { overs.push({ r: r + 1, c }); r += 2; js++; sideRun = 0; }
+        else { const d = k === "R" ? 1 : -1; sideRun = last === k ? sideRun + 1 : 1; sideDir = d; c += d; }
+        cmds.push(k); cells.push({ r, c });
       }
+      if (cmds.length !== n) continue;
       const R = r;   // the far bank is the row the last step lands on
-      if (!ok || R < 1 || R > 9 || cmds[0] !== "F") continue;   // Golan 6.11 19:26: the first step off the bank is always a plain forward (given)
-      if (overs.some((o) => o.r < 0 || o.r >= R)) continue;
+      if (R < 1 || R > 9 || js < cfg.springs) continue;
+      if (cmds.filter((x) => x === "R" || x === "L").length < Math.min(cfg.jogs, 1)) continue;
       const path = cells.filter((x) => x.r < R);
-      if (path.some((x) => x.r < 0)) continue;
-      if (path.some((x) => overs.some((o) => o.r === x.r && o.c === x.c))) continue;
-      return { c0, R, cmds, path, overs, water: !!cfg.water };
+      if (overs.some((o) => o.r < 0 || o.r >= R)) continue;
+      const P = { c0, R, cmds, path, overs, water: !!cfg.water, noJ: !maxJ };
+      if (!pathOk(P)) continue;
+      return P;
     }
-    return { c0: 2, R: 2, cmds: ["F", "R", "F", "F"], path: [{ r: 0, c: 2 }, { r: 0, c: 3 }, { r: 1, c: 3 }], overs: [], water: false };
+    return { c0: 2, R: 2, cmds: ["F", "R", "F"], path: [{ r: 0, c: 2 }, { r: 0, c: 3 }], overs: [], water: false, noJ: true };
+  }
+  // the self-check of a river (Golan 7.11): no repeated cell, no spring over a cell of the path, and from every place the
+  // bunny stands (the start and each stone of the path) a spring lands on a good stone or the far bank only when the plan's
+  // next move is that spring. Stones off the path never hold; a spring always goes over water.
+  function pathOk(P) {
+    const key = (r, c) => r + "," + c, good = new Set(P.path.map((x) => key(x.r, x.c)));
+    if (good.size !== P.path.length) return false;
+    if (P.noJ) return true;   // level 1: the spring button is off, so no spring can cut the path
+    if (P.overs.some((o) => good.has(key(o.r, o.c)))) return false;
+    const stands = [{ r: -1, c: P.c0 }, ...P.path];
+    for (let i = 0; i < stands.length; i++) {
+      const x = stands[i], next = P.cmds[i]; if (next === "J") continue;
+      if (good.has(key(x.r + 2, x.c))) return false;   // a good stone two ahead: no two good stones straight ahead, no spring onto one
+      // the far bank two ahead: a spring over water or a wrong stone would reach it early (over a good stone it falls, 6.11)
+      if (x.r + 2 === P.R && !good.has(key(x.r + 1, x.c))) return false;
+    }
+    return true;
   }
 
   // ---------- building a river ----------
@@ -782,7 +807,7 @@
       for (let c = 0; c < COLS; c++) {
         let type;
         if (isPath(r, c)) type = "good";
-        else if (over(r, c) >= 0) type = over(r, c) === waterOver ? "water" : "sink";
+        else if (over(r, c) >= 0) type = "water";   // Golan 7.11 18:39: a spring is always over open water
         else type = Math.random() < 0.26 ? "water" : "sink";
         const cell = { r, c, type, pic: null, letter: null };
         if (type === "good") { cell.pic = pick(myPics); cell.letter = t; }
@@ -850,7 +875,7 @@
     const edit = canEdit() && !state.demo;
     $("goBtn").disabled = plan.length < 2 || !canEdit();
     $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= needN());
-    document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit()));
+    document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit() || (b.id === "cmdJ" && !!state.q && !!state.q.P.noJ)));   // Golan 7.11: level 1 has no spring
     $("eraseBtn").disabled = plan.length < 2 || !canEdit() || state.demo;
   }
   // the arrows shrink a little when the plan is long, then go to a second line
