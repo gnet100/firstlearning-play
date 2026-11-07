@@ -514,9 +514,10 @@
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
     "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
-  const PICS_OF = { "ב": ["ב", "ן", "banana"], "ג": ["camel", "socks", "gnome"], "נ": ["נ", "shoe", "tiger"], "ט": ["ט", "ring", "chef"],
-    "י": ["י", "ם", "hand"], "כ": ["כ", "teaspoon", "firefighter"], "א": ["א", "rabbit", "watermelon"], "ח": ["ח", "donkey", "window"],
-    "צ": ["צ", "plate", "painter"], "ר": ["ר", "rattle", "trafficLight"], "ת": ["ת", "rooster", "crocodile"] };
+  const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
+    "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "carpenter"], "ט": ["ט", "ring", "chef", "pilot", "lamb"],
+    "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
+    "צ": ["צ", "plate", "painter", "parachutist", "neck"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
   // sounds that sound alike never meet on one board: ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
   const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
