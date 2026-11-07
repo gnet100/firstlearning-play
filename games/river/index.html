@@ -426,16 +426,26 @@
   // Golan 6.11 20:11: a soft water splash (the old one cracked like a shot): a swelling, falling wash and a few bubbles
   function softSplash() {
     if (!actx) return; try {
-      const t = actx.currentTime, dur = 0.9, n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
+      const t = actx.currentTime, dur = 1.1, n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
       let br = 0; for (let i = 0; i < n; i++) { br = 0.92 * br + 0.08 * (Math.random() * 2 - 1); d[i] = br * 2.2; }
       const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(); s.buffer = b;
-      lp.type = "lowpass"; lp.frequency.setValueAtTime(1600, t); lp.frequency.exponentialRampToValueAtTime(260, t + dur);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      lp.type = "lowpass"; lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(180, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.22); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);   // Golan 7.11: softer still, a slow swell (no crack)
       s.connect(lp).connect(g).connect(actx.destination); s.start(t);
       [0.12, 0.26, 0.38, 0.55].forEach((dt, i) => { const o = actx.createOscillator(), og = actx.createGain(), f = 380 + Math.random() * 260;
         o.type = "sine"; o.frequency.setValueAtTime(f, t + dt); o.frequency.exponentialRampToValueAtTime(f * 1.9, t + dt + 0.07);
-        og.gain.setValueAtTime(0.0001, t + dt); og.gain.exponentialRampToValueAtTime(0.07 - i * 0.012, t + dt + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.08);
+        og.gain.setValueAtTime(0.0001, t + dt); og.gain.exponentialRampToValueAtTime(0.03 - i * 0.005, t + dt + 0.03); og.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.08);
         o.connect(og).connect(actx.destination); o.start(t + dt); o.stop(t + dt + 0.1); });
+    } catch (e) {}
+  }
+  // Golan 7.11: shaking the water off, soft: low filtered noise that fades in, fluttering like a wet coat
+  function softShake() {
+    if (!actx) return; try {
+      const t = actx.currentTime, dur = 0.8, n = Math.floor(actx.sampleRate * dur), b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
+      let br = 0; for (let i = 0; i < n; i++) { br = 0.9 * br + 0.1 * (Math.random() * 2 - 1); d[i] = br * 2 * (0.55 + 0.45 * Math.sin(i / actx.sampleRate * 2 * Math.PI * 14)); }
+      const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(); s.buffer = b; lp.type = "lowpass"; lp.frequency.value = 900;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.18); g.gain.setValueAtTime(0.07, t + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(lp).connect(g).connect(actx.destination); s.start(t);
     } catch (e) {}
   }
   function noise(dur, f, vol) {
@@ -447,13 +457,13 @@
     } catch (e) {}
   }
   const sfx = { tap: () => tone([440], 0.05, "sine", 0.06), add: () => tone([620 + Math.random() * 60], 0.06, "sine", 0.12),
-    oops: () => tone([300, 220], 0.18, "sine", 0.6), hop: () => sweep(420, 760, 0.12, 0.12), spring: () => { sweep(220, 900, 0.22, 0.2, "triangle"); setTimeout(() => sweep(300, 1400, 0.3, 0.2, "triangle"), 170); setTimeout(() => tone([1320, 1760], 0.07, "sine", 0.1), 420); },   // Golan 6.11 20:11: a double boing for the spring
+    oops: () => tone([300, 220], 0.18, "sine", 0.22), hop: () => { sweep(300, 720, 0.16, 0.2, "triangle"); }, hopSoft: () => sweep(320, 640, 0.12, 0.08, "triangle"), /* Golan 7.11: a clear boing for every hop; the small bank hops softer */ spring: () => { sweep(220, 900, 0.22, 0.2, "triangle"); setTimeout(() => sweep(300, 1400, 0.3, 0.2, "triangle"), 170); setTimeout(() => tone([1320, 1760], 0.07, "sine", 0.1), 420); },   // Golan 6.11 20:11: a double boing for the spring
     turn: () => tone([520, 600], 0.05, "triangle", 0.08), slide: () => sweep(1000, 170, 0.6, 0.16, "sine"), splash: () => softSplash(),
     yay: () => tone([523, 659, 784, 1046], 0.12, "triangle", 0.35), scoop: () => tone([880, 1320], 0.08, "sine", 0.22),
-    yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => noise(0.35, 3000, 0.18) };
+    yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => softShake() };
   const AUDIO = "../../voice/audio/";
   // hub_g_river (the name) and river_start2 (_m / _f: the description) are new lines of the voice thread: silent until recorded; the demo opens with sd_demo, as the other sound games
-  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2" };
+  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2", help: "river_help" };   // river_help (Golan 7.11): "עִזְרוּ לָאַרְנָב לַחֲצוֹת אֶת הַנָּהָר. מִצְאוּ אֶת מַסְלוּל הַתְּמוּנוֹת הַמַּתְחִילוֹת בָּאוֹת..." at the start of a round, then the sound
   const CHILD_LINES = ["river_start2"];
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
@@ -539,7 +549,17 @@
   const START_Z = -SP * 0.93, BANK_EDGE = -SP * 0.68;   // the start (Golan 6.11 19:24: closer to the water)
   const colX = (c) => (c - (COLS - 1) / 2) * SP, rowZ = (r) => r * SP;
   const water = BABYLON.MeshBuilder.CreateGround("water", { width: 90, height: 140 }, scene);
-  water.material = mat("#2a7fb2", 0.0, 0.2); water.position.z = 20; water.isPickable = false;
+  // Golan 7.11: waves on the river: soft light crests on the blue, tiled and flowing slowly
+  const waveTex = new BABYLON.DynamicTexture("waves", { width: 512, height: 512 }, scene, true);
+  { const c = waveTex.getContext(); c.fillStyle = "#2a7fb2"; c.fillRect(0, 0, 512, 512);
+    for (let k = 0; k < 26; k++) { const x = (k * 197) % 512, y = (k * 113) % 512, w = 70 + (k % 4) * 22;
+      for (const dx of [-512, 0, 512]) for (const dy of [-512, 0, 512]) {
+        c.beginPath(); c.moveTo(x + dx - w / 2, y + dy); c.quadraticCurveTo(x + dx, y + dy - 14, x + dx + w / 2, y + dy);
+        c.strokeStyle = k % 3 ? "rgba(190,228,255,.55)" : "rgba(255,255,255,.75)"; c.lineWidth = k % 3 ? 5 : 7; c.lineCap = "round"; c.stroke(); } }
+    waveTex.update(true); }
+  waveTex.wrapU = waveTex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; waveTex.uScale = 9; waveTex.vScale = 14;
+  { const wm = new BABYLON.StandardMaterial("waterMat", scene); wm.diffuseTexture = waveTex; wm.emissiveColor = new BABYLON.Color3(0.08, 0.1, 0.12); wm.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2); water.material = wm; }
+  water.position.z = 20; water.isPickable = false;
   const waterDeep = BABYLON.MeshBuilder.CreateGround("deep", { width: 90, height: 140 }, scene);   // a darker band under the far water (depth)
   waterDeep.material = mat("#2f86ad", 0.05, 0.1); waterDeep.position.set(0, -0.01, 20); waterDeep.isPickable = false;
   waterDeep.setEnabled(false);
@@ -643,9 +663,10 @@
   function makeStone(cell, kindI) {
     const K = KINDS[kindI], root = new BABYLON.TransformNode("stone", scene); root.parent = world;
     root.position.set(colX(cell.c), 0, rowZ(cell.r));
+    const fl = new BABYLON.TransformNode("float", scene); fl.parent = root;   // Golan 7.11: every island bobs gently on the water (the root still sinks and flies)
     const top = (K.k === "tall" ? 0.78 : K.k === "boulder" ? 0.62 : 0.66) + Math.random() * 0.08, base = -0.6, h = top - base;
     const sm = mat(K.col, 0.08, 0.06), parts = [];
-    const add = (m, mt) => { m.material = mt || sm; m.parent = root; parts.push(m); return m; };
+    const add = (m, mt) => { m.material = mt || sm; m.parent = fl; parts.push(m); return m; };
     if (K.k === "round") { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.2, diameterBottom: 1.42, height: h, tessellation: 12 }, scene)); b.position.y = base + h / 2; b.scaling.z = 0.92;
       const e = add(BABYLON.MeshBuilder.CreateTorus("ste", { diameter: 1.12, thickness: 0.14, tessellation: 24 }, scene)); e.position.y = top - 0.05; e.scaling.z = 0.92; }
     else if (K.k === "tall") { const b = add(BABYLON.MeshBuilder.CreateCylinder("st", { diameterTop: 1.06, diameterBottom: 1.4, height: h, tessellation: 6 }, scene)); b.position.y = base + h / 2; b.rotation.y = Math.random();
@@ -663,10 +684,10 @@
     const wet = add(BABYLON.MeshBuilder.CreateCylinder("stw", { diameter: 1.5, height: 0.12, tessellation: 14 }, scene), mat("#5f6a70", 0.05, 0.1)); wet.position.y = 0.04;
     const rip = BABYLON.MeshBuilder.CreateTorus("rip", { diameter: 1.75, thickness: 0.04, tessellation: 28 }, scene); rip.parent = root; rip.position.y = 0.02; rip.isPickable = false;
     rip.material = mat("#ffffff", 0.6); if (rip.material.alpha === 1) rip.material.alpha = 0.35;
-    const plate = BABYLON.MeshBuilder.CreatePlane("plate", { size: PL }, scene); plate.parent = root;
+    const plate = BABYLON.MeshBuilder.CreatePlane("plate", { size: PL }, scene); plate.parent = fl;
     plate.rotation.x = Math.PI / 2 - TILT; plate.position.set(0, top + Math.sin(TILT) * PL / 2 + 0.02, 0);
     plate.material = picMat(cell.pic, false);
-    const st = { ...cell, root, top, plate, parts, rip, sunk: 0, ph: Math.random() * 6.3 };
+    const st = { ...cell, root, fl, top, plate, parts, rip, sunk: 0, ph: Math.random() * 6.3 };
     parts.forEach((m) => { m.isPickable = true; m.metadata = { stone: st }; }); plate.isPickable = true; plate.metadata = { stone: st };
     return st;
   }
@@ -783,7 +804,7 @@
     setSign(SOUNDS[t].syl);
     state.mode = opt.ready ? "ready" : "plan"; renderPlan();
     onScreen();
-    if (!opt.silent) whenQuiet(() => { if (state.q === q && !q.demo) playSeq([SOUNDS[t].s]); });
+    if (!opt.silent) whenQuiet(() => { if (state.q === q && !q.demo) playSeq(state.n === 1 ? [LINES.help, 120, SOUNDS[t].s] : [SOUNDS[t].s]); });
     return q;
   }
 
@@ -889,7 +910,10 @@
   // a real jump (Golan 6.11 13:28): a crouch with the ears back, the push off (the body stretches, the nose up, the hind feet
   // kick back), the flight (the ears trail), the nose down toward the landing, then a squash on landing and a little bounce back
   // one bank hop as a cycle ph 0..1 (Golan 6.11 19:48: the bank hops too get the crouch, the stretch and the bend on landing)
+  let lastPh = 0;
   function hopPose(ph, amp) {
+    if (ph >= 0.2 && lastPh < 0.2 && amp > 0) { if (amp >= 0.5) sfx.hop(); else sfx.hopSoft(); }   // Golan 7.11: a sound for the bank hops too
+    lastPh = ph;
     let y = 0, sy = 1, foot = 0, ear = 0;
     if (ph < 0.2) { const k = ph / 0.2; sy = 1 - 0.38 * Math.sin(k * Math.PI / 2); foot = 0.3 * k; ear = 0.45 * k; }
     else if (ph < 0.75) { const k = (ph - 0.2) / 0.55; y = Math.sin(k * Math.PI) * amp; sy = k < 0.15 ? lerp(0.62, 1.32, k / 0.15) : lerp(1.32, 1, Math.min(1, (k - 0.15) / 0.5)); foot = -0.9 * Math.sin(k * Math.PI); ear = 0.45 + 0.3 * Math.sin(k * Math.PI); }
@@ -995,18 +1019,41 @@
       bunny.ears.forEach((e) => (e.pivot.rotation.x = 0.35 + Math.sin(k * dist * 9 + e.s) * 0.15)); });
     bunny.hop.rotation.z = 0;
   }
-  async function swimBack() {
-    // Golan 6.11 20:11: back to the bank the short way, between the stones: out to the nearest gap between two rows, along it to the
-    // nearest gap between two columns, then straight down that gap to the bank, and along the bank edge to the start
-    const q = state.q, p = bunny.root.position, front = BANK_EDGE + 0.32;
-    if (p.z > front) {
-      const rowGap = Math.max(-0.5, Math.round(p.z / SP - 0.5) + 0.5) * SP;                 // the nearest line between two rows
-      const cg = Math.max(-0.5, Math.min(COLS - 0.5, Math.round((p.x / SP + (COLS - 1) / 2) - 0.5) + 0.5));
-      const colGap = (cg - (COLS - 1) / 2) * SP;                                              // the nearest line between two columns
-      if (Math.abs(p.z - rowGap) > 0.05) await swimTo(p.x, Math.max(front, rowGap));
-      await swimTo(colGap, bunny.root.position.z);
-      await swimTo(colGap, front);
+  // Golan 7.11: the shortest way back through the water only: a grid of half steps (the stones' places and the gaps between them);
+  // a place with a standing stone is closed, an empty place (no stone, or a sunk one) is open water. Diagonal moves only when both
+  // sides are open, so the bunny never cuts through a stone. The goal is the line just before the first row (the bank's edge).
+  function swimPath(q, p) {
+    const R = q.P.R, I = 2 * R, J = 2 * COLS + 1;   // i: -1 .. 2R-1 (z = i/2 rows), j: -1 .. 2*COLS-1 (x = j/2 columns)
+    const open = (i, j) => { if (i < -1 || i > I - 1 || j < -1 || j > J - 2) return false;
+      if (i < 0 || j < 0 || i % 2 || j % 2 || j / 2 > COLS - 1 || i / 2 > R - 1) return true;
+      const cell = grid[i / 2] && grid[i / 2][j / 2]; return !cell || !cell.stone || !!cell.stone.sunk; };
+    const key = (i, j) => (i + 1) * (J + 1) + (j + 1), posOf = (i, j) => ({ x: colX(j / 2), z: rowZ(i / 2) });
+    let si = Math.max(-1, Math.min(I - 1, Math.round(p.z / SP * 2))), sj = Math.max(-1, Math.min(J - 2, Math.round((p.x / SP + (COLS - 1) / 2) * 2)));
+    if (!open(si, sj)) { let best = null; for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) if (open(si + di, sj + dj)) { const d = Math.hypot(posOf(si + di, sj + dj).x - p.x, posOf(si + di, sj + dj).z - p.z); if (!best || d < best.d) best = { i: si + di, j: sj + dj, d }; } if (best) { si = best.i; sj = best.j; } }
+    const dist = new Map(), prev = new Map(), todo = [[0, si, sj]]; dist.set(key(si, sj), 0);
+    let goal = null;
+    while (todo.length) {
+      todo.sort((a, b) => a[0] - b[0]); const [d, i, j] = todo.shift();
+      if (d > dist.get(key(i, j))) continue;
+      if (i === -1) { goal = [i, j]; break; }
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+        if (!di && !dj) continue; const ni = i + di, nj = j + dj; if (!open(ni, nj)) continue;
+        if (di && dj && !(open(i + di, j) && open(i, j + dj))) continue;
+        const nd = d + Math.hypot(di, dj), k = key(ni, nj); if (nd < (dist.has(k) ? dist.get(k) : 1e9)) { dist.set(k, nd); prev.set(k, [i, j]); todo.push([nd, ni, nj]); }
+      }
     }
+    if (!goal) return [{ x: p.x, z: rowZ(-0.5) }];
+    const cells = []; for (let c = goal; c; c = prev.get(key(c[0], c[1]))) cells.unshift(c);
+    // keep only the corners (a straight run is one swim)
+    const out = [];
+    for (let k = 1; k < cells.length; k++) { const a = cells[k - 1], b = cells[k], c = cells[k + 1];
+      if (!c || b[0] - a[0] !== c[0] - b[0] || b[1] - a[1] !== c[1] - b[1]) out.push(posOf(b[0], b[1])); }
+    return out;
+  }
+  async function swimBack() {
+    const q = state.q, p = bunny.root.position, front = BANK_EDGE + 0.32;
+    if (p.z > front) for (const pt of swimPath(q, p)) await swimTo(pt.x, Math.max(front, pt.z));
+    await swimTo(bunny.root.position.x, front);
     await swimTo(colX(q.P.c0), front);
     bunny.ring.setEnabled(false); bunny.ears.forEach((e) => (e.pivot.rotation.x = 0));
     // out onto the bank, turn to the river, and shake the water off
@@ -1398,7 +1445,9 @@
       for (const t of list) { t.t += dt; const k = Math.min(1, t.t / t.dur); try { t.fn(k); } catch (e) {} if (k >= 1) { const i = tasks.indexOf(t); if (i >= 0) tasks.splice(i, 1); t.res(); } }
     }
     // the ripples breathe, and an idle bunny bobs a little
-    for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s); }
+    for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s);
+      st.fl.position.y = Math.sin(T * 1.25 + st.ph) * 0.05; st.fl.rotation.x = Math.sin(T * 1.05 + st.ph * 1.7) * 0.035; st.fl.rotation.z = Math.sin(T * 0.85 + st.ph) * 0.035; }
+    waveTex.vOffset = (T * 0.035) % 1; waveTex.uOffset = Math.sin(T * 0.2) * 0.02;   // Golan 7.11: the river's waves flow
     if (bunny.ring.isEnabled()) { bunny.ring.position.set(bunny.root.position.x, 0.03, bunny.root.position.z); const s = 1 + Math.sin(T * 4) * 0.08; bunny.ring.scaling.set(s, 1, s); }
     if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
     { const q = state.q, show = !!q && !["intro", "end"].includes(state.mode);   // Golan 6.11 19:46: it stays during the run too
@@ -1585,7 +1634,7 @@
 
   // test hook for automated checks (games/tests/check-games.js): solution() = the arrows of a plan that crosses this river;
   // ready() = the river id while the child can plan (null otherwise); press(k) taps a step button, go() taps "צא לדרך"
-  window.__river = { state, settings, plan, grid: () => grid, stones: () => stones, simulate: (cmds) => (state.q ? simulate(state.q, cmds) : null), makePath, newRiver, endRound, finale, runDemo,
+  window.__river = { state, settings, plan, swimPath: (x, z) => (state.q ? swimPath(state.q, { x, z }) : null), grid: () => grid, stones: () => stones, simulate: (cmds) => (state.q ? simulate(state.q, cmds) : null), makePath, newRiver, endRound, finale, runDemo,
     fitCamera, engine, scene, cam, canvas, hg: HG, lvl, SOUNDS, SOUND_L, PICS_OF, alike, region: () => fitInfo, demoSeen: () => demoSeen(), plateRect,
     solution: () => (state.q ? state.q.P.cmds.slice(1) : null),   // the arrows to tap (the first is given)
     ready: () => (state.q && state.mode === "plan" && !state.demo && !$("hud").hidden ? state.q.id : null),
