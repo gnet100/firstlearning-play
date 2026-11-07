@@ -11,9 +11,9 @@
   // [kind, direction]: -1 = towards the left of the screen, 1 = towards the right
   const EXIT = {
     // animals
-    camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["walk", 1],
+    camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["plod", 1],
     tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
-    duck: ["waddle", -1], turtle: ["plod", 1],
+    duck: ["waddle", -1], turtle: ["plod", 1], frog: ["hop", 1],
     // people
     girl: ["twirl", 1],   // Golan 7.11: "the girl turns slowly, one turn, in 3D" as she leaves
     pilot: ["plane", 1], dancer: ["dance", 1],   // Golan 7.11: she dances on her way out (little hops, arms moving) and turns round in 3D
@@ -23,7 +23,13 @@
     "ר": ["drive", 1], ambulance: ["drive", -1], spaceship: ["fly", -1], drone: ["up", 1],
     // things that roll, float or blow away
     wheel: ["roll", -1], buttons: ["roll", 1], "כ": ["bounce", 1], ring: ["grab", 1], plate: ["roll", 1], watermelon: ["roll", -1], orange: ["roll", 1],
-    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], windmill: ["up", 1], stream: ["flow", 1], fence: ["sink", 1],   // Golan 7.11: the places leave too: the windmill flies off on its sails, the stream flows away down, the fence sinks into the ground
+    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1],
+    // stage 2 (Golan 7.11 "בצע"): the places sink or flow away, the things move their own way out
+    "ב": ["sink", 1], window: ["sink", 1], trafficLight: ["sink", 1], swing: ["sink", 1], "ם": ["flow", 1],
+    hand: ["sink", 1], teaspoon: ["bounce", 1], trumpet: ["float", 1], rattle: ["hop", 1],
+    // the sound wheel's own drawings (WHEEL_PICTURES; whole-picture motion only): transport keeps the old wheel directions, toys get one each
+    plane: ["fly", -1], helicopter: ["up", -1], truck: ["drive", -1], fireTruck: ["drive", -1],
+    slide: ["sink", 1], kite: ["fly", 1], mask: ["float", 1], puzzle: ["hop", 1], windmill: ["up", 1], stream: ["flow", 1], fence: ["sink", 1],   // Golan 7.11: the places leave too: the windmill flies off on its sails, the stream flows away down, the fence sinks into the ground
     "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
     bottle: ["hop", 1], banana: ["hop", -1],
   };
