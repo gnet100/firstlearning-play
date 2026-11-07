@@ -61,10 +61,11 @@
 
   /* ---------- the game screen ---------- */
   /* Golan 7.11: after a right answer the card's picture comes alive (pictures-animated, as in the sound train) */
-  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; border-radius: 9%; background: #fff6c9; }
-  #wake.on { display: block; animation: wakeIn .3s cubic-bezier(.3, 1.6, .5, 1) both; }
-  #wake svg { width: 100%; height: 100%; display: block; }
-  @keyframes wakeIn { 0% { transform: scale(.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* Golan 7.11 07:55: inside the card itself (no second card): it covers exactly the card's lit cream, the drawing at the same size */
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; border-radius: 11.7%; background: #fff6c9; }
+  #wake.on { display: block; animation: wakeIn .25s ease-out both; }
+  #wake svg { width: 86.5%; height: 86.5%; margin: 6.75%; display: block; }
+  @keyframes wakeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
   /* the balloon picker (tell-me's, Golan 7.11) */
   .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
   .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 6px; cursor: pointer; aspect-ratio: 1; display: grid; place-items: center; }
@@ -456,12 +457,6 @@
     line-height: 44px; font-size: 22px; text-align: center; }
   .pic-spk.on { display: block; }
   .pic-spk:active { transform: scale(.92); }
-  /* the right picture wakes up: its moving drawing over the sign for a moment (pictures-animated, as in sound memory) */
-  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 16%; background: #fffaf0;
-    box-shadow: 0 0 0 5px #ffc233, 0 6px 18px #0003; }
-  #wake.on { display: block; animation: wakeIn .35s cubic-bezier(.3, 1.6, .5, 1) both; }
-  #wake svg { width: 100%; height: 100%; display: block; }
-  @keyframes wakeIn { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   /* the "?" card bottom left plays the demo again (as in the sound wheel / sound memory) */
   #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;
     border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
@@ -1032,7 +1027,7 @@
   function placeWake() {
     const b = wakeB; if (!b) return;
     if (b.state === "off" || !b.root.isEnabled()) return sleepWake();
-    const Wm = b.card.getWorldMatrix(), RW = engine.getRenderWidth(), RH = engine.getRenderHeight(), M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(RW, RH), r = canvas.getBoundingClientRect(), h = CARD * 0.75 / 2;
+    const Wm = b.card.getWorldMatrix(), RW = engine.getRenderWidth(), RH = engine.getRenderHeight(), M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(RW, RH), r = canvas.getBoundingClientRect(), h = CARD * 444 / 512 / 2;   // the card's cream (drawCard: 34..478 of 512)
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const q = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(sx * h, sy * h, 0), Wm), BABYLON.Matrix.Identity(), M, vp);
       x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
@@ -1049,7 +1044,7 @@
     const kind = q.mistakes ? "silver" : "gold";
     if (!demo) { recordQ(q, true); state.starKinds.push(kind); state.stars = state.starKinds.length; if (starCount) starCount.add(kind); }
     // Golan 7.11: the card lights up with confetti stars while Hila says the sound and the picture's word; only then do the balloons fly up
-    cheer(b);   // Golan 7.11: no second card over the picture; its frame lights up and confetti stars fly from it
+    cheer(b); wakeUp(b);   // Golan 7.11: its frame lights up, confetti stars fly from it, and its own picture comes alive (no second card)
     playSeq([SOUNDS[q.letter].s, 200, wordOf(b.pic)], 1, () => {
       if (state.q !== q) return;
       sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
@@ -1077,7 +1072,7 @@
   // 3 mistakes: the right picture lights up, Hila says the sound and the picture's name, the others fly away; no star
   function autoSolve(q) {
     if (q.done) return; q.done = true; q.hint = true; setJudge(false);
-    const b = rightBalloon(); b.glow = true; drawCard(b); cheer(b);
+    const b = rightBalloon(); b.glow = true; drawCard(b); cheer(b); wakeUp(b);
     if (!q.demo) recordQ(q, false);
     sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
     playSeq([500, SOUNDS[q.letter].s, 300, wordOf(b.pic)], 1, () => { if (state.q !== q) return; later(() => { if (state.q === q) flyAway(b).then(() => afterQuestion(q)); }, 500); });

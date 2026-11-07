@@ -252,6 +252,7 @@
   #hammer.show { display: block; }
   #hammer svg { display: block; width: 100%; height: auto; transform: rotate(18deg); transform-origin: 18% 88%; }
   #hammer.hit svg { animation: knock .28s ease-in-out; }
+  html.fl-demo-mode #hammer.hit svg { animation-duration: .6s; }   /* a slower knock in the demo (Golan 7.11) */
   @keyframes knock { 0% { transform: rotate(18deg); } 25% { transform: rotate(42deg); } 55% { transform: rotate(-14deg); } 100% { transform: rotate(18deg); } }
 
   /* ===== חֲפַרְפֶּרֶת הַצְּלִילִים (Golan 30.10, summaries/sound-mole-spec.md): the letter mole with pictures on the signs ===== */
@@ -855,10 +856,10 @@
   confetti.particleTexture = dotTex; confetti.emitter = new BABYLON.Vector3(0, 0, 0);
   confetti.minEmitBox = new BABYLON.Vector3(-0.4, 0, 0); confetti.maxEmitBox = new BABYLON.Vector3(0.4, 0.3, 0);
   confetti.color1 = new BABYLON.Color4(1, 0.35, 0.4, 1); confetti.color2 = new BABYLON.Color4(0.3, 0.6, 1, 1); confetti.colorDead = new BABYLON.Color4(1, 0.85, 0.2, 0);
-  confetti.minSize = 0.12; confetti.maxSize = 0.24; confetti.minLifeTime = 0.6; confetti.maxLifeTime = 1.1;
+  confetti.minSize = 0.12; confetti.maxSize = 0.24; confetti.minLifeTime = 1.4; confetti.maxLifeTime = 2.2;   // slower (Golan 7.11)
   confetti.emitRate = 0; confetti.manualEmitCount = 0;
   confetti.direction1 = new BABYLON.Vector3(-3, 6, -1); confetti.direction2 = new BABYLON.Vector3(3, 8, 1);
-  confetti.gravity = new BABYLON.Vector3(0, -10, 0); confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6;
+  confetti.gravity = new BABYLON.Vector3(0, -3.5, 0); confetti.minAngularSpeed = -3; confetti.maxAngularSpeed = 3; confetti.minEmitPower = 0.55; confetti.maxEmitPower = 0.8;
   confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; confetti.start();
   const sparkTex = new BABYLON.DynamicTexture("spark", { width: 64, height: 64 }, scene, false);
   { const c = sparkTex.getContext(); c.fillStyle = "#fff6b0"; c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? 9 : 30; c.lineTo(32 + rr * Math.cos(a), 32 + rr * Math.sin(a)); } c.closePath(); c.fill(); sparkTex.update(); sparkTex.hasAlpha = true; }
@@ -873,9 +874,9 @@
   stars.particleTexture = sparkTex; stars.emitter = new BABYLON.Vector3(0, -50, 0);
   stars.minEmitBox = new BABYLON.Vector3(-0.35 * S, -0.3 * S, 0); stars.maxEmitBox = new BABYLON.Vector3(0.35 * S, 0.3 * S, 0);
   stars.color1 = new BABYLON.Color4(1, 0.88, 0.25, 1); stars.color2 = new BABYLON.Color4(1, 0.97, 0.6, 1); stars.colorDead = new BABYLON.Color4(1, 0.9, 0.4, 0);
-  stars.minSize = 0.28; stars.maxSize = 0.5; stars.minLifeTime = 0.7; stars.maxLifeTime = 1.2; stars.emitRate = 0; stars.manualEmitCount = 0;
-  stars.direction1 = new BABYLON.Vector3(-2.5, 2, -1); stars.direction2 = new BABYLON.Vector3(2.5, 4.5, -0.3); stars.minEmitPower = 0.8; stars.maxEmitPower = 1.6;
-  stars.gravity = new BABYLON.Vector3(0, -3, 0); stars.minAngularSpeed = -3; stars.maxAngularSpeed = 3; stars.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; stars.start();
+  stars.minSize = 0.28; stars.maxSize = 0.5; stars.minLifeTime = 1.4; stars.maxLifeTime = 2.2; stars.emitRate = 0; stars.manualEmitCount = 0;
+  stars.direction1 = new BABYLON.Vector3(-2.5, 2, -1); stars.direction2 = new BABYLON.Vector3(2.5, 4.5, -0.3); stars.minEmitPower = 0.4; stars.maxEmitPower = 0.8;
+  stars.gravity = new BABYLON.Vector3(0, -1.2, 0); stars.minAngularSpeed = -1.5; stars.maxAngularSpeed = 1.5; stars.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; stars.start();
   sparks.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; sparks.start();
 
   // ---------- fitting the island into the free part of the screen ----------
@@ -1227,7 +1228,7 @@
     if (!state.demo) return;
     const r = canvas.getBoundingClientRect(), b = document.body.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width) || 1;
     const x = (r.right - b.left) / k - canvas.clientWidth * 0.1, y = (r.top - b.top) / k + canvas.clientHeight * 0.66;
-    hammer.style.transition = anim ? "transform .75s ease-in-out" : "none"; hammer.style.transform = `translate(${x}px, ${y}px)`;
+    hammer.style.transition = anim ? "transform 1.5s ease-in-out" : "none"; hammer.style.transform = `translate(${x}px, ${y}px)`;
     hammer.classList.remove("hit"); hammer.classList.add("show");
   }
   // the hammer knocks a mole by itself (auto-solve, the demo)
@@ -1240,8 +1241,9 @@
     if (!fly) { hammer.style.transform = `translate(${x}px, ${y}px)`; return knock(); }
     if (!(state.demo && hammer.classList.contains("show"))) { hammer.style.transition = "none"; hammer.style.transform = `translate(${x + 300}px, ${y + 260}px)`; }   // in the demo it leaves its place at the side (Golan 7.11)
     hammer.classList.remove("hit"); hammer.classList.add("show"); void hammer.offsetWidth;
-    hammer.style.transition = "transform .75s ease-in-out"; hammer.style.transform = `translate(${x}px, ${y}px)`;
-    setTimeout(knock, 780);
+    const flyS = state.demo ? 1.5 : 0.75;   // Golan 7.11: slower in the demo
+    hammer.style.transition = `transform ${flyS}s ease-in-out`; hammer.style.transform = `translate(${x}px, ${y}px)`;
+    setTimeout(knock, flyS * 1000 + 30);
   }
   const WAKE_S = 2.2;   // the right mole stays up this long, its picture awake, before it goes down
   function found(m, q, auto) {

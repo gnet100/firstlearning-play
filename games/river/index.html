@@ -557,14 +557,14 @@
       c.fillStyle = v > 0 ? `rgba(120,200,240,${(v * 0.3).toFixed(3)})` : `rgba(10,60,110,${(-v * 0.28).toFixed(3)})`; c.fillRect(0, y, W, 2); }
     // long crests: gentle curves, each one hundreds of pixels long, drawn three times across the edges so the tile repeats
     let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let k = 0; k < 16; k++) {
-      const x0 = rnd() * W, y0 = rnd() * H, len = 300 + rnd() * 500, amp = 10 + rnd() * 14, wl = 180 + rnd() * 160, ph = rnd() * 6.3, big = k % 3 === 0;
+    for (let k = 0; k < 30; k++) {
+      const x0 = rnd() * W, y0 = (k + 0.2 + rnd() * 0.6) * H / 30, /* spread evenly down the river, so every part of it has some */ len = 300 + rnd() * 500, amp = 10 + rnd() * 14, wl = 180 + rnd() * 160, ph = rnd() * 6.3, big = k % 3 === 0;
       for (const dx of [-W, 0, W]) for (const dy of [-H, 0, H]) {
         c.beginPath();
         for (let t = 0; t <= len; t += 8) { const x = x0 + dx + t, y = y0 + dy + Math.sin(t / wl * Math.PI * 2 + ph) * amp; t ? c.lineTo(x, y) : c.moveTo(x, y); }
         const g = c.createLinearGradient(x0 + dx, 0, x0 + dx + len, 0); const a = big ? 0.8 : 0.5;
         g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.25, `rgba(235,248,255,${a})`); g.addColorStop(0.75, `rgba(235,248,255,${a})`); g.addColorStop(1, "rgba(255,255,255,0)");
-        c.strokeStyle = g; c.lineWidth = big ? 26 : 16; c.lineCap = "round"; c.stroke();
+        c.strokeStyle = g; c.lineWidth = big ? 18 : 12;   // thinner (Golan 7.11 07:58) c.lineCap = "round"; c.stroke();
       } }
     waveTex.update(true); }
   waveTex.wrapU = waveTex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; waveTex.uScale = 1.4; waveTex.vScale = 2.6;
