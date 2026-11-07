@@ -159,6 +159,7 @@
 <script src="hub-cards-animated/map-balloon.js"></script>
 <script src="games/waking-letter/letters-animated/letters-animated.js"></script>
 <script src="games/waking-letter/pictures.js"></script>
+<script src="art/river-card/river-card-animated.js"></script>   <!-- the river card in motion (Golan 7.11, art thread) -->
 <script>
 (() => {
   "use strict";
@@ -310,7 +311,7 @@
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
       const clip = g.id === "tellme" || g.id === "stogether" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? riverPic() : g.pic === "stogether" ? stogetherPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? (window.FL_RIVER_CARD ? FL_RIVER_CARD() : riverPic()) : g.pic === "stogether" ? stogetherPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
