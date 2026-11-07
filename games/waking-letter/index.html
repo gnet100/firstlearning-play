@@ -471,7 +471,7 @@
   // picture is shown, the next one in turn (kept per device). Every word begins with its letter.
   const WAKE_PICS = { "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["ג", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"],
     "ט": ["ט", "ring", "chef", "pilot", "windmill"], "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"],
-    "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"], "צ": ["צ", "plate", "painter", "parachutist"],
+    "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"], "צ": ["צ", "plate", "painter", "parachutist", "scarf"],
     "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   function pickPic(l) {
     const list = (WAKE_PICS[l] || [l]).filter((k) => window.PICTURES[k] && window.PICTURES[k].svg); if (list.length < 2) return l;

@@ -13,7 +13,7 @@
     // animals
     camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["plod", 1],
     tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
-    duck: ["waddle", -1], turtle: ["plod", 1], frog: ["hop", 1],
+    duck: ["waddle", -1], turtle: ["plod", 1], frog: ["hop", 1], scarf: ["wind", 1],
     // people
     girl: ["twirl", 1],   // Golan 7.11: "the girl turns slowly, one turn, in 3D" as she leaves
     pilot: ["plane", 1], dancer: ["dance", 1],   // Golan 7.11: she dances on her way out (little hops, arms moving) and turns round in 3D
