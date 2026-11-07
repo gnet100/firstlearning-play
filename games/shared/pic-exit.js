@@ -149,7 +149,7 @@
     if (el._flExit) el._flExit.cancel();
     const go = () => {
       if (!el.isConnected) return;
-      sound(opt.actx, key === "ר" ? "train" : key === "י" ? "wings" : kind, dur / 1000);
+      // Golan 7.11: no sounds with the exits (sound() is kept but not played)
       el.classList.add("pa-exit");   // Golan 7.11: the character moves its own body on the way out (pictures-animated "exit" motions: legs run, feet step...)
       const an = (el._flExit = el.animate(frames, { duration: dur, easing: LINEAR.has(kind) ? "linear" : "ease-in", fill: "forwards" }));
       an.onfinish = () => { if (el._flExit === an) el._flExit = null; if (opt.onDone) opt.onDone(); };
