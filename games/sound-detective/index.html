@@ -259,6 +259,10 @@
     filter: drop-shadow(0 3px 4px #0005); will-change: transform, left, top; }
   .ok-mark.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   .ok-mark svg { display: block; }
+  /* the found picture comes alive over its round tag and leaves it (Golan 7.11, as in sound mole); the tag clips it */
+  #wake { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; display: none; overflow: hidden; border-radius: 50%; background: #fff; }
+  #wake.on { display: block; }
+  #wake svg { width: 97%; height: 97%; margin: 1.5%; display: block; overflow: visible; }
   .prompt .target.pulse { animation: pulse .6s ease-in-out 2; }
   @keyframes pulse { 50% { transform: scale(1.35); color: var(--accent); } }
   /* ---------- additions for the detective game ---------- */
@@ -396,6 +400,7 @@
   <button class="round-btn door-btn" id="doorGame" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <div class="perf" id="perf"></div>
   <div class="ok-mark" id="okMark" aria-hidden="true"></div>
+  <div id="wake" aria-hidden="true"></div>
   <div class="syl-mark" id="sylMark" aria-hidden="true"></div>
   <div id="cloudSpks"></div>
   <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
@@ -468,7 +473,9 @@
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/love-balloon.js"></script>
 <script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" (spec sec 6) -->
-<script src="sound-pictures.js"></script>   <!-- the new pictures of this game (Golan 29.10) -->
+<script src="sound-pictures.js"></script>
+<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the found picture comes alive and leaves its tag (Golan 7.11, as in sound mole) -->
+<script src="../shared/pic-exit.js"></script>   <!-- the new pictures of this game (Golan 29.10) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>if (!(window.FL && window.FL.learner)) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js" data-fl-hub="../../index.html"><\/script>');</script>
 <script>
@@ -519,7 +526,7 @@
   const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
     "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
     "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
-    "צ": ["צ", "plate", "painter", "parachutist", "turtle"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
+    "צ": ["plate", "painter", "parachutist", "turtle"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   const picsOf = (l) => PICS_OF[l] || [l];
   // sounds that sound alike never meet in one sky (spec sec 6): ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
   const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
@@ -1233,9 +1240,17 @@
     m._txt = SOUNDS[letter].syl; m._cur = cur; m._size = 0; m.classList.toggle("cur", cur);   // כתב יד only by "סוג כתב", only for a letter whose cursive is open (spec sec 6)
     m.classList.remove("show"); void m.offsetWidth; m.classList.add("show");
     clearTimeout(okT); okT = setTimeout(hideOk, 4200);
+    wakeOk(letter);
     placeOk();
   }
-  function hideOk() { clearTimeout(okT); $("sylMark").classList.remove("show"); }
+  function hideOk() { clearTimeout(okT); $("sylMark").classList.remove("show"); const w = $("wake"); if (w) { w.classList.remove("on"); w.innerHTML = ""; } }
+  // Golan 7.11: the picture that was found comes alive (pictures-animated) over its hanging tag, then leaves it (pic-exit)
+  function wakeOk(letter) {
+    const w = $("wake"), PA = window.PICTURES_ANIMATED, k = picFor(letter), a = PA && PA.svg && PA.svg[k]; if (!w) return;
+    if (!a) { w.classList.remove("on"); w.innerHTML = ""; return; }
+    w.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a}</svg>`; w.classList.add("on");
+    if (window.FL && FL.picExit) FL.picExit.play(w.firstElementChild, k, { dur: 1900, delay: 700, actx });
+  }
   function placeOk() {
     const m = $("sylMark"); if (!m.classList.contains("show")) return;
     const g = [...tags].reverse().find((t) => t.on && t.letter === okLetter);
@@ -1253,6 +1268,8 @@
     const mh = m.offsetHeight || size * 1.3, y = r.top - box.top + p.y * r.height / H;
     m.style.left = Math.round(x + side * (rad * 0.8 + 0.5 * (m.offsetWidth || size))) + "px";
     m.style.top = Math.round(Math.min(y + rad * 0.8 + 0.5 * mh, r.bottom - box.top - mh / 2 - 6)) + "px";
+    const wk = $("wake");
+    if (wk && wk.classList.contains("on")) { const d = Math.round(2 * rad); Object.assign(wk.style, { left: Math.round(x - d / 2) + "px", top: Math.round(y - d / 2) + "px", width: d + "px", height: d + "px" }); }
   }
   scene.onAfterRenderObservable.add(placeOk);
   // the cloud speakers: a tap says the picture's name; not an answer and not a mistake (spec sec 1, Golan 28.10 19:02)
