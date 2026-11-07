@@ -184,6 +184,7 @@
     { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
     { id: "soundmole", ac: "#a47148", name: "חֲפַרְפֶּרֶת הַצְּלִילִים", path: "games/sound-mole/index.html", bg: "#dff3ff", pic: "soundmole", isle: 1, noSystem: true },   // Golan 30.10: the letter mole with pictures (summaries/sound-mole-spec.md)
     { id: "river", ac: "#2f8fdc", name: "לַחֲצוֹת אֶת הַנָּהָר", path: "games/river/index.html", bg: "#dff3ff", pic: "river", isle: 1, noSystem: true },   // Golan 5.11: plan the bunny's path over the stones whose picture opens with the sound
+    { id: "stogether", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/sound-together/index.html", bg: "#dff3ff", pic: "stogether", isle: 1, adult: true, noSystem: true },   // Golan 6.11: the sound island's game for a child and an adult (the sound in the middle, 4 balloons with pictures)
   ];
   const isleOf = (g) => g.isle || 0;
   let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
@@ -226,6 +227,13 @@
       <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/></svg>`;
   }
   // חפרפרת הצלילים: the mole card's island, the moles hold pictures (בַּיִת, חָתוּל), the sound בַּ on a sign over them
+  function stogetherPic() {   // the sound island's "משחקים ביחד" card: a sound in the middle, 4 small balloons carrying picture cards around it
+    const P = window.PICTURES || {}, pic = (l, x, y, sz) => P[l] ? `<g transform="translate(${x - sz / 2} ${y - sz / 2}) scale(${sz / 1000})">${P[l].svg}</g>` : "";
+    const bal = (x, y, c, k) => `<g transform="translate(${x} ${y})"><ellipse cx="0" cy="-17" rx="9" ry="10.5" fill="${c}"/><path d="M-6 -9 L-3 -2 M6 -9 L3 -2" stroke="#6b4a2c" stroke-width="1"/><rect x="-4" y="-3" width="8" height="5" rx="1" fill="#a0703f"/><path d="M-3 2 L-7 6 M3 2 L7 6" stroke="#6b4a2c" stroke-width=".8"/><rect x="-11" y="5" width="22" height="22" rx="4" fill="#fffaf0" stroke="${c}" stroke-width="2.4"/>${pic(k, 0, 16, 19)}</g>`;
+    return `<svg viewBox="0 0 160 100"><ellipse cx="30" cy="80" rx="22" ry="8" fill="#fff"/><ellipse cx="128" cy="22" rx="20" ry="7" fill="#fff"/>
+      ${bal(24, 28, "#7c5cff", "ב")}${bal(136, 28, "#ff8a3d", "נ")}${bal(54, 64, "#2bb673", "ח")}${bal(106, 64, "#3da5ff", "א")}
+      <rect x="62" y="30" width="36" height="28" rx="8" fill="#fff" stroke="#e3e9f0" stroke-width="1.5"/><text x="80" y="52" text-anchor="middle" font-size="22" font-weight="800" fill="#1d2a3a" font-family="Noto Sans Hebrew, Arial">בַּ</text></svg>`;
+  }
   function riverPic() {   // the river game's card (Golan 5.11): a river with picture stones, the cream bunny on the bank, the ice cream across
     const P = window.PICTURES || {}, pic = (l, x, y, s) => P[l] ? `<g transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 1000})">${P[l].svg}</g>` : "";
     const stone = (x, y, k, c) => `<ellipse cx="${x}" cy="${y + 7}" rx="15" ry="5" fill="#9fd3f5"/><path d="M${x - 13} ${y + 6} Q${x - 14} ${y - 6} ${x} ${y - 7} Q${x + 14} ${y - 6} ${x + 13} ${y + 6} Q${x} ${y + 11} ${x - 13} ${y + 6} Z" fill="${c}" stroke="#6b5a4c" stroke-width="1.2"/><circle cx="${x}" cy="${y - 2}" r="9" fill="#fffaf2" stroke="#d9c7a8" stroke-width="1"/>${pic(k, x, y - 2, 15)}`;
@@ -301,8 +309,8 @@
       // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
-      const clip = g.id === "tellme" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? riverPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      const clip = g.id === "tellme" || g.id === "stogether" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? riverPic() : g.pic === "stogether" ? stogetherPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
@@ -338,15 +346,16 @@
   // 9 cards (Golan 21.10): the cards shrink until every row fits on the screen, no scrolling
   // Golan 21.10: bottom row, right to left: "משחקים ביחד" (always, in every station), the song, the letter circle
   const BOTTOM = ["tellme", "song", "circle"];
+  const slotOf = (id) => (id === "stogether" ? "tellme" : id);   // the sound island's "משחקים ביחד" takes the same bottom-right place (Golan 21.10 / 5.11)
   function placeCards(grid, cols) {
     const cards = [...grid.children], n = cards.length, rows = Math.ceil(n / cols), first = (rows - 1) * cols, inLast = n - first;
     // a short last row (standing phone, 2 columns): the song and the circle go in the row above it
     const spots = inLast >= 3 ? { tellme: first, song: first + Math.floor((inLast - 1) / 2), circle: n - 1 } : { tellme: first, song: first - cols, circle: first - 1 };
-    const fixed = BOTTOM.filter((id) => cards.some((c) => c.dataset.id === id));
+    const fixed = BOTTOM.filter((id) => cards.some((c) => slotOf(c.dataset.id) === id));
     const taken = new Set(fixed.map((id) => spots[id]));
     let k = 0;
     for (const c of cards) {
-      if (fixed.includes(c.dataset.id)) { c.style.order = spots[c.dataset.id]; continue; }
+      if (fixed.includes(slotOf(c.dataset.id))) { c.style.order = spots[slotOf(c.dataset.id)]; continue; }
       while (taken.has(k)) k++;
       c.style.order = k++;
     }
