@@ -15,24 +15,28 @@
     tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
     duck: ["waddle", -1], turtle: ["plod", 1],
     // people
-    girl: ["run", 1], pilot: ["plane", 1], dancer: ["pirouette", 1], parachutist: ["parachute", -1], chef: ["walk", -1],
+    girl: ["twirl", 1],   // Golan 7.11: "the girl turns slowly, one turn, in 3D" as she leaves
+    pilot: ["plane", 1], dancer: ["dance", 1],   // Golan 7.11: she dances on her way out (little hops, arms moving) and turns round in 3D
+    parachutist: ["parachute", -1], chef: ["walk", -1],
     painter: ["walk", 1], firefighter: ["walk", -1], gnome: ["walk", -1],
     // transport
     "ר": ["drive", 1], ambulance: ["drive", -1], spaceship: ["fly", -1], drone: ["up", 1],
     // things that roll, float or blow away
     wheel: ["roll", -1], buttons: ["roll", 1], "כ": ["bounce", 1], ring: ["grab", 1], plate: ["roll", 1], watermelon: ["roll", -1], orange: ["roll", 1],
-    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
+    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], windmill: ["up", 1], stream: ["flow", 1], fence: ["sink", 1],   // Golan 7.11: the places leave too: the windmill flies off on its sails, the stream flows away down, the fence sinks into the ground
+    "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
     bottle: ["hop", 1], banana: ["hop", -1],
   };
   // Golan 7.11 (2nd ask): every exit stays INSIDE its card, like the hot-air balloon on the memory game's hint card (memRise):
   // the card clips the picture, which moves on its own path until it has passed the card's edge, so it disappears bit by bit
   // as it goes out. Slower than before (SLOW multiplies every length, also a game's own dur). It starts gently and speeds up.
   const SLOW = 1.5;
-  const DUR = { plod: 3400, grab: 2800, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2200, roll: 2600, bounce: 2600 };   // the rest 2400; a game passes its own dur
+  const DUR = { dance: 4200, twirl: 3400, wind: 3200, plod: 3400, grab: 2800, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2200, roll: 2600, bounce: 2600 };   // the rest 2400; a game passes its own dur
   const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n, i));
   const fade = (t) => (t > 0.96 ? 0 : 1);   // no fade on the way: the card's edge hides it; only made invisible at the very end
   const S = (n, fn) => steps(n, (t, i) => ({ transform: fn(t, i), opacity: fade(t) }));
   const E = 120;   // how far (in % of the picture box) it travels: past the card's edge
+  const GRAB_ANG = 35, GRAB_DX = 1.2 * Math.sin(GRAB_ANG * Math.PI / 180), GRAB_DY = 1.2 * Math.cos(GRAB_ANG * Math.PI / 180);   // the hand's slant and its way in/out
   const FRAMES = {
     drive: (X) => S(14, (t) => `translateX(${X(t < 0.12 ? -3 * t / 0.12 : -3 + Math.pow((t - 0.12) / 0.88, 1.6) * (E + 3))})`),
     walk: (X, d) => S(18, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -3 : 0}%) rotate(${i % 2 ? d * 3 : 0}deg)`),
@@ -44,19 +48,26 @@
     up: (X, d) => S(14, (t) => `translate(${X(t * t * 25)}, ${-t * t * E}%) rotate(${d * 6 * t}deg)`),
     roll: (X, d) => S(16, (t) => `translateX(${X(t * t * E)}) rotate(${d * t * t * 600}deg)`),
     bounce: (X, d) => S(14, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -14 * (1 - t) : 0}%) rotate(${d * t * 360}deg)`),
-    pirouette: (X) => S(28, (t) => `translate(${X(t * 115)}, ${-5 * Math.sin(t * Math.PI)}%) scaleX(${Math.cos(t * Math.PI * 7).toFixed(3)})`),
+    pirouette: (X) => S(48, (t) => `translate(${X(t * 115)}, ${-5 * Math.sin(t * Math.PI)}%) perspective(700px) rotateY(${(t * 4 * 360).toFixed(0)}deg) rotateZ(${(Math.sin(t * Math.PI * 8) * 3).toFixed(1)}deg)`),   // Golan 7.11: turns round in 3D (perspective), not a flat flip
     parachute: (X) => S(16, (t) => `translate(${X(t * 100)}, ${t * 115}%) rotate(${(Math.sin(t * Math.PI * 3) * 8).toFixed(1)}deg)`),   // down and to the corner
-    wind: (X) => S(18, (t) => `translate(${X(t * t * 105)}, ${-t * 80 + Math.sin(t * Math.PI * 4) * 6}%) rotate(${(Math.sin(t * Math.PI * 5) * 30).toFixed(1)}deg)`),
+    wind: (X) => S(24, (t) => { if (t < 0.3) return `rotate(${(Math.sin(t * 60) * 4).toFixed(1)}deg)`;   // Golan 7.11: first the wind blows on it (it shivers), then it pushes it straight to the side
+      const u = (t - 0.3) / 0.7; return `translate(${X(u * u * 125)}, ${(Math.sin(u * Math.PI * 4) * 2).toFixed(1)}%) rotate(${(Math.sin(u * Math.PI * 5) * 8).toFixed(1)}deg)`; }),
     float: (X) => S(14, (t) => `translate(${X(Math.sin(t * Math.PI * 2) * 6)}, ${-t * t * E}%) rotate(${(Math.sin(t * Math.PI * 2) * 5).toFixed(1)}deg)`),
+    dance: (X) => S(48, (t) => `translate(${X(t * 115)}, ${(-6 * Math.abs(Math.sin(t * Math.PI * 6))).toFixed(1)}%) perspective(700px) rotateY(${(t * 720).toFixed(0)}deg) rotateZ(${(Math.sin(t * Math.PI * 6) * 5).toFixed(1)}deg)`),
+    twirl: (X) => S(36, (t) => `translate(${X(t * 115)}, ${-4 * Math.sin(t * Math.PI)}%) perspective(700px) rotateY(${(t * 360).toFixed(0)}deg)`),
+    flow: () => S(14, (t) => `translateY(${(t * t * E).toFixed(1)}%)`),
+    sink: (X) => S(24, (t, i) => `translate(${X(i % 2 ? 1.2 : -1.2)}, ${(t * t * E).toFixed(1)}%)`),
     plod: (X, d) => S(20, (t, i) => `translate(${X(t * 115)}, ${i % 2 ? -1.5 : 0}%) rotate(${i % 2 ? d * 2 : -d}deg)`),
     plane: (X, d) => S(18, (t) => { const run = Math.min(t / 0.45, 1), up = Math.max(0, (t - 0.35) / 0.65);
       return `translate(${X(run * run * 30 + up * 90)}, ${-up * up * 100}%) rotate(${-d * Math.min(up * 3, 1) * 12}deg)`; }),
     // Golan 7.11: "a hand comes into the card, takes the ring, and goes out" (ring + diamond): the picture waits for the hand,
     // gives a little squeeze, then is carried up and out through the card's top edge (the card clips it; the hand is added in play())
-    grab: () => [{ transform: "translateY(0)", offset: 0 }, { transform: "translateY(0)", offset: 0.4 }, { transform: "translateY(1%) scale(.96,.92)", offset: 0.48 },
-      { transform: "translateY(0) scale(1)", offset: 0.56 }, { transform: "translateY(-110%)", opacity: 1, offset: 0.97 }, { transform: "translateY(-110%)", opacity: 0, offset: 1 }],
+    // Golan 7.11: the hand comes in from the card's TOP CORNER (on the exit side), not straight from above, and leaves back that way with it
+    grab: (X) => [{ transform: "translate(0, 0)", offset: 0 }, { transform: "translate(0, 0)", offset: 0.4 }, { transform: "translate(0, 1%) scale(.96,.92)", offset: 0.48 },
+      { transform: "translate(0, 0) scale(1)", offset: 0.56 }, { transform: `translate(${X(GRAB_DX * 100)}, ${-GRAB_DY * 100}%)`, opacity: 1, offset: 0.97 }, { transform: `translate(${X(GRAB_DX * 100)}, ${-GRAB_DY * 100}%)`, opacity: 0, offset: 1 }],
   };
-  const LINEAR = new Set(["drive", "fly", "up", "roll", "plod", "plane", "grab", "walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
+  const NO_SHADOW = new Set(["dance", "twirl", "up", "flow", "sink", "roll", "bounce", "wind", "pirouette", "float", "grab"]);
+  const LINEAR = new Set(["dance", "twirl", "flow", "sink", "drive", "fly", "up", "roll", "plod", "plane", "grab", "walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
 
   // ---- the sounds (from sound-wheel's exitSound) ----
   let noiseBuf = null;
@@ -126,17 +137,19 @@
     `<path d="M52,140 Q42,200 58,232 L142,232 Q158,200 148,140Z" fill="#FFD9B8"/>` +
     `<rect x="54" y="196" width="24" height="78" rx="12" fill="#FFD9B8"/><rect x="80" y="200" width="24" height="88" rx="12" fill="#FFD9B8"/>` +
     `<rect x="106" y="200" width="24" height="86" rx="12" fill="#FFD9B8"/><rect x="132" y="196" width="22" height="72" rx="11" fill="#FFD9B8"/></g></svg>`;
-  function hand(el, dur, delay) {   // inside the picture's own container (it clips), so the hand comes in from the card's top edge
+  function hand(el, dur, delay, d) {   // inside the picture's own container (it clips), so the hand comes in from the card's top corner
     const go = () => {
       const box = el.parentElement, r = el.getBoundingClientRect(); if (!box || !r.width) return;   // (an <svg> has no offsetWidth)
       if (getComputedStyle(box).position === "static") box.style.position = "relative";
-      const br = box.getBoundingClientRect(), w = r.width, hgt = r.height, H = hgt * 0.9, h = document.createElement("div");
+      const br = box.getBoundingClientRect(), w = r.width, hgt = r.height, H = hgt * 0.9, W = w * 0.6, h = document.createElement("div");
       const x0 = r.left - br.left - box.clientLeft + box.scrollLeft, y0 = r.top - br.top - box.clientTop + box.scrollTop;
-      h.style.cssText = `position:absolute;left:${x0 + w * 0.2}px;top:${y0 - hgt * 0.25}px;width:${w * 0.6}px;height:${H}px;z-index:5;pointer-events:none`;
+      // the fingertips (50% 90% of the hand) rest on the top of the picture; the arm slants up towards the corner on the exit side
+      h.style.cssText = `position:absolute;left:${x0 + w * 0.5 - W / 2}px;top:${y0 + hgt * 0.42 - H * 0.9}px;width:${W}px;height:${H}px;z-index:5;pointer-events:none;transform-origin:50% 90%`;
       h.innerHTML = HAND; box.append(h);
-      const up = -hgt * 1.1;   // the same distance the picture goes (grab frames: -110% of its own height): out through the top
-      const an = h.animate([{ transform: `translateY(${-hgt * 0.75}px)`, offset: 0 }, { transform: "translateY(0)", offset: 0.4, easing: "ease-out" }, { transform: "translateY(0)", offset: 0.56 },
-        { transform: `translateY(${up}px)`, opacity: 1, offset: 0.97 }, { transform: `translateY(${up}px)`, opacity: 0, offset: 1 }], { duration: dur, easing: "linear", fill: "forwards" });
+      const rot = `rotate(${d * GRAB_ANG}deg)`, dx = d * GRAB_DX * w, dy = -GRAB_DY * hgt;   // the same way the picture goes (grab frames)
+      const at = (k) => `translate(${dx * k}px, ${dy * k}px) ${rot}`;
+      const an = h.animate([{ transform: at(1), offset: 0 }, { transform: at(0), offset: 0.4, easing: "ease-out" }, { transform: at(0), offset: 0.56 },
+        { transform: at(1), opacity: 1, offset: 0.97 }, { transform: at(1), opacity: 0, offset: 1 }], { duration: dur, easing: "linear", fill: "forwards" });
       an.onfinish = an.oncancel = () => h.remove();
     };
     if (delay) setTimeout(go, delay); else go();
@@ -150,12 +163,15 @@
     const go = () => {
       if (!el.isConnected) return;
       // Golan 7.11: no sounds with the exits (sound() is kept but not played)
-      el.classList.add("pa-exit");   // Golan 7.11: the character moves its own body on the way out (pictures-animated "exit" motions: legs run, feet step...)
+      el.classList.add("pa-exit");
+      // Golan 7.11: "the buttons should turn without the shadow": for things that turn or blow away, the ground shadow stays out of it
+      const shade = NO_SHADOW.has(kind) && el.querySelector('ellipse[fill="#000"]');
+      if (shade) { shade.style.transition = "opacity .25s"; shade.style.opacity = "0"; }   // Golan 7.11: the character moves its own body on the way out (pictures-animated "exit" motions: legs run, feet step...)
       const an = (el._flExit = el.animate(frames, { duration: dur, easing: LINEAR.has(kind) ? "linear" : "ease-in", fill: "forwards" }));
       an.onfinish = () => { if (el._flExit === an) el._flExit = null; if (opt.onDone) opt.onDone(); };
-      an.oncancel = () => { el.classList.remove("pa-exit"); if (el._flExit === an) el._flExit = null; };
+      an.oncancel = () => { el.classList.remove("pa-exit"); if (shade) shade.style.opacity = ""; if (el._flExit === an) el._flExit = null; };
     };
-    if (kind === "grab") hand(el, dur, delay);
+    if (kind === "grab") hand(el, dur, delay, d);
     if (delay) setTimeout(go, delay); else go();
     return true;
   }
