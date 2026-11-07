@@ -549,15 +549,25 @@
   const START_Z = -SP * 0.93, BANK_EDGE = -SP * 0.68;   // the start (Golan 6.11 19:24: closer to the water)
   const colX = (c) => (c - (COLS - 1) / 2) * SP, rowZ = (r) => r * SP;
   const water = BABYLON.MeshBuilder.CreateGround("water", { width: 90, height: 140 }, scene);
-  // Golan 7.11: waves on the river: soft light crests on the blue, tiled and flowing slowly
-  const waveTex = new BABYLON.DynamicTexture("waves", { width: 512, height: 512 }, scene, true);
-  { const c = waveTex.getContext(); c.fillStyle = "#2a7fb2"; c.fillRect(0, 0, 512, 512);
-    for (let k = 0; k < 26; k++) { const x = (k * 197) % 512, y = (k * 113) % 512, w = 70 + (k % 4) * 22;
-      for (const dx of [-512, 0, 512]) for (const dy of [-512, 0, 512]) {
-        c.beginPath(); c.moveTo(x + dx - w / 2, y + dy); c.quadraticCurveTo(x + dx, y + dy - 14, x + dx + w / 2, y + dy);
-        c.strokeStyle = k % 3 ? "rgba(190,228,255,.55)" : "rgba(255,255,255,.75)"; c.lineWidth = k % 3 ? 5 : 7; c.lineCap = "round"; c.stroke(); } }
+  // Golan 7.11: waves on the river: few, big, long crests over broad swells, flowing along the river (left to right)
+  const waveTex = new BABYLON.DynamicTexture("waves", { width: 1024, height: 512 }, scene, true);
+  { const c = waveTex.getContext(), W = 1024, H = 512; c.fillStyle = "#2a7fb2"; c.fillRect(0, 0, W, H);
+    // broad soft swells: lighter and darker bands across the whole tile (seamless: whole sine periods)
+    for (let y = 0; y < H; y += 2) { const v = Math.sin(y / H * Math.PI * 2 * 4) * 0.5 + Math.sin(y / H * Math.PI * 2 * 7 + 1) * 0.3;
+      c.fillStyle = v > 0 ? `rgba(120,200,240,${(v * 0.3).toFixed(3)})` : `rgba(10,60,110,${(-v * 0.28).toFixed(3)})`; c.fillRect(0, y, W, 2); }
+    // long crests: gentle curves, each one hundreds of pixels long, drawn three times across the edges so the tile repeats
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let k = 0; k < 16; k++) {
+      const x0 = rnd() * W, y0 = rnd() * H, len = 300 + rnd() * 500, amp = 10 + rnd() * 14, wl = 180 + rnd() * 160, ph = rnd() * 6.3, big = k % 3 === 0;
+      for (const dx of [-W, 0, W]) for (const dy of [-H, 0, H]) {
+        c.beginPath();
+        for (let t = 0; t <= len; t += 8) { const x = x0 + dx + t, y = y0 + dy + Math.sin(t / wl * Math.PI * 2 + ph) * amp; t ? c.lineTo(x, y) : c.moveTo(x, y); }
+        const g = c.createLinearGradient(x0 + dx, 0, x0 + dx + len, 0); const a = big ? 0.8 : 0.5;
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.25, `rgba(235,248,255,${a})`); g.addColorStop(0.75, `rgba(235,248,255,${a})`); g.addColorStop(1, "rgba(255,255,255,0)");
+        c.strokeStyle = g; c.lineWidth = big ? 26 : 16; c.lineCap = "round"; c.stroke();
+      } }
     waveTex.update(true); }
-  waveTex.wrapU = waveTex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; waveTex.uScale = 9; waveTex.vScale = 14;
+  waveTex.wrapU = waveTex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; waveTex.uScale = 1.4; waveTex.vScale = 2.6;
   { const wm = new BABYLON.StandardMaterial("waterMat", scene); wm.diffuseTexture = waveTex; wm.emissiveColor = new BABYLON.Color3(0.08, 0.1, 0.12); wm.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2); water.material = wm; }
   water.position.z = 20; water.isPickable = false;
   const waterDeep = BABYLON.MeshBuilder.CreateGround("deep", { width: 90, height: 140 }, scene);   // a darker band under the far water (depth)
@@ -822,19 +832,19 @@
   let runIdx = -1, badIdx = -1;
   const canEdit = () => state.mode === "plan" && !!state.q;
   function renderPlan() {
-    const el = $("steps"), sig = plan.join("");
+    const el = $("steps"), sig = plan.join("") + "/" + needN() + "/" + (state.q ? state.q.id : 0);   // Golan 7.11: a new river = new dashed squares (its own number of moves)
     if (el._sig !== sig) {   // rebuilt only when the plan changed (a new arrow pops in; the others stay still)
-      const old = el._sig || "";
+      const old = (el._sig || "").split("/")[0], same = (el._sig || "").split("/").slice(1).join("/") === sig.split("/").slice(1).join("/");
       el.innerHTML = plan.map((k, i) => `<button class="st c-${k}" type="button" data-i="${i}" aria-label="${{ F: "יָשָׁר", J: "קְפִיץ", L: "שְׂמֹאלָה", R: "יָמִינָה" }[k]}">${ICONS[k]}</button>`).join("") +
         (plan.length < needN() ? '<span class="ghost"></span>'.repeat(needN() - plan.length) : "");
       const f0 = el.querySelector('.st[data-i="0"]'); if (f0) { f0.classList.add("fixed"); f0.disabled = true; }
-      [...el.querySelectorAll(".st")].forEach((b, i) => { if (sig.startsWith(old) && i < old.length) b.style.animation = "none"; });
+      [...el.querySelectorAll(".st")].forEach((b, i) => { if (same && plan.join("").startsWith(old) && i < old.length) b.style.animation = "none"; });
       el._sig = sig; sizeSteps();
     }
     [...el.querySelectorAll(".st")].forEach((b, i) => { b.classList.toggle("now", i === runIdx); b.classList.toggle("done", runIdx >= 0 && i < runIdx); b.classList.toggle("bad", i === badIdx); });
     const edit = canEdit() && !state.demo;
     $("goBtn").disabled = plan.length < 2 || !canEdit();
-    $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= state.q.P.cmds.length);
+    $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= needN());
     document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit()));
     $("eraseBtn").disabled = plan.length < 2 || !canEdit() || state.demo;
   }
@@ -1148,6 +1158,7 @@
     raiseStones(); placeBunnyStart(q);
     // after 3 wrong runs the right stones glow (as the sound detective's help after 3 mistakes); the star is then silver
     if (q.fails >= 3 && !q.hint) { q.hint = true; for (const st of stones) if (st.type === "good") st.plate.material = picMat(st.pic, true); }
+    resetPlan(); badIdx = -1;   // Golan 7.11: after a mistake the arrows are cleared, a fresh path from the start
     state.mode = "plan"; renderPlan();
     if (q.demo) return;
     if (HG && HG.done()) return finale();
@@ -1447,7 +1458,7 @@
     // the ripples breathe, and an idle bunny bobs a little
     for (const st of stones) { const s = 1 + Math.sin(T * 1.6 + st.ph) * 0.05; st.rip.scaling.set(s, 1, s);
       st.fl.position.y = Math.sin(T * 1.25 + st.ph) * 0.05; st.fl.rotation.x = Math.sin(T * 1.05 + st.ph * 1.7) * 0.035; st.fl.rotation.z = Math.sin(T * 0.85 + st.ph) * 0.035; }
-    waveTex.vOffset = (T * 0.035) % 1; waveTex.uOffset = Math.sin(T * 0.2) * 0.02;   // Golan 7.11: the river's waves flow
+    waveTex.uOffset = -(T * 0.018) % 1; waveTex.vOffset = Math.sin(T * 0.35) * 0.012;   // Golan 7.11: the river flows along its length, with a slow rise and fall
     if (bunny.ring.isEnabled()) { bunny.ring.position.set(bunny.root.position.x, 0.03, bunny.root.position.z); const s = 1 + Math.sin(T * 4) * 0.08; bunny.ring.scaling.set(s, 1, s); }
     if (!tasks.length && ["plan", "intro", "ready", "between", "end"].includes(state.mode)) { bunny.hop.scaling.y = 1 + Math.sin(T * 2.4) * 0.025; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(T * 1.7 + e.s) * 0.04))); }
     { const q = state.q, show = !!q && !["intro", "end"].includes(state.mode);   // Golan 6.11 19:46: it stays during the run too
