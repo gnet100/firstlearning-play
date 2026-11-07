@@ -407,6 +407,7 @@
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <script src="letters.js"></script>
 <script src="pictures.js"></script>
+<script src="../sound-detective/sound-pictures.js"></script>   <!-- more pictures for 11 letters (Golan 7.11: the new pictures in every game) -->
 <script src="new-lines.js"></script>
 <script src="letters-animated/letters-animated.js"></script>
 <script src="../shared/letter-pairs.js"></script>
@@ -466,6 +467,18 @@
   // ---------- content (draft – for the language thread to check) ----------
   const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת", "ך", "ם", "ן", "ף", "ץ"];   // 17.10: the 5 finals too (Golan: "סופיות" in every game)
   const hasPic = (l) => !!window.PICTURES[l];
+  // Golan 7.11: for these letters the picture changes between 5 words (the sound games' pictures); each time a letter's
+  // picture is shown, the next one in turn (kept per device). Every word begins with its letter.
+  const WAKE_PICS = { "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["ג", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"],
+    "ט": ["ט", "ring", "chef", "pilot", "windmill"], "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"],
+    "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"], "צ": ["צ", "plate", "painter", "parachutist"],
+    "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
+  function pickPic(l) {
+    const list = (WAKE_PICS[l] || [l]).filter((k) => window.PICTURES[k] && window.PICTURES[k].svg); if (list.length < 2) return l;
+    let i = 0; try { i = (parseInt(localStorage.getItem("fl_wake_pic_" + l), 10) + 1) || 0; localStorage.setItem("fl_wake_pic_" + l, String(i % list.length)); } catch (e) { i = Math.floor(Math.random() * list.length); }
+    return list[i % list.length];
+  }
+  const picOf = (l) => window.PICTURES[(l === state.letter && state.pic) || l];
   const FINALS = ["ך", "ם", "ן", "ף", "ץ"], FIN_BASE = { "ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ" };
   // "החלטת מערכת" takes a final only after its base letter is familiar ("מוכרת" or better; practice-set-size.md sec 9)
   const finalReady = (l) => { if (!FINALS.includes(l)) return true; try { const c = LRN.card(FIN_BASE[l]); const st = c && (c.recognize ? c.recognize.state : c.state); return st === "almost" || st === "known" || st === "fluent"; } catch (e) { return false; } };
@@ -1206,7 +1219,7 @@
     $("target").style.fontFamily = letter && state.cur ? CURSIVE : ""; $("target").style.fontWeight = letter && state.cur ? "400" : ""; }
   // a final letter's word: the final at its end is marked (language thread 17.10, finals-words-review.md)
   function setWord(l) {
-    const w = window.PICTURES[l].word, i = w.lastIndexOf(l);
+    const w = picOf(l).word, i = w.lastIndexOf(l);
     setPrompt(w, "");
     if (FINALS.includes(l) && i >= 0) { const lab = $("label"); lab.textContent = w.slice(0, i); const m = document.createElement("span"); m.className = "fin-mark"; m.textContent = w.slice(i); lab.append(m); }
   }
@@ -1262,7 +1275,7 @@
       const v = VISIT.next({ suggest: () => nextRoundLetter(), pool: roundCands() });
       state.letter = v.letter; state.listen = v.listen;   // a listening item: one find by ear, no picture and no letter shown
     } else state.letter = nextRoundLetter();
-    state.letterFinds = 0; state.streak = 0; state.letterWrongs = 0; state.q = null;
+    state.letterFinds = 0; state.streak = 0; state.letterWrongs = 0; state.q = null; state.pic = null;
     state.cur = !state.listen && cursiveFor(state.letter);   // the whole round of this letter in print or in cursive (Golan 24.10)
     clearTags();   // a new letter: the balloon without the letters found before (Golan 19.10)
     if (state.listen) askFind(); else askPic();
@@ -1285,7 +1298,7 @@
   }
   // the word under the picture, the letter in it marked (the first letter; a final letter at the end of the word)
   function wordHtml(l) {
-    const w = window.PICTURES[l].word, at = FINALS.includes(l) ? w.lastIndexOf(l) : w.indexOf(l);
+    const w = picOf(l).word, at = FINALS.includes(l) ? w.lastIndexOf(l) : w.indexOf(l);
     if (at < 0) return w;
     let end = at + 1; while (end < w.length && /[\u0591-\u05C7]/.test(w[end])) end++;   // the letter with its nikud
     return w.slice(0, at) + '<span class="hit">' + w.slice(at, end) + "</span>" + w.slice(end);
@@ -1327,11 +1340,11 @@
     markSeen(state.letter);
     later(woke ? 300 : 1300, () => {
       $("magic").classList.remove("solo");   // the letter moves aside (CSS transition) and the picture comes in
-      $("mPic").innerHTML = window.PICTURES[state.letter].svg || ""; flash($("magicSvg"), "in");
+      state.pic = pickPic(state.letter); $("mPic").innerHTML = picOf(state.letter).svg || ""; flash($("magicSvg"), "in");
       $("mWord").innerHTML = wordHtml(state.letter); $("mWord").hidden = false;
       later(450, () => {
         flash($("mWord").querySelector(".hit") || $("mWord"), "grow"); const growEnd = performance.now() + 4100;
-        say(window.PICTURES[state.letter].clip, 0.8);
+        say(picOf(state.letter).clip, 0.8);
         whenQuiet(() => later(Math.max(1300, growEnd - performance.now()), () => {   // the growing letter ends before the picture goes
           state.qIndex++; renderDots();
           magic.leave = 0;   // the picture and the letter float up, then the finding starts
