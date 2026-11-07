@@ -896,6 +896,17 @@
     b.cTex.update(true);
   }
   const balloons = [0, 1, 2, 3].map(makeBalloon);
+  // Golan 7.11: on a right answer confetti stars fly out of the card (its frame lights up gold), as in the sound mole
+  const starTex = new BABYLON.DynamicTexture("starTex", { width: 64, height: 64 }, scene, false);
+  { const c = starTex.getContext(); c.fillStyle = "#fff"; c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 12 : 30; c.lineTo(32 + rr * Math.cos(a), 32 + rr * Math.sin(a)); } c.closePath(); c.fill(); starTex.update(); starTex.hasAlpha = true; }
+  const confetti = new BABYLON.ParticleSystem("confetti", 160, scene);
+  confetti.particleTexture = starTex; confetti.emitter = new BABYLON.Vector3(0, -50, 0);
+  confetti.minEmitBox = new BABYLON.Vector3(-1, -1, 0); confetti.maxEmitBox = new BABYLON.Vector3(1, 1, 0);
+  confetti.color1 = new BABYLON.Color4(1, 0.78, 0.1, 1); confetti.color2 = new BABYLON.Color4(1, 0.3, 0.45, 1); confetti.colorDead = new BABYLON.Color4(0.3, 0.6, 1, 0.6);
+  confetti.minSize = 0.4; confetti.maxSize = 0.75; confetti.minLifeTime = 0.9; confetti.maxLifeTime = 1.5; confetti.emitRate = 0; confetti.manualEmitCount = 0;
+  confetti.direction1 = new BABYLON.Vector3(-5, 5, -1); confetti.direction2 = new BABYLON.Vector3(5, 10, -0.2); confetti.minEmitPower = 0.8; confetti.maxEmitPower = 1.5;
+  confetti.gravity = new BABYLON.Vector3(0, -9, 0); confetti.minAngularSpeed = -4; confetti.maxAngularSpeed = 4; confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; confetti.start();
+  function cheer(b) { const at = b.card.getAbsolutePosition(), k = b.root.scaling.x || 1; confetti.minEmitBox.set(-CARD * 0.45 * k, -CARD * 0.45 * k, 0); confetti.maxEmitBox.set(CARD * 0.45 * k, CARD * 0.45 * k, 0); confetti.emitter = new BABYLON.Vector3(at.x, at.y, at.z - 0.3); confetti.manualEmitCount = 60; }
 
   // ---------- small animation runner (frozen while the game waits; the speed slider moves it too) ----------
   let tasks = [], animTok = 0;
@@ -1005,7 +1016,7 @@
   // a balloon flies up and away (the other three after a right answer, or a wrong picture touched twice)
   function flyAway(b, delay = 0) {
     b.state = "away";
-    return wait(delay).then(() => { const y0 = b.y, x0 = b.x, drift = (b.x >= 0 ? 1 : -1) * 0.8 * bScale; return tween(1.5, (e) => { b.y = lerp(y0, offY() + 2, easeIn(e)); b.x = x0 + drift * e; }); })
+    return wait(delay).then(() => { const y0 = b.y, x0 = b.x, drift = (b.x >= 0 ? 1 : -1) * 0.8 * bScale; return tween(2.8, (e) => { b.y = lerp(y0, offY() + 2, (easeIn(e) + e) / 2); b.x = x0 + drift * e; }); })   // slower (Golan 7.11)
       .then(() => { if (b.state === "away") { b.state = "off"; b.root.setEnabled(false); } });
   }
   function shake(b) { b.state = "shake"; const x0 = slots[b.slot] ? slots[b.slot].x : b.x; return tween(0.5, (e) => { b.x = x0 + Math.sin(e * Math.PI * 6) * 0.25 * bScale * (1 - e); }).then(() => { if (b.state === "shake") b.state = "hover"; }); }
@@ -1037,8 +1048,8 @@
     const r = $("mid"); r.classList.remove("yay"); void r.offsetWidth; r.classList.add("yay");
     const kind = q.mistakes ? "silver" : "gold";
     if (!demo) { recordQ(q, true); state.starKinds.push(kind); state.stars = state.starKinds.length; if (starCount) starCount.add(kind); }
-    // Golan 7.11: the card's picture comes alive while Hila says the sound and the picture's word; only then do the balloons fly up
-    wakeUp(b);
+    // Golan 7.11: the card lights up with confetti stars while Hila says the sound and the picture's word; only then do the balloons fly up
+    cheer(b);   // Golan 7.11: no second card over the picture; its frame lights up and confetti stars fly from it
     playSeq([SOUNDS[q.letter].s, 200, wordOf(b.pic)], 1, () => {
       if (state.q !== q) return;
       sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
@@ -1066,7 +1077,7 @@
   // 3 mistakes: the right picture lights up, Hila says the sound and the picture's name, the others fly away; no star
   function autoSolve(q) {
     if (q.done) return; q.done = true; q.hint = true; setJudge(false);
-    const b = rightBalloon(); b.glow = true; drawCard(b); wakeUp(b);
+    const b = rightBalloon(); b.glow = true; drawCard(b); cheer(b);
     if (!q.demo) recordQ(q, false);
     sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
     playSeq([500, SOUNDS[q.letter].s, 300, wordOf(b.pic)], 1, () => { if (state.q !== q) return; later(() => { if (state.q === q) flyAway(b).then(() => afterQuestion(q)); }, 500); });

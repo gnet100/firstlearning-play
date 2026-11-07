@@ -868,6 +868,14 @@
   sparks.color1 = new BABYLON.Color4(1, 0.95, 0.5, 1); sparks.color2 = new BABYLON.Color4(1, 0.8, 0.2, 1); sparks.colorDead = new BABYLON.Color4(1, 1, 1, 0);
   sparks.minSize = 0.18; sparks.maxSize = 0.36; sparks.minLifeTime = 0.4; sparks.maxLifeTime = 0.8; sparks.emitRate = 0;
   sparks.direction1 = new BABYLON.Vector3(-0.5, 1, -0.5); sparks.direction2 = new BABYLON.Vector3(0.5, 2, 0.5); sparks.minEmitPower = 0.3; sparks.maxEmitPower = 0.8;
+  // Golan 7.11: gold stars burst out of the right mole's sign (instead of a second, waking picture)
+  const stars = new BABYLON.ParticleSystem("stars", 60, scene);
+  stars.particleTexture = sparkTex; stars.emitter = new BABYLON.Vector3(0, -50, 0);
+  stars.minEmitBox = new BABYLON.Vector3(-0.35 * S, -0.3 * S, 0); stars.maxEmitBox = new BABYLON.Vector3(0.35 * S, 0.3 * S, 0);
+  stars.color1 = new BABYLON.Color4(1, 0.88, 0.25, 1); stars.color2 = new BABYLON.Color4(1, 0.97, 0.6, 1); stars.colorDead = new BABYLON.Color4(1, 0.9, 0.4, 0);
+  stars.minSize = 0.28; stars.maxSize = 0.5; stars.minLifeTime = 0.7; stars.maxLifeTime = 1.2; stars.emitRate = 0; stars.manualEmitCount = 0;
+  stars.direction1 = new BABYLON.Vector3(-2.5, 2, -1); stars.direction2 = new BABYLON.Vector3(2.5, 4.5, -0.3); stars.minEmitPower = 0.8; stars.maxEmitPower = 1.6;
+  stars.gravity = new BABYLON.Vector3(0, -3, 0); stars.minAngularSpeed = -3; stars.maxAngularSpeed = 3; stars.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; stars.start();
   sparks.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; sparks.start();
 
   // ---------- fitting the island into the free part of the screen ----------
@@ -1160,11 +1168,11 @@
   const overIsland = (e) => { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = hammer.offsetWidth || 120;
     if (moleAt(x, y)) return true;
     return HAMMER_RING.some(([dx, dy]) => (scene.pick(x + dx * w, y + dy * w, islandPick) || {}).hit); };
-  const moveHammer = (e) => { const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); if (!on) hammer.classList.remove("hit"); canvas.classList.toggle("hammering", on);
+  const moveHammer = (e) => { if (state.demo) return; const on = hammerOn() && overIsland(e); hammer.classList.toggle("show", on); if (!on) hammer.classList.remove("hit"); canvas.classList.toggle("hammering", on);
     if (on) hammer.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; };
   canvas.addEventListener("pointermove", moveHammer);
   hammer.addEventListener("animationend", () => hammer.classList.remove("hit"));   // otherwise coming back over the island replays the knock (Golan 28.10)
-  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hammer.classList.remove("show", "hit"); });
+  canvas.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse" && !state.demo) hammer.classList.remove("show", "hit"); });
   // Golan 5.11: the whole hammer head counts, from one striking face to the other, not only its middle;
   // so a knock with the end of the hammer on the mole's head is a knock on that mole
   function headMole(r) {
@@ -1214,15 +1222,24 @@
     q.auto = true; q.locked = true; q.hint = true; r.hint = true; drawSign(r, r.pic, true);
     setTimeout(() => { if (state.q === q && !q.done && r.letter === q.letter && r.state !== "off") { hammerAt(r); found(r, q, true); } else if (state.q === q && !q.done) autoSolve(q); }, 1100);
   }
+  // Golan 7.11: in the demo the hammer waits at the side of the island the whole time; after the arrow it goes to the mole, knocks it and comes back
+  function hammerRest(anim) {
+    if (!state.demo) return;
+    const r = canvas.getBoundingClientRect(), b = document.body.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width) || 1;
+    const x = (r.right - b.left) / k - canvas.clientWidth * 0.1, y = (r.top - b.top) / k + canvas.clientHeight * 0.66;
+    hammer.style.transition = anim ? "transform .75s ease-in-out" : "none"; hammer.style.transform = `translate(${x}px, ${y}px)`;
+    hammer.classList.remove("hit"); hammer.classList.add("show");
+  }
   // the hammer knocks a mole by itself (auto-solve, the demo)
   // fly (the demo, Golan 5.11): the hammer first flies in from the bottom right to the mole, then knocks; then() runs at the knock
   function hammerAt(m, fly, then) {
     const s = screenOf(m), r = canvas.getBoundingClientRect(), b = document.body.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width) || 1;
     const x = (r.left - b.left) / k + s.x, y = (r.top - b.top) / k + s.y;   // in the page's own size: the demo makes the whole page smaller
     const knock = () => { hammer.style.transition = ""; hammer.classList.add("show"); hammer.classList.remove("hit"); void hammer.offsetWidth; hammer.classList.add("hit");
-      setTimeout(() => { if (!canvas.classList.contains("hammering") || state.demo) hammer.classList.remove("show"); }, 900); if (then) then(); };
+      setTimeout(() => { if (state.demo) hammerRest(true); else if (!canvas.classList.contains("hammering")) hammer.classList.remove("show"); }, 900); if (then) then(); };
     if (!fly) { hammer.style.transform = `translate(${x}px, ${y}px)`; return knock(); }
-    hammer.style.transition = "none"; hammer.style.transform = `translate(${x + 300}px, ${y + 260}px)`; hammer.classList.remove("hit"); hammer.classList.add("show"); void hammer.offsetWidth;
+    if (!(state.demo && hammer.classList.contains("show"))) { hammer.style.transition = "none"; hammer.style.transform = `translate(${x + 300}px, ${y + 260}px)`; }   // in the demo it leaves its place at the side (Golan 7.11)
+    hammer.classList.remove("hit"); hammer.classList.add("show"); void hammer.offsetWidth;
     hammer.style.transition = "transform .75s ease-in-out"; hammer.style.transform = `translate(${x}px, ${y}px)`;
     setTimeout(knock, 780);
   }
@@ -1233,7 +1250,9 @@
     m.state = "bonk"; m.t = 0; m.hold = WAKE_S; m.hint = false; m.brows.forEach((b) => b.setEnabled(false));
     if (auto) drawSign(m, m.pic, false);
     const at = m.sign.getAbsolutePosition(); confetti.emitter = new BABYLON.Vector3(at.x, at.y + 0.4, at.z); confetti.manualEmitCount = auto ? 25 : 50;
-    if (!q.demo) wake(m);   // Golan 6.11 19:38: in the demo no second (waking) picture beside the mole (the demo frame moves it off the sign)
+    // Golan 7.11: no second picture card over the mole; its own sign lights up and stars burst from it
+    drawSign(m, m.pic, true);
+    stars.emitter = new BABYLON.Vector3(at.x, at.y, at.z - 0.1); stars.manualEmitCount = auto ? 14 : 26;
     if (!q.demo) {
       const right = !q.wrongs && !auto;   // gold on the first try, silver after a mistake or a solved one (Golan 16.10, all games)
       state.stars++; const kind = auto ? "silver" : LRN ? LRN.star(right) : right ? "gold" : "silver"; state.starKinds.push(kind); if (starCount) starCount.add(kind);
@@ -1622,7 +1641,7 @@
       if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
     hand.classList.add("show"); step();
   }
-  function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
+  function endDemoMarks() { if (state.demo) hammer.classList.remove("show", "hit"); demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
   function runDemo(done) {
     const my = ++demoTok; hush(); state.demo = true; demoCont = null;
     // the demo's door (Golan 5.11): stop the demo now, it all flies up, then the game
@@ -1630,6 +1649,7 @@
       const fin = () => { endDemoMarks(); markDemo(); state.q = null; moles.forEach((m) => { m.state = "off"; m.root.setEnabled(false); }); if (done) done(); };
       if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
     const alive = () => my === demoTok && state.demo;
+    setTimeout(() => { if (alive()) hammerRest(false); }, 750);   // the hammer at the side (after the frame has shrunk the game)
     const at = (m) => { const s = screenOf(m), r = canvas.getBoundingClientRect(), k = r.width / (canvas.clientWidth || r.width); return { x: r.left + s.x * k, y: r.top + s.y * k, top: r.top + (s.y - s.r * 0.75) * k }; };   // k: the demo makes the game smaller
     let last = null;
     const finish = () => {

@@ -112,10 +112,10 @@
       html.fl-demo-mode{background:var(--fl-demo-bg,#cfe9f4)}
       html.fl-demo-out body{transition:transform .8s cubic-bezier(.5,0,.85,.4),opacity .8s ease-in;transform:translateY(-115vh) scale(var(--fl-demo-s,1));opacity:0}
       html.fl-demo-out .fl-demo-frame,html.fl-demo-out .fl-demo-tint{transition:opacity .7s;opacity:0}
-      .fl-demo-door{position:fixed;z-index:47;left:calc(max(24px,7vmin) + 22px);top:calc(max(24px,7vmin) + 22px);width:max(52px,7vmin);height:max(52px,7vmin);border-radius:50%;border:0;padding:0;
-        background:#fff;box-shadow:0 4px 16px #0003;display:none;place-items:center;cursor:pointer;font-size:calc(max(52px,7vmin) * .62)}
+      .fl-demo-door{position:fixed;z-index:47;left:calc(max(24px,7vmin) + 46px);top:calc(max(24px,7vmin) + 46px);width:max(76px,10.5vmin);height:max(76px,10.5vmin);border-radius:50%;border:0;padding:0;
+        background:#fff;box-shadow:0 4px 16px #0003;display:none;place-items:center;cursor:pointer;font-size:calc(max(76px,10.5vmin) * .62)}
       .fl-demo-door.on{display:grid}.fl-demo-door svg{width:1em;height:1em;display:block}
-      html.fl-demo-out .fl-demo-door{display:none}`;   /* Golan 5.11: a door in every demo stops it and goes to the game */   /* Golan 4.11: at the end of every demo it all goes up and away, then the game */   /* Golan 4.11: the frame goes round everything; the whole game is made smaller inside it */   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
+      html.fl-demo-out .fl-demo-door{display:none}`;   /* Golan 5.11: a door in every demo stops it and goes to the game; 7.11: bigger, and further in from the frame */   /* Golan 4.11: at the end of every demo it all goes up and away, then the game */   /* Golan 4.11: the frame goes round everything; the whole game is made smaller inside it */   /* Golan 30.10 06:45: only the demo shows (no buttons, title or hourglass) */   /* Golan 30.10 06:44: the demo has its own background (a warm "movie" light), in every game */
     document.head.append(st);
   }
   let demoFrameEl = null, demoArrowEl = null; let demoTintEl = null, demoDoorEl = null, demoSkip = null;
