@@ -64,7 +64,7 @@
   /* Golan 7.11 07:55: inside the card itself (no second card): it covers exactly the card's lit cream, the drawing at the same size */
   #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; border-radius: 11.7%; background: #fff6c9; }
   #wake.on { display: block; animation: wakeIn .25s ease-out both; }
-  #wake svg { width: 86.5%; height: 86.5%; margin: 6.75%; display: block; }
+  #wake svg { width: 86.5%; height: 86.5%; margin: 6.75%; display: block; overflow: visible; }
   @keyframes wakeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
   /* the balloon picker (tell-me's, Golan 7.11) */
   .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
@@ -582,6 +582,7 @@
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/love-balloon.js"></script>   <!-- the heart balloon (balloon 5 of 9) -->
+<script src="../shared/pic-exit.js"></script>   <!-- Golan 7.11: the picture leaves its card after a right answer -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>
 (() => {
@@ -606,7 +607,7 @@
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
     "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
   const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
-    "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "carpenter"], "ט": ["ט", "ring", "chef", "pilot", "lamb"],
+    "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
     "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
     "צ": ["צ", "plate", "painter", "parachutist", "neck"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
@@ -1023,6 +1024,7 @@
     const el = $("wake"), a = PA && PA.svg && b && PA.svg[b.pic]; if (!a) { wakeB = null; return; }
     el.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a}</svg>`;
     wakeB = b; placeWake(); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+    if (window.FL && FL.picExit) FL.picExit.play(el.firstElementChild, b.pic, { dur: 2400, delay: 700, actx });   // Golan 7.11: then it leaves the card
   }
   function sleepWake() { const el = $("wake"); wakeB = null; if (el.classList.contains("on")) { el.classList.remove("on"); el.innerHTML = ""; } }
   function placeWake() {

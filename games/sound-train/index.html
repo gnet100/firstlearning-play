@@ -344,7 +344,7 @@
   /* Golan 7.11: the right wagon's picture wakes up: its moving drawing inside the wagon's sign for a moment (pictures-animated) */
   #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 9.4%; background: #fff; }   /* exactly the sign's white: no second frame (Golan 7.11 08:25) */
   #wake.on { display: block; animation: wakeIn .25s ease-out both; }
-  #wake svg { width: 92.3%; height: 92.3%; margin: 3.85%; display: block; }
+  #wake svg { width: 92.3%; height: 92.3%; margin: 3.85%; display: block; overflow: visible; }
   @keyframes wakeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 </style>
 </head>
@@ -428,6 +428,7 @@
 <script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" -->
 <script src="../sound-detective/sound-pictures.js"></script>   <!-- the sound detective's pictures (same 33 words) -->
 <script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the waking pictures (Golan 7.11: the right wagon's picture comes alive) -->
+<script src="../shared/pic-exit.js"></script>   <!-- Golan 7.11: the picture leaves its card after a right answer -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script src="../../hub-cards-animated/train-locos.js"></script>
 <script>
@@ -469,7 +470,7 @@
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
     "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
   const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
-    "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "carpenter"], "ט": ["ט", "ring", "chef", "pilot", "lamb"],
+    "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
     "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
     "צ": ["צ", "plate", "painter", "parachutist", "neck"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   const picsOf = (l) => PICS_OF[l] || [l];
@@ -1499,6 +1500,7 @@
     const el = $("wake"), a = PA && PA.svg && PA.svg[c.pic]; if (!a) { wakeC = null; return; }
     el.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a}</svg>`;
     wakeC = c; placeWake(c); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+    if (window.FL && FL.picExit) FL.picExit.play(el.firstElementChild, c.pic, { dur: 1900, delay: 600, actx });   // Golan 7.11: then it leaves the sign
   }
   function placeWake(c) {
     const el = $("wake");
