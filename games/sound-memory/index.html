@@ -536,9 +536,10 @@
     12: { letters: 12, hints: 2, wide: [5, 4, 5], tall: [3, 4, 4, 3] },
     14: { letters: 14, hints: 2, wide: [4, 4, 4, 4], tall: [4, 4, 4, 4] },
     16: { letters: 16, hints: 2, wide: [6, 6, 6], tall: [3, 3, 3, 3, 3, 3] },
+    18: { letters: 18, hints: 3, wide: [7, 7, 7], tall: [3, 3, 3, 3, 3, 3, 3] },   // Golan 7.11: a level above 18 cards: 21, with one more balloon (3) in the middle
   };
   const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
-  const RUNGS = [4, 6, 9, 10, 12, 14, 16], START = [0, 0, 2, 4];
+  const RUNGS = [4, 6, 9, 10, 12, 14, 16, 18], START = [0, 0, 2, 4];
   const goldMax = (cards) => (cards <= 2 ? 0 : cards <= 6 ? 1 : cards <= 12 ? 2 : 3);
   const WINS_TO_ASK = 2;
   function rung() { const L = lvl(); if (progress.rung < 0 || progress.lvlAt !== L) { progress.rung = START[L]; progress.lvlAt = L; progress.wins = 0; saveProgress(); } return progress.rung; }

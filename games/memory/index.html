@@ -506,9 +506,10 @@
     12: { letters: 12, hints: 2, wide: [5, 4, 5], tall: [3, 4, 4, 3] },
     14: { letters: 14, hints: 2, wide: [4, 4, 4, 4], tall: [4, 4, 4, 4] },
     16: { letters: 16, hints: 2, wide: [6, 6, 6], tall: [3, 3, 3, 3, 3, 3] },
+    18: { letters: 18, hints: 3, wide: [7, 7, 7], tall: [3, 3, 3, 3, 3, 3, 3] },   // Golan 7.11: a level above 18 cards: 21, with one more balloon (3) in the middle
   };
   const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
-  const RUNGS = [4, 6, 9, 10, 12, 14, 16], START = [0, 0, 2, 4];
+  const RUNGS = [4, 6, 9, 10, 12, 14, 16, 18], START = [0, 0, 2, 4];
   // Golan 22.10: the mistakes count again from zero after every pair found; the limit for gold follows how many cards are still
   // waiting (unmatched, not the hint card) when the search for the pair starts: 2 -> always gold, 4-6 -> 1, 7-12 -> 2, 13-16 -> 3; silver above it.
   // A board is a win (for the level question) when all its stars are gold.
