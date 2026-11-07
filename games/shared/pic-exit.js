@@ -3,7 +3,7 @@
 // drops to the corner...), with a small sound made on the spot (Web Audio, no file). Grown out of sound-wheel's exitPic.
 //   FL.picExit.play(el, key, { dur, delay, actx, onDone })  -> true when this picture has an exit (else nothing happens)
 //   el = the element that holds only the drawing (an <svg>), never the card itself: the card stays, the drawing leaves it.
-//   Its container must not clip it (overflow: visible); the game decides what is shown after (the card stays empty).
+//   Its container clips it (overflow: hidden, Golan 7.11): the motion stays inside the card and fades away there; the card stays empty after.
 //   FL.picExit.has(key)
 // The motions (kinds) are the word-pictures thread's to tune: one entry per picture in EXIT, one function per kind in FRAMES.
 (function () {
@@ -20,38 +20,43 @@
     // transport
     "ר": ["drive", 1], ambulance: ["drive", -1], spaceship: ["fly", -1], drone: ["up", 1],
     // things that roll, float or blow away
-    wheel: ["roll", -1], buttons: ["roll", 1], "כ": ["bounce", 1], ring: ["roll", -1], plate: ["roll", 1], watermelon: ["roll", -1], orange: ["roll", 1],
+    wheel: ["roll", -1], buttons: ["roll", 1], "כ": ["bounce", 1], ring: ["grab", 1], plate: ["roll", 1], watermelon: ["roll", -1], orange: ["roll", 1],
     pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
     bottle: ["hop", 1], banana: ["hop", -1],
   };
-  const DUR = { plod: 3400, grab: 2600, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2000, roll: 2400, bounce: 2400 };   // the rest 2400; a game passes its own dur
+  // Golan 7.11 (2nd ask): every exit stays INSIDE its card, like the hot-air balloon on the memory game's hint card (memRise):
+  // the card clips the picture, which moves on its own path until it has passed the card's edge, so it disappears bit by bit
+  // as it goes out. Slower than before (SLOW multiplies every length, also a game's own dur). It starts gently and speeds up.
+  const SLOW = 1.5;
+  const DUR = { plod: 3400, grab: 2800, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2200, roll: 2600, bounce: 2600 };   // the rest 2400; a game passes its own dur
   const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n, i));
-  const fade = (t) => (t > 0.85 ? 0 : 1);
+  const fade = (t) => (t > 0.96 ? 0 : 1);   // no fade on the way: the card's edge hides it; only made invisible at the very end
+  const S = (n, fn) => steps(n, (t, i) => ({ transform: fn(t, i), opacity: fade(t) }));
+  const E = 120;   // how far (in % of the picture box) it travels: past the card's edge
   const FRAMES = {
-    drive: (X) => [{ transform: "translateX(0)" }, { transform: `translateX(${X(-6)})`, offset: 0.15 }, { transform: `translateX(${X(190)})`, opacity: 1, offset: 0.85 }, { transform: `translateX(${X(230)})`, opacity: 0 }],
-    walk: (X, d) => steps(12, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -5 : 0}%) rotate(${i % 2 ? d * 3 : 0}deg)`, opacity: fade(t) })),
-    waddle: (X) => steps(16, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -3 : 0}%) rotate(${i % 2 ? 8 : -8}deg)`, opacity: fade(t) })),
-    run: (X, d) => steps(14, (t, i) => ({ transform: `translate(${X(t * 240)}, ${i % 2 ? -10 : 0}%) rotate(${d * (i % 2 ? 6 : 2)}deg)`, opacity: fade(t) })),
-    hop: (X) => steps(8, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -16 : 0}%)`, opacity: fade(t) })),
-    slither: (X) => steps(12, (t, i) => ({ transform: `translateX(${X(t * 220)}) scaleX(${i % 2 ? 1.08 : 0.94})`, opacity: fade(t) })),
-    fly: (X, d) => [{ transform: "translate(0, 0)" }, { transform: `translate(${X(-5)}, 3%)`, offset: 0.15 }, { transform: `translate(${X(140)}, -120%) rotate(${d * -12}deg) scale(.75)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -150%) rotate(${d * -12}deg) scale(.6)`, opacity: 0 }],
-    up: (X, d) => [{ transform: "translate(0, 0)" }, { transform: "translate(0, -25%)", offset: 0.35 }, { transform: `translate(${X(140)}, -110%) rotate(${d * 8}deg)`, opacity: 1, offset: 0.85 }, { transform: `translate(${X(170)}, -130%) rotate(${d * 8}deg)`, opacity: 0 }],
-    // new 7.11
-    roll: (X, d) => steps(12, (t) => ({ transform: `translateX(${X(t * t * 230)}) rotate(${d * t * t * 720}deg)`, opacity: fade(t) })),
-    bounce: (X, d) => steps(12, (t, i) => ({ transform: `translate(${X(t * 220)}, ${i % 2 ? -22 * (1 - t) : 0}%) rotate(${d * t * 360}deg)`, opacity: fade(t) })),
-    pirouette: (X) => steps(16, (t) => ({ transform: `translate(${X(t * 200)}, ${-8 * Math.sin(t * Math.PI)}%) scaleX(${Math.cos(t * Math.PI * 8).toFixed(3)})`, opacity: fade(t) })),
-    parachute: (X) => steps(12, (t) => ({ transform: `translate(${X(t * 150)}, ${t * 150}%) rotate(${(Math.sin(t * Math.PI * 4) * 10).toFixed(1)}deg) scale(${1 - t * 0.3})`, opacity: fade(t) })),
-    wind: (X) => steps(14, (t) => ({ transform: `translate(${X(t * 200)}, ${-t * 90 + Math.sin(t * Math.PI * 5) * 10}%) rotate(${(Math.sin(t * Math.PI * 6) * 35).toFixed(1)}deg) scale(${1 - t * 0.35})`, opacity: fade(t) })),
-    // 7.11 word-pictures thread (Golan's list): the turtle plods slowly, the plane speeds up along a runway then climbs,
-    // the diamond is taken by a big hand (the hand is added in play(); here only the diamond: it waits, gives a little squeeze, then goes up with the hand)
-    plod: (X, d) => steps(16, (t, i) => ({ transform: `translate(${X(t * 200)}, ${i % 2 ? -2 : 0}%) rotate(${i % 2 ? d * 2 : -d * 1}deg)`, opacity: fade(t) })),
-    plane: (X, d) => steps(14, (t) => { const run = Math.min(t / 0.45, 1), up = Math.max(0, (t - 0.35) / 0.65);
-      return { transform: `translate(${X(run * run * 60 + up * 170)}, ${-up * up * 150}%) rotate(${-d * Math.min(up * 3, 1) * 14}deg) scale(${1 - up * 0.35})`, opacity: fade(t) }; }),
-    grab: () => [{ transform: "translateY(0)", offset: 0 }, { transform: "translateY(0)", offset: 0.4 }, { transform: "translateY(2%) scale(.96,.92)", offset: 0.5 },
-      { transform: "translateY(0) scale(1)", offset: 0.58 }, { transform: "translateY(-150%)", opacity: 1, offset: 0.92 }, { transform: "translateY(-165%)", opacity: 0, offset: 1 }],
-    float: (X) => steps(12, (t) => ({ transform: `translate(${X(Math.sin(t * Math.PI * 3) * 14)}, ${-t * 170}%) rotate(${(Math.sin(t * Math.PI * 3) * 6).toFixed(1)}deg)`, opacity: fade(t) })),
+    drive: (X) => S(14, (t) => `translateX(${X(t < 0.12 ? -3 * t / 0.12 : -3 + Math.pow((t - 0.12) / 0.88, 1.6) * (E + 3))})`),
+    walk: (X, d) => S(18, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -3 : 0}%) rotate(${i % 2 ? d * 3 : 0}deg)`),
+    waddle: (X) => S(20, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -2 : 0}%) rotate(${i % 2 ? 7 : -7}deg)`),
+    run: (X, d) => S(18, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -6 : 0}%) rotate(${d * (i % 2 ? 5 : 2)}deg)`),
+    hop: (X) => S(10, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -12 : 0}%)`),
+    slither: (X) => S(16, (t, i) => `translateX(${X(t * E)}) scaleX(${i % 2 ? 1.06 : 0.95})`),
+    fly: (X, d) => S(14, (t) => `translate(${X(-3 * Math.sin(Math.min(t / 0.15, 1) * Math.PI) + t * t * 100)}, ${-t * t * 100}%) rotate(${d * -12 * t}deg)`),
+    up: (X, d) => S(14, (t) => `translate(${X(t * t * 25)}, ${-t * t * E}%) rotate(${d * 6 * t}deg)`),
+    roll: (X, d) => S(16, (t) => `translateX(${X(t * t * E)}) rotate(${d * t * t * 600}deg)`),
+    bounce: (X, d) => S(14, (t, i) => `translate(${X(t * E)}, ${i % 2 ? -14 * (1 - t) : 0}%) rotate(${d * t * 360}deg)`),
+    pirouette: (X) => S(28, (t) => `translate(${X(t * 115)}, ${-5 * Math.sin(t * Math.PI)}%) scaleX(${Math.cos(t * Math.PI * 7).toFixed(3)})`),
+    parachute: (X) => S(16, (t) => `translate(${X(t * 100)}, ${t * 115}%) rotate(${(Math.sin(t * Math.PI * 3) * 8).toFixed(1)}deg)`),   // down and to the corner
+    wind: (X) => S(18, (t) => `translate(${X(t * t * 105)}, ${-t * 80 + Math.sin(t * Math.PI * 4) * 6}%) rotate(${(Math.sin(t * Math.PI * 5) * 30).toFixed(1)}deg)`),
+    float: (X) => S(14, (t) => `translate(${X(Math.sin(t * Math.PI * 2) * 6)}, ${-t * t * E}%) rotate(${(Math.sin(t * Math.PI * 2) * 5).toFixed(1)}deg)`),
+    plod: (X, d) => S(20, (t, i) => `translate(${X(t * 115)}, ${i % 2 ? -1.5 : 0}%) rotate(${i % 2 ? d * 2 : -d}deg)`),
+    plane: (X, d) => S(18, (t) => { const run = Math.min(t / 0.45, 1), up = Math.max(0, (t - 0.35) / 0.65);
+      return `translate(${X(run * run * 30 + up * 90)}, ${-up * up * 100}%) rotate(${-d * Math.min(up * 3, 1) * 12}deg)`; }),
+    // Golan 7.11: "a hand comes into the card, takes the ring, and goes out" (ring + diamond): the picture waits for the hand,
+    // gives a little squeeze, then is carried up and out through the card's top edge (the card clips it; the hand is added in play())
+    grab: () => [{ transform: "translateY(0)", offset: 0 }, { transform: "translateY(0)", offset: 0.4 }, { transform: "translateY(1%) scale(.96,.92)", offset: 0.48 },
+      { transform: "translateY(0) scale(1)", offset: 0.56 }, { transform: "translateY(-110%)", opacity: 1, offset: 0.97 }, { transform: "translateY(-110%)", opacity: 0, offset: 1 }],
   };
-  const LINEAR = new Set(["plod", "plane", "grab", "walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
+  const LINEAR = new Set(["drive", "fly", "up", "roll", "plod", "plane", "grab", "walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
 
   // ---- the sounds (from sound-wheel's exitSound) ----
   let noiseBuf = null;
@@ -121,15 +126,17 @@
     `<path d="M52,140 Q42,200 58,232 L142,232 Q158,200 148,140Z" fill="#FFD9B8"/>` +
     `<rect x="54" y="196" width="24" height="78" rx="12" fill="#FFD9B8"/><rect x="80" y="200" width="24" height="88" rx="12" fill="#FFD9B8"/>` +
     `<rect x="106" y="200" width="24" height="86" rx="12" fill="#FFD9B8"/><rect x="132" y="196" width="22" height="72" rx="11" fill="#FFD9B8"/></g></svg>`;
-  function hand(el, dur, delay) {
+  function hand(el, dur, delay) {   // inside the picture's own container (it clips), so the hand comes in from the card's top edge
     const go = () => {
-      const r = el.getBoundingClientRect(); if (!r.width) return;
-      const h = document.createElement("div"), H = r.height * 0.9;
-      h.style.cssText = `position:fixed;left:${r.left + r.width * 0.2}px;top:${r.top - r.height * 0.25}px;width:${r.width * 0.6}px;height:${H}px;z-index:9999;pointer-events:none`;
-      h.innerHTML = HAND; document.body.append(h);
-      const up = -r.height * 1.5;   // the same distance the diamond goes (grab frames: -150% of its own height)
-      const an = h.animate([{ transform: `translateY(${-r.height * 1.4}px)`, offset: 0 }, { transform: "translateY(0)", offset: 0.4, easing: "ease-out" }, { transform: "translateY(0)", offset: 0.58 },
-        { transform: `translateY(${up}px)`, opacity: 1, offset: 0.92 }, { transform: `translateY(${up * 1.1}px)`, opacity: 0, offset: 1 }], { duration: dur, easing: "linear", fill: "forwards" });
+      const box = el.parentElement, r = el.getBoundingClientRect(); if (!box || !r.width) return;   // (an <svg> has no offsetWidth)
+      if (getComputedStyle(box).position === "static") box.style.position = "relative";
+      const br = box.getBoundingClientRect(), w = r.width, hgt = r.height, H = hgt * 0.9, h = document.createElement("div");
+      const x0 = r.left - br.left - box.clientLeft + box.scrollLeft, y0 = r.top - br.top - box.clientTop + box.scrollTop;
+      h.style.cssText = `position:absolute;left:${x0 + w * 0.2}px;top:${y0 - hgt * 0.25}px;width:${w * 0.6}px;height:${H}px;z-index:5;pointer-events:none`;
+      h.innerHTML = HAND; box.append(h);
+      const up = -hgt * 1.1;   // the same distance the picture goes (grab frames: -110% of its own height): out through the top
+      const an = h.animate([{ transform: `translateY(${-hgt * 0.75}px)`, offset: 0 }, { transform: "translateY(0)", offset: 0.4, easing: "ease-out" }, { transform: "translateY(0)", offset: 0.56 },
+        { transform: `translateY(${up}px)`, opacity: 1, offset: 0.97 }, { transform: `translateY(${up}px)`, opacity: 0, offset: 1 }], { duration: dur, easing: "linear", fill: "forwards" });
       an.onfinish = an.oncancel = () => h.remove();
     };
     if (delay) setTimeout(go, delay); else go();
@@ -138,13 +145,15 @@
   function play(el, key, opt = {}) {
     const e = EXIT[key]; if (!e || !el || !el.animate) return false;
     const [kind, d] = e, X = (v) => `${d * v}%`, frames = FRAMES[kind](X, d);
-    const dur = opt.dur || DUR[kind] || 2400, delay = opt.delay || 0;
+    const dur = (opt.dur || DUR[kind] || 2400) * SLOW, delay = opt.delay || 0;
     if (el._flExit) el._flExit.cancel();
     const go = () => {
       if (!el.isConnected) return;
       sound(opt.actx, key === "ר" ? "train" : key === "י" ? "wings" : kind, dur / 1000);
+      el.classList.add("pa-exit");   // Golan 7.11: the character moves its own body on the way out (pictures-animated "exit" motions: legs run, feet step...)
       const an = (el._flExit = el.animate(frames, { duration: dur, easing: LINEAR.has(kind) ? "linear" : "ease-in", fill: "forwards" }));
       an.onfinish = () => { if (el._flExit === an) el._flExit = null; if (opt.onDone) opt.onDone(); };
+      an.oncancel = () => { el.classList.remove("pa-exit"); if (el._flExit === an) el._flExit = null; };
     };
     if (kind === "grab") hand(el, dur, delay);
     if (delay) setTimeout(go, delay); else go();

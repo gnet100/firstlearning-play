@@ -929,7 +929,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
       const aw = awakeSvg(p.k); if (aw) p.el.querySelector(".front").innerHTML = aw;
       // Golan 7.11: then the picture leaves its card, and comes back to rest on it (the found pair stays shown)
       { const fr = p.el.querySelector(".front"), sv = fr.firstElementChild;
-        if (window.FL && FL.picExit && sv && FL.picExit.play(sv, p.k, { dur: 2400, delay: 900, actx, onDone: () => setTimeout(() => { if (sv._flExit) return; sv.getAnimations().forEach((a) => a.cancel()); fr.classList.remove("exit"); sv.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400 }); }, 300) })) fr.classList.add("exit"); }
+        if (window.FL && FL.picExit && sv && FL.picExit.play(sv, p.k, { dur: 2400, delay: 900, actx, onDone: () => setTimeout(() => { if (sv._flExit) return; sv.getAnimations().forEach((a) => a.cancel()); fr.classList.remove("exit"); sv.classList.remove("pa-exit"); sv.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400 }); }, 300) })) fr.classList.add("exit"); }
       hearts(a, b); sfx.good();
       if (!demo) {
         state.starRow.push(kind); starCount.add(kind);
