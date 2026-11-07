@@ -62,7 +62,7 @@
   /* ---------- the game screen ---------- */
   /* Golan 7.11: after a right answer the card's picture comes alive (pictures-animated, as in the sound train) */
   /* Golan 7.11 07:55: inside the card itself (no second card): it covers exactly the card's lit cream, the drawing at the same size */
-  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; border-radius: 11.7%; background: #fff6c9; }
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; overflow: hidden; border-radius: 11.7%; background: #fff6c9; }
   #wake.on { display: block; animation: wakeIn .25s ease-out both; }
   #wake svg { width: 86.5%; height: 86.5%; margin: 6.75%; display: block; overflow: visible; }
   @keyframes wakeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
@@ -609,7 +609,7 @@
   const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
     "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
     "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
-    "צ": ["צ", "plate", "painter", "parachutist", "neck"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
+    "צ": ["צ", "plate", "painter", "parachutist", "turtle"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
   const picsOf = (l) => (PICS_OF[l] || [l]).filter((k) => PICS[k]);
   // sounds that sound alike never meet in one question: ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
   const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];

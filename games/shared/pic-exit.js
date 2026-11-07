@@ -13,18 +13,18 @@
     // animals
     camel: ["walk", -1], "נ": ["slither", -1], "ט": ["walk", -1], "י": ["fly", 1], "א": ["walk", -1], "ח": ["walk", -1], "צ": ["walk", 1],
     tiger: ["walk", -1], rabbit: ["hop", -1], donkey: ["walk", -1], rooster: ["walk", -1], crocodile: ["slither", -1],
-    duck: ["waddle", -1], lamb: ["hop", -1],
+    duck: ["waddle", -1], turtle: ["plod", 1],
     // people
-    girl: ["run", 1], pilot: ["fly", 1], dancer: ["pirouette", 1], parachutist: ["parachute", -1], carpenter: ["walk", 1], chef: ["walk", -1],
+    girl: ["run", 1], pilot: ["plane", 1], dancer: ["pirouette", 1], parachutist: ["parachute", -1], chef: ["walk", -1],
     painter: ["walk", 1], firefighter: ["walk", -1], gnome: ["walk", -1],
     // transport
     "ר": ["drive", 1], ambulance: ["drive", -1], spaceship: ["fly", -1], drone: ["up", 1],
     // things that roll, float or blow away
     wheel: ["roll", -1], buttons: ["roll", 1], "כ": ["bounce", 1], ring: ["roll", -1], plate: ["roll", 1], watermelon: ["roll", -1], orange: ["roll", 1],
-    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], "ן": ["float", 1], diamond: ["float", -1], socks: ["hop", 1], shoe: ["hop", -1],
+    pear: ["roll", -1], "ת": ["roll", 1], ticket: ["wind", 1], "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
     bottle: ["hop", 1], banana: ["hop", -1],
   };
-  const DUR = { walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2000, roll: 2400, bounce: 2400 };   // the rest 2400; a game passes its own dur
+  const DUR = { plod: 3400, grab: 2600, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2000, roll: 2400, bounce: 2400 };   // the rest 2400; a game passes its own dur
   const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n, i));
   const fade = (t) => (t > 0.85 ? 0 : 1);
   const FRAMES = {
@@ -42,9 +42,16 @@
     pirouette: (X) => steps(16, (t) => ({ transform: `translate(${X(t * 200)}, ${-8 * Math.sin(t * Math.PI)}%) scaleX(${Math.cos(t * Math.PI * 8).toFixed(3)})`, opacity: fade(t) })),
     parachute: (X) => steps(12, (t) => ({ transform: `translate(${X(t * 150)}, ${t * 150}%) rotate(${(Math.sin(t * Math.PI * 4) * 10).toFixed(1)}deg) scale(${1 - t * 0.3})`, opacity: fade(t) })),
     wind: (X) => steps(14, (t) => ({ transform: `translate(${X(t * 200)}, ${-t * 90 + Math.sin(t * Math.PI * 5) * 10}%) rotate(${(Math.sin(t * Math.PI * 6) * 35).toFixed(1)}deg) scale(${1 - t * 0.35})`, opacity: fade(t) })),
+    // 7.11 word-pictures thread (Golan's list): the turtle plods slowly, the plane speeds up along a runway then climbs,
+    // the diamond is taken by a big hand (the hand is added in play(); here only the diamond: it waits, gives a little squeeze, then goes up with the hand)
+    plod: (X, d) => steps(16, (t, i) => ({ transform: `translate(${X(t * 200)}, ${i % 2 ? -2 : 0}%) rotate(${i % 2 ? d * 2 : -d * 1}deg)`, opacity: fade(t) })),
+    plane: (X, d) => steps(14, (t) => { const run = Math.min(t / 0.45, 1), up = Math.max(0, (t - 0.35) / 0.65);
+      return { transform: `translate(${X(run * run * 60 + up * 170)}, ${-up * up * 150}%) rotate(${-d * Math.min(up * 3, 1) * 14}deg) scale(${1 - up * 0.35})`, opacity: fade(t) }; }),
+    grab: () => [{ transform: "translateY(0)", offset: 0 }, { transform: "translateY(0)", offset: 0.4 }, { transform: "translateY(2%) scale(.96,.92)", offset: 0.5 },
+      { transform: "translateY(0) scale(1)", offset: 0.58 }, { transform: "translateY(-150%)", opacity: 1, offset: 0.92 }, { transform: "translateY(-165%)", opacity: 0, offset: 1 }],
     float: (X) => steps(12, (t) => ({ transform: `translate(${X(Math.sin(t * Math.PI * 3) * 14)}, ${-t * 170}%) rotate(${(Math.sin(t * Math.PI * 3) * 6).toFixed(1)}deg)`, opacity: fade(t) })),
   };
-  const LINEAR = new Set(["walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
+  const LINEAR = new Set(["plod", "plane", "grab", "walk", "waddle", "run", "hop", "slither", "pirouette", "parachute", "wind", "float", "bounce"]);
 
   // ---- the sounds (from sound-wheel's exitSound) ----
   let noiseBuf = null;
@@ -91,10 +98,41 @@
         noise(t0, D, "bandpass", 1200, 0.9, 0.12, 300);
       } else if (kind === "wind") {   // a gust
         noise(t0, D, "bandpass", 500, 0.6, 0.2, 1600);
+      } else if (kind === "plod") {   // slow soft steps
+        for (let i = 1; i < 9; i++) osc(t0 + (D * i) / 9, 0.14, "sine", 120, 60, 0.26 * (1 - i / 11));
+      } else if (kind === "plane") {   // a propeller hum that gets higher as it climbs
+        const o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(70, t0); o.frequency.exponentialRampToValueAtTime(170, t0 + D * 0.9); lfo.frequency.value = 30; lg.gain.value = 0.05; lfo.connect(lg).connect(g.gain);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t0 + D);
+        o.connect(g).connect(out); o.start(t0); lfo.start(t0); o.stop(t0 + D + 0.05); lfo.stop(t0 + D + 0.05);
+      } else if (kind === "grab") {   // a whoosh down, a little "pop" when it takes it, a sparkle going up
+        noise(t0, D * 0.35, "bandpass", 1600, 0.8, 0.12, 500); osc(t0 + D * 0.45, 0.12, "sine", 300, 600, 0.18);
+        [0.6, 0.7, 0.8].forEach((s, i) => osc(t0 + s * D, 0.3, "sine", 1050 * Math.pow(1.26, i), 0, 0.07));
       } else if (kind === "float") {   // a soft rising tone
         osc(t0, D * 0.9, "sine", 420, 900, 0.07);
       }
     } catch (e) {}
+  }
+
+  // a big friendly hand that comes down from above the picture, takes it and goes up with it (Golan 7.11: the diamond)
+  const HAND = `<svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;overflow:visible"><g stroke="#3B2F2F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round">` +
+    `<rect x="58" y="-60" width="84" height="180" fill="#5BA8F0"/><rect x="48" y="108" width="104" height="32" rx="12" fill="#FFFFFF"/>` +
+    `<path d="M150,160 Q192,168 186,212 Q170,220 150,198Z" fill="#FFD9B8"/>` +
+    `<path d="M52,140 Q42,200 58,232 L142,232 Q158,200 148,140Z" fill="#FFD9B8"/>` +
+    `<rect x="54" y="196" width="24" height="78" rx="12" fill="#FFD9B8"/><rect x="80" y="200" width="24" height="88" rx="12" fill="#FFD9B8"/>` +
+    `<rect x="106" y="200" width="24" height="86" rx="12" fill="#FFD9B8"/><rect x="132" y="196" width="22" height="72" rx="11" fill="#FFD9B8"/></g></svg>`;
+  function hand(el, dur, delay) {
+    const go = () => {
+      const r = el.getBoundingClientRect(); if (!r.width) return;
+      const h = document.createElement("div"), H = r.height * 0.9;
+      h.style.cssText = `position:fixed;left:${r.left + r.width * 0.2}px;top:${r.top - r.height * 0.25}px;width:${r.width * 0.6}px;height:${H}px;z-index:9999;pointer-events:none`;
+      h.innerHTML = HAND; document.body.append(h);
+      const up = -r.height * 1.5;   // the same distance the diamond goes (grab frames: -150% of its own height)
+      const an = h.animate([{ transform: `translateY(${-r.height * 1.4}px)`, offset: 0 }, { transform: "translateY(0)", offset: 0.4, easing: "ease-out" }, { transform: "translateY(0)", offset: 0.58 },
+        { transform: `translateY(${up}px)`, opacity: 1, offset: 0.92 }, { transform: `translateY(${up * 1.1}px)`, opacity: 0, offset: 1 }], { duration: dur, easing: "linear", fill: "forwards" });
+      an.onfinish = an.oncancel = () => h.remove();
+    };
+    if (delay) setTimeout(go, delay); else go();
   }
 
   function play(el, key, opt = {}) {
@@ -108,6 +146,7 @@
       const an = (el._flExit = el.animate(frames, { duration: dur, easing: LINEAR.has(kind) ? "linear" : "ease-in", fill: "forwards" }));
       an.onfinish = () => { if (el._flExit === an) el._flExit = null; if (opt.onDone) opt.onDone(); };
     };
+    if (kind === "grab") hand(el, dur, delay);
     if (delay) setTimeout(go, delay); else go();
     return true;
   }
