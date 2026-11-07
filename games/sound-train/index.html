@@ -341,11 +341,17 @@
   .car-spk svg { width: 62%; height: 62%; display: block; }
   .arrows[hidden] { display: none; }
   .prompt .target.cur { font-family: "FL Cursive", cursive; font-weight: 400; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+  /* Golan 7.11: the right wagon's picture wakes up: its moving drawing inside the wagon's sign for a moment (pictures-animated) */
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 9.4%; background: #fff; }   /* exactly the sign's white: no second frame (Golan 7.11 08:25) */
+  #wake.on { display: block; animation: wakeIn .25s ease-out both; }
+  #wake svg { width: 92.3%; height: 92.3%; margin: 3.85%; display: block; }
+  @keyframes wakeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 </style>
 </head>
 <body>
 <canvas id="game" aria-label="רכבת הצלילים"></canvas>
 
+<div id="wake" aria-hidden="true"></div>
 <div class="hud" id="hud" hidden>
   <div class="prompt" role="status">
     <span class="label" id="promptLabel">לַקָּרוֹן שֶׁל</span>
@@ -421,6 +427,7 @@
 <script src="../shared/love-balloon.js"></script>
 <script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" -->
 <script src="../sound-detective/sound-pictures.js"></script>   <!-- the sound detective's pictures (same 33 words) -->
+<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the waking pictures (Golan 7.11: the right wagon's picture comes alive) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script src="../../hub-cards-animated/train-locos.js"></script>
 <script>
@@ -456,7 +463,7 @@
   // ---------- content: the sounds and pictures of the sound detective (summaries/sound-train-spec.md) ----------
   // Each wagon carries a big picture; the balloon brings a cube with a sound (רָ); the child drops it into the wagon whose
   // picture's word opens with that sound. Same sounds, pictures and rules as "בלש הצלילים" (games/sound-detective).
-  const PICS = window.PICTURES || {};
+  const PICS = window.PICTURES || {}, PA = window.PICTURES_ANIMATED || null;
   const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
@@ -1139,6 +1146,16 @@
   confetti.minAngularSpeed = -6; confetti.maxAngularSpeed = 6;
   confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
   confetti.start();
+  // Golan 7.11 (08:25): gold stars come out of the right wagon's sign while its picture wakes (slow, as in the sound mole)
+  const starTex = new BABYLON.DynamicTexture("starTex", { width: 64, height: 64 }, scene, false);
+  { const g = starTex.getContext(); g.fillStyle = "#fff"; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 12 : 30; g.lineTo(32 + rr * Math.cos(a), 32 + rr * Math.sin(a)); } g.closePath(); g.fill(); starTex.update(); starTex.hasAlpha = true; }
+  const signStars = new BABYLON.ParticleSystem("signStars", 60, scene);
+  signStars.particleTexture = starTex; signStars.emitter = new BABYLON.Vector3(0, -50, 0);
+  signStars.minEmitBox = new BABYLON.Vector3(-SIGN_W * 0.4, -SIGN_H * 0.4, 0); signStars.maxEmitBox = new BABYLON.Vector3(SIGN_W * 0.4, SIGN_H * 0.4, 0);
+  signStars.color1 = new BABYLON.Color4(1, 0.85, 0.2, 1); signStars.color2 = new BABYLON.Color4(1, 0.97, 0.6, 1); signStars.colorDead = new BABYLON.Color4(1, 0.9, 0.4, 0);
+  signStars.minSize = 0.18; signStars.maxSize = 0.34; signStars.minLifeTime = 1.4; signStars.maxLifeTime = 2.2; signStars.emitRate = 0; signStars.manualEmitCount = 0;
+  signStars.direction1 = new BABYLON.Vector3(-2, 2, -1); signStars.direction2 = new BABYLON.Vector3(2, 4, -0.3); signStars.minEmitPower = 0.4; signStars.maxEmitPower = 0.8;
+  signStars.gravity = new BABYLON.Vector3(0, -1.2, 0); signStars.minAngularSpeed = -1.5; signStars.maxAngularSpeed = 1.5; signStars.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; signStars.start();
 
   // ---------- camera: from the platform, looking at the train; everything fits on a phone held either way ----------
   const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 4.6, -14), scene);
@@ -1243,7 +1260,7 @@
     const prev = state.letter;
     state.train = makeTrain(state.lastLetter || prev); state.dropIdx = 0; renderDots();
     layoutCars();
-    activeCars().forEach((c, i) => { c.letter = state.train.cars[i]; c.pic = state.train.pics[c.letter]; c.filled = false; c.count = 0; c.quota = 1; c.removed = false; c.leaving = null; c.wake = null;
+    activeCars().forEach((c, i) => { c.letter = state.train.cars[i]; c.pic = state.train.pics[c.letter]; c.filled = false; c.count = 0; c.quota = 1; c.removed = false; c.leaving = null; c.wake = null; placeWake(null);
       c.signRoot.position.y = SIGN_Y; c.signRoot.scaling.set(1, 1, 1); c.signRoot.rotation.z = 0; c.sign.plane.isVisible = true; c.sign.plane.visibility = 1; drawCarSign(c, "normal"); });
     loco.setEnabled(false); state.locoX = -60;
     loco.setEnabled(true); state.trainX = TRAIN_IN; state.trainV = pace().cruise; trainNode.position.x = state.trainX;
@@ -1474,10 +1491,31 @@
   // top-right counter: every star of the round, gold and silver, with the shared star (Golan 16.10, all games)
   const starCount = () => (LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null);   // shared counter: gold count + silver count (learner.js)
   const rightCar = () => activeCars().find((x) => x.letter === state.letter);
+  // Golan 7.11: the right wagon's picture comes alive (its moving drawing, pictures-animated) over the wagon's card for WAKE_S seconds
+  const WAKE_S = 2.6;
+  let wakeC = null;
+  function wakeUp(c) {
+    const el = $("wake"), a = PA && PA.svg && PA.svg[c.pic]; if (!a) { wakeC = null; return; }
+    el.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a}</svg>`;
+    wakeC = c; placeWake(c); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  }
+  function placeWake(c) {
+    const el = $("wake");
+    if (!c || c !== wakeC || !c.wake || c.removed || state.mode === "flying") { if (!c || c === wakeC) { if (el.classList.contains("on")) { el.classList.remove("on"); el.innerHTML = ""; } wakeC = null; } return; }
+    const P = c.sign.plane, Wm = P.getWorldMatrix(), RW = engine.getRenderWidth(), RH = engine.getRenderHeight(), M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(RW, RH), r = canvas.getBoundingClientRect();
+    // Golan 7.11 (08:25): inside the sign itself: it covers exactly the sign's white inside the green frame, turning and hopping with it
+    const kx = r.width / RW, ky = r.height / RH, K = 468 / 512;   /* drawCarSign: the white inside the frame, 22..490 of 512 */
+    const Q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => { const q = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(sx * SIGN_W / 2 * K, sy * SIGN_H / 2 * K, 0), Wm), BABYLON.Matrix.Identity(), M, vp); return { x: q.x * kx, y: q.y * ky }; });
+    const cx = (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, cy = (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4;
+    const w = Math.hypot(Q[1].x - Q[0].x, Q[1].y - Q[0].y), h = Math.hypot(Q[2].x - Q[1].x, Q[2].y - Q[1].y), sz = Math.min(w, h);
+    let ang = Math.atan2(Q[1].y - Q[0].y, Q[1].x - Q[0].x); if (ang > Math.PI / 2) ang -= Math.PI; else if (ang < -Math.PI / 2) ang += Math.PI;
+    Object.assign(el.style, { left: Math.round(r.left + cx - sz / 2) + "px", top: Math.round(r.top + cy - sz / 2) + "px", width: Math.round(sz) + "px", height: Math.round(sz) + "px", transform: `rotate(${ang.toFixed(3)}rad)` });
+  }
   function onLanded(c, cr) {
     cr.root.setParent(c.root);   // stays exactly as it came down
     (c.cubes = c.cubes || []).push(cr); c.count = (c.count || 0) + 1; c.filled = true;
-    drawCarSign(c, "full"); c.wake = { t: 0 };   // the picture wakes up: it hops and wiggles on its wagon
+    drawCarSign(c, "full"); c.wake = { t: 0 }; wakeUp(c);
+    { const at = c.sign.plane.getAbsolutePosition(); signStars.emitter = new BABYLON.Vector3(at.x, at.y, at.z - 0.2); signStars.manualEmitCount = state.auto ? 14 : 26; }   // the picture wakes up: it hops and wiggles on its wagon, and its drawing comes alive (Golan 7.11)
     sfx.thud(); sfx.good(); vibrate(40);
     const demo = state.demo, auto = state.auto, firstTry = !state.letterWrong && !auto && state.wrongs === 0;
     const kind = auto ? "silver" : LRN && LRN.star ? LRN.star(firstTry) : firstTry ? "gold" : "silver";   // gold on the first try, silver otherwise
@@ -2370,9 +2408,9 @@
     // the pictures: a right one wakes up (hops and wiggles), a picture with 2 mistakes leaves its wagon (shrinks and drops away)
     activeCars().forEach((c) => {
       const R = c.signRoot;
-      if (c.wake) { c.wake.t += dt; const k = Math.min(1, c.wake.t / 1.5), hop = Math.abs(Math.sin(k * Math.PI * 2));
+      if (c.wake) { c.wake.t += dt; placeWake(c); const k = Math.min(1, c.wake.t / 1.5), hop = Math.abs(Math.sin(k * Math.PI * 2));
         R.position.y = SIGN_Y + 0.38 * hop; R.rotation.z = Math.sin(k * Math.PI * 6) * 0.12 * (1 - k); const sq = 1 + 0.08 * Math.sin(k * Math.PI * 4); R.scaling.set(sq, 2 - sq, 1);
-        if (k >= 1) { c.wake = null; R.position.y = SIGN_Y; R.rotation.z = 0; R.scaling.set(1, 1, 1); } }
+        if (k >= 1) { R.position.y = SIGN_Y; R.rotation.z = 0; R.scaling.set(1, 1, 1); if (c.wake.t >= WAKE_S) { c.wake = null; placeWake(null); } } }
       else if (c.leaving) { c.leaving.t += dt; const k = Math.min(1, c.leaving.t / 0.8), e = k * k;
         R.scaling.set(1 - 0.9 * e, 1 - 0.9 * e, 1); R.position.y = SIGN_Y - 1.2 * e; R.rotation.z = 0.8 * e; c.sign.plane.visibility = 1 - e;
         if (k >= 1) { c.leaving = null; c.sign.plane.isVisible = false; R.scaling.set(1, 1, 1); R.position.y = SIGN_Y; R.rotation.z = 0; } }

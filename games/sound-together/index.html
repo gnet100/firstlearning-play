@@ -898,9 +898,9 @@
   confetti.particleTexture = starTex; confetti.emitter = new BABYLON.Vector3(0, -50, 0);
   confetti.minEmitBox = new BABYLON.Vector3(-1, -1, 0); confetti.maxEmitBox = new BABYLON.Vector3(1, 1, 0);
   confetti.color1 = new BABYLON.Color4(1, 0.78, 0.1, 1); confetti.color2 = new BABYLON.Color4(1, 0.3, 0.45, 1); confetti.colorDead = new BABYLON.Color4(0.3, 0.6, 1, 0.6);
-  confetti.minSize = 0.4; confetti.maxSize = 0.75; confetti.minLifeTime = 0.9; confetti.maxLifeTime = 1.5; confetti.emitRate = 0; confetti.manualEmitCount = 0;
-  confetti.direction1 = new BABYLON.Vector3(-5, 5, -1); confetti.direction2 = new BABYLON.Vector3(5, 10, -0.2); confetti.minEmitPower = 0.8; confetti.maxEmitPower = 1.5;
-  confetti.gravity = new BABYLON.Vector3(0, -9, 0); confetti.minAngularSpeed = -4; confetti.maxAngularSpeed = 4; confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; confetti.start();
+  confetti.minSize = 0.4; confetti.maxSize = 0.75; confetti.minLifeTime = 1.6; confetti.maxLifeTime = 2.5;   /* slower, as in the sound mole (Golan 7.11) */ confetti.emitRate = 0; confetti.manualEmitCount = 0;
+  confetti.direction1 = new BABYLON.Vector3(-5, 5, -1); confetti.direction2 = new BABYLON.Vector3(5, 10, -0.2); confetti.minEmitPower = 0.4; confetti.maxEmitPower = 0.75;
+  confetti.gravity = new BABYLON.Vector3(0, -3, 0); confetti.minAngularSpeed = -1.5; confetti.maxAngularSpeed = 1.5; confetti.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD; confetti.start();
   function cheer(b) { const at = b.card.getAbsolutePosition(), k = b.root.scaling.x || 1; confetti.minEmitBox.set(-CARD * 0.45 * k, -CARD * 0.45 * k, 0); confetti.maxEmitBox.set(CARD * 0.45 * k, CARD * 0.45 * k, 0); confetti.emitter = new BABYLON.Vector3(at.x, at.y, at.z - 0.3); confetti.manualEmitCount = 60; }
 
   // ---------- small animation runner (frozen while the game waits; the speed slider moves it too) ----------
