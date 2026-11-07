@@ -60,6 +60,266 @@
   #pause, .pause-btn { display: none !important; }   /* no pause in this game (Golan 16.10) */
 
   /* ---------- the game screen ---------- */
+  /* Golan 7.11: after a right answer the card's picture comes alive (pictures-animated, as in the sound train) */
+  #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; display: none; border-radius: 9%; background: #fff6c9; }
+  #wake.on { display: block; animation: wakeIn .3s cubic-bezier(.3, 1.6, .5, 1) both; }
+  #wake svg { width: 100%; height: 100%; display: block; }
+  @keyframes wakeIn { 0% { transform: scale(.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  /* the balloon picker (tell-me's, Golan 7.11) */
+  .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 6px; cursor: pointer; aspect-ratio: 1; display: grid; place-items: center; }
+  .cars button svg { width: 94%; height: 94%; display: block; }
+  .cars button[aria-pressed="true"] { border-color: var(--good); background: #eafaf1; }   /* green when chosen (Golan 15.10) */
+  .cars button:active { transform: scale(.96); }
+  .cars button.flash { animation: carFlash 1s ease-in-out; }   /* slower, as in the waking-letter game (Golan 16.10) */
+  .pick-count { display: flex; gap: 8px; justify-content: center; margin: 2px 0 4px; }
+  .pick-count span { width: 16px; height: 16px; border-radius: 50%; border: 3px solid #d5dde6; background: #fff; transition: background .3s, border-color .3s; }
+  .pick-count span.on { border-color: var(--good); background: var(--good); }
+  #cars button.chosen { position: relative; z-index: 2; transform: scale(1.12); border-color: var(--good); background: #eafaf1;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  /* exit door, ajar, opening toward the left edge; "יציאה" tip on mouse hover (as in the car game, Golan 15.10) */
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { z-index: 30; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  /* green continue button with space before the arrow (as in the car game, Golan 15.10) */
+  #resume { background: var(--good); color: #fff; box-shadow: 0 5px 0 #1d8a55; display: inline-flex; align-items: center; gap: 22px; }
+  #resume:active { box-shadow: 0 2px 0 #1d8a55; }
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  .panel.pause-panel { background: none; box-shadow: none; width: auto; }
+  .pause-panel .big-btn { font-size: 34px; padding: 18px 48px; }
+
+  /* The adult's two buttons stand where the car game has its arrows. They wake up only after the letter has
+     arrived and the question was asked, so a quick child tap does not count (shared-from-race.md, 11.1). */
+  .judge {
+    position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-end; padding: 0 18px; pointer-events: none; direction: ltr;
+  }
+  .judge .who { align-self: center; font-size: 16px; font-weight: 700; color: var(--ink); background: #ffffffb3;
+    padding: 4px 12px; border-radius: 999px; direction: rtl; white-space: nowrap; }
+  .jbtn {
+    pointer-events: auto; min-width: 150px; height: 84px; border-radius: 999px; border: 0; padding: 0 22px;
+    font: 800 26px "Noto Sans Hebrew", system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer; direction: rtl; transition: opacity .25s ease, transform .15s ease;
+  }
+  .jbtn.yes { background: #34b36b; color: #fff; box-shadow: 0 5px 0 #1f8048; }
+  .jbtn.no { background: #ffffffe6; color: var(--ink); box-shadow: 0 5px 0 #0003; }
+  .jbtn:active { filter: brightness(.92); }
+  .jbtn:disabled { opacity: .35; cursor: default; transform: none; }
+  .jbtn.flash { animation: jFlash 1.4s ease-in-out; }   /* nobody tapped yet: the buttons lift a little, slowly */
+  @keyframes jFlash { 50% { transform: translateY(-14px); } }
+  .jbtn svg { width: 1.1em; height: 1.1em; }
+
+  .perf {
+    position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 4px); left: 92px;
+    direction: ltr; text-align: left; font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    background: #000a; color: #fff; padding: 5px 9px; border-radius: 10px; pointer-events: none;
+  }
+  .perf b { font-size: 18px; }
+  .perf .bad { color: #ff8080; } .perf .ok { color: #ffd166; } .perf .good { color: #7dffb0; }
+
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20; padding: 16px; }
+  #settings { z-index: 10000; }   /* opens above the shared "מי משחק?" popup too (fl:gear) */
+  .overlay[hidden] { display: none; }
+  .panel {
+    background: #fff; border-radius: 28px; padding: 28px 24px; max-width: 520px; width: 100%;
+    text-align: center; box-shadow: 0 10px 40px #0003;
+  }
+  .panel h1 { margin: 0 0 8px; font-size: 34px; }
+  .panel p { margin: 6px 0 18px; font-size: 19px; color: var(--muted); }
+  .swap-ask { background: #fff3ea; border-radius: 20px; padding: 10px 12px 14px; margin: 0 0 16px; }
+  .swap-ask p { color: var(--ink); font-weight: 800; font-size: 24px; margin: 4px 0 10px; }
+  .big-btn.small { font-size: 22px; padding: 10px 26px; min-height: 56px; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+  .big-btn {
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
+    box-shadow: 0 5px 0 #c45f1d;
+  }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @keyframes goPress { 0% { transform: scale(1); } 45% { transform: scale(.95); } 100% { transform: scale(1); } }
+  /* mother and child playing together, top-left of the start card (Golan 15.10; placeholder art) */
+  .start-panel { position: relative; }
+  .mom-kid { position: absolute; top: 8px; left: 12px; width: 150px; height: auto; pointer-events: none; }
+  .together { display: inline-block; background: #eafaf1; color: #1f8048; font-weight: 800; font-size: 17px; border-radius: 999px; padding: 4px 14px; margin-bottom: 4px; }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .jbtn, .cars button, .seg button, .letters button:not(.fl-cell):not(.fl-pbtn) { transition: transform .15s ease, filter .15s ease, opacity .25s ease; }
+    .big-btn:hover, .round-btn:hover, .jbtn:not(:disabled):hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .cars button:hover, .seg button:hover, .letters button:not(.fl-cell):not(.fl-pbtn):hover { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+  .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
+
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: 26px; text-align: center; }
+  .how { background: #f3f8fd; border-radius: 16px; padding: 10px 14px; font-size: 16px; line-height: 1.55; color: var(--ink); margin-bottom: 6px; }
+  .how b { font-weight: 800; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+  .row > span small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+  /* Golan 16.10 (all games): title beside or above the buttons, the long explanation on its own full line below them */
+  .row { flex-wrap: wrap; }
+  /* Golan 16.10: every row is 3 lines: title, then the options, then the explanation */
+  .row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .row > span { font-weight: 700; }
+  .row > small.row-note { flex-basis: 100%; order: 99; font-size: 14px; color: var(--muted); font-weight: 400; margin-top: -4px; }
+  .seg { display: flex; gap: 6px; flex-shrink: 0; }
+  .row.stack { flex-wrap: wrap; }
+  .row.stack .seg { flex-shrink: 1; flex-wrap: wrap; }
+  #childCard { flex: 1 1 100%; width: 100%; min-width: 0; align-self: stretch; }   /* the parent table fills the row like the picker (no overflow on a phone) */
+  .settings { max-height: 100%; overflow-y: auto; }
+  .seg button {
+    min-width: 76px; min-height: 52px; border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 17px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters-row { align-items: flex-start; }
+  .letters-row > span { display: flex; flex-direction: column; gap: 4px; }
+  .letters-row small { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .letters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .letters button:not(.fl-cell):not(.fl-pbtn), .rep-grid span { width: 52px; height: 52px; border-radius: 12px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 800 26px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .letters button:not(.fl-cell):not(.fl-pbtn)[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters button:not(.fl-cell):not(.fl-pbtn).final, .rep-grid span.final { border-style: dashed; }
+  .letters button:not(.fl-cell):not(.fl-pbtn).final, .rep-grid span.final { text-decoration: underline; text-decoration-color: #8fb3d9; text-decoration-thickness: 3px; text-underline-offset: 1px; text-decoration-skip-ink: none; }
+  .letters-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  /* Golan 16.10: the practice picker is the child card's own table (FL.learner.letterPicker) plus selection */
+  .letters { display: block; }
+  .letters-tools button, .link-btn { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 700 15px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+
+  /* parent summary */
+  .report { text-align: right; }
+  .report h2 { margin: 0 0 6px; font-size: 26px; text-align: center; }
+  .report .score { font-size: 22px; font-weight: 800; text-align: center; margin: 6px 0 2px; }
+  .report .sub { font-size: 16px; color: var(--muted); text-align: center; margin: 0 0 12px; }
+  .rep-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+  .rep-grid span { display: grid; place-items: center; cursor: default; }
+  .rep-grid span.ok { background: #e3f7ec; border-color: var(--good); }
+  .rep-grid span.later { background: #fff4dc; border-color: var(--later); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 16px; color: var(--muted); margin: 4px 0 10px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; vertical-align: -2px; margin-inline-end: 4px; }
+  .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
+
+  /* 3-2-1 before take-off, as on the car game's start line */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; }
+  .count span { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 110px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }   /* glowing green (Golan, 15.10) */
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+  .toast {
+    position: absolute; top: 20%; left: 80%; transform: translate(-50%, -50%) scale(.6); opacity: 0;
+    font-size: 64px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0004, 0 0 24px #0003;
+    transition: transform .25s ease, opacity .25s ease; pointer-events: none; white-space: nowrap;
+  }
+  .toast.good { font-size: 52px; color: #10b947; text-shadow: 0 0 6px #fff, 0 0 18px #3dff7f, 0 0 36px #00e05a, 0 3px 0 #0a7a35; }
+  .toast .chk { display: inline-block; font-size: 80px; line-height: 1; vertical-align: -0.12em; filter: drop-shadow(0 0 8px #3dff7f) drop-shadow(0 3px 0 #0a7a35); }
+  .toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  /* a correct answer: only the earned star, centred on the card's top-left corner and moving with it (Golan 18.10, as in the car game) */
+  .toast.pinned { transform: translate(-50%, -50%) scale(.6); transform-origin: 50% 50%; will-change: transform, left, top; backface-visibility: hidden; line-height: 0; }
+  .toast.pinned.show { transform: translate(-50%, -50%) scale(1); }
+  .toast.pinned .chk { display: block; vertical-align: 0; filter: drop-shadow(0 3px 4px #0005); }
+  .toast.good.pinned { font-size: 40px; }
+  .toast.pinned .chk { font-size: 60px; }
+
+  /* ===== screens standard (screens/screens-standard.md, 16.10): every size and place from FL.screen variables =====
+     --u = one pixel of a 1280x720 board (720x1280 standing); floors in mm: --tap-s 10, --tap 15, --tap-play 20, --gap 5.
+     No width breakpoints: only standing or lying (html[data-screen~="portrait"]). */
+  html[data-screen] {
+    --s: max(calc(72 * var(--u)), var(--tap-s));      /* door, settings */
+    --b: max(calc(84 * var(--u)), var(--tap));        /* the child's main buttons: 🔊 */
+    --g: max(calc(14 * var(--u)), var(--gap));        /* space between buttons */
+    --col: calc(var(--edge-l) + var(--s) + var(--g)); /* the door/settings column */
+  }
+  html[data-screen] .round-btn, html[data-screen] .round-btn.gear:not(.pause-btn) { width: var(--s); height: var(--s); font-size: calc(var(--s) * .45); }
+  html[data-screen] .gear-ico { width: calc(var(--s) * .58); height: calc(var(--s) * .58); }
+  html[data-screen] .door-btn { font-size: calc(var(--s) * .56); }
+  html[data-screen] .door-btn, html[data-screen] .start-gear { top: var(--edge-t); left: var(--edge-l); }
+  html[data-screen] .hud .gear, html[data-screen] .overlay-gear { top: calc(var(--edge-t) + var(--s) + var(--g)); left: var(--edge-l); }
+  /* top letter pill = detective's in every game (Golan 16.10, games/letter-recognition/detective/letter-pill-spec.md, FIXED SIZE):
+     a white pill with the letter and the orange 🔊 (emoji 0.7x), one size from the first frame to the end; the dots sit at a
+     fixed gap under it (pure CSS, nothing measured). The big letter card stays as it is. */
+  html[data-screen] {
+    --spk: max(calc(46 * var(--u)), var(--tap-s));
+    --pill-t: max(calc(56 * var(--u)), 40px); --pill-lw: max(calc(64 * var(--u)), 48px);
+    --pill-h: calc(max(var(--pill-t), var(--spk)) + 16 * var(--u)); --pill-w: calc(var(--pill-lw) + var(--spk) + 46 * var(--u));
+    --pill-top: var(--edge-t); --dots-gap: max(calc(8 * var(--u)), 6px); }
+  html[data-screen~="portrait"] { --pill-top: calc(var(--edge-t) + var(--s) + 10 * var(--u)); }   /* standing phone: under the door */
+  html[data-screen] .hud .prompt { box-sizing: border-box; top: var(--pill-top); left: 50%; right: auto; transform: translateX(-50%);
+    height: var(--pill-h); width: var(--pill-w); gap: 0; padding: 0 calc(12 * var(--u)) 0 calc(20 * var(--u)); justify-content: space-between; }
+  html[data-screen] .prompt .target { display: block; width: var(--pill-lw); height: var(--pill-t); font-size: var(--pill-t);
+    font-weight: 800; line-height: 1; text-align: center; color: var(--ink); overflow: visible; }
+  html[data-screen] .prompt #replay { width: var(--spk); height: var(--spk); font-size: calc(var(--spk) * 0.7); padding: 0; line-height: 1; overflow: hidden; }
+  /* hear only (Golan 18.10): a letter already מוכרת/known shows the 🔊 alone, centred in the same pill (as detective's listen) */
+  .prompt.listen .target { display: none; }
+  html[data-screen] .hud .prompt.listen { justify-content: center; padding: 0; }
+  html[data-screen] .dots-wrap { top: calc(var(--pill-top) + var(--pill-h) + var(--dots-gap)); }
+  html[data-screen] .dots { margin-top: 0; }
+  html[data-screen] .dots span { width: max(calc(14 * var(--u)), 9px); height: max(calc(14 * var(--u)), 9px); }
+  html[data-screen] .stars { top: var(--edge-t); right: var(--edge-r); font-size: max(calc(30 * var(--u)), 20px); padding: calc(8 * var(--u)) calc(18 * var(--u)); }   /* stars follow the pill font (learner --fl-star) */
+  html[data-screen] .perf { top: var(--edge-t); left: var(--col); }
+  html[data-screen] .judge { bottom: var(--edge-b); padding: 0 var(--edge-r) 0 var(--edge-l); }
+  html[data-screen] .jbtn { height: max(calc(96 * var(--u)), var(--tap)); min-width: max(calc(170 * var(--u)), calc(var(--tap) * 1.6)); padding: 0 calc(26 * var(--u));
+    font-size: max(calc(30 * var(--u)), 20px); }
+  html[data-screen] .judge .who { font-size: max(calc(16 * var(--u)), 16px); }
+  html[data-screen] .count span { width: max(calc(180 * var(--u)), 120px); height: max(calc(180 * var(--u)), 120px); left: calc(max(calc(180 * var(--u)), 120px) / -2);
+    top: calc(max(calc(180 * var(--u)), 120px) / -2); font-size: max(calc(110 * var(--u)), 72px); }
+  html[data-screen] .toast, html[data-screen] .toast.good { font-size: max(calc(52 * var(--u)), 34px); }
+  html[data-screen] .toast .chk { font-size: max(calc(80 * var(--u)), 50px); }
+  html[data-screen] .toast.good.pinned { font-size: max(calc(40 * var(--u)), 28px); }
+  html[data-screen] .toast.pinned .chk { font-size: max(calc(60 * var(--u)), 40px); }
+  /* screens: the panel keeps clear of the door/settings column; it never runs past the screen (no 100vh) */
+  html[data-screen] .overlay { padding: var(--edge-t) var(--col) var(--edge-b) var(--col); }
+  html[data-screen] .panel { max-width: max(calc(600 * var(--u)), min(520px, 100%)); max-height: 100%; overflow-y: auto;
+    padding: max(calc(28 * var(--u)), 14px) max(calc(28 * var(--u)), 16px); border-radius: max(calc(28 * var(--u)), 18px); }
+  /* settings = a header row that never scrolls (X on the right, the title in the middle) over a body that scrolls
+     (Golan 16.10 X in all games; screens-standard 4א: no content ever passes under the X) */
+  .panel.settings { --x: 48px; --pt: 20px; --pr: 20px; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+  .set-head { flex: none; display: grid; grid-template-columns: var(--x) 1fr var(--x); align-items: center; gap: 6px;
+    padding: 8px 8px 6px; border-bottom: 1px solid #eee; }
+  .set-head h2 { margin: 0; }
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px var(--pr) var(--pt); }
+  .x-close { width: var(--x); height: var(--x); border: 0; border-radius: 50%; background: #eef3f8; color: var(--ink);
+    font: 800 24px/1 "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px #0002; }
+  .x-close:active { transform: scale(.94); }
+  html[data-screen] .panel.settings { --x: max(var(--tap-s), calc(52 * var(--u))); --pt: max(calc(28 * var(--u)), 14px); --pr: max(calc(28 * var(--u)), 16px);
+    padding: 0; overflow: hidden; }
+  html[data-screen] .x-close { font-size: calc(var(--x) * .48); }
+  /* phone standing: the panel spans the screen minus --edge, with a thin side padding, so the letter tiles are as big as can be (screens audit 16.10) */
+  html[data-screen~="portrait"] .panel.settings { --pr: 10px; }
+  html[data-screen] .seg { flex-wrap: wrap; flex-shrink: 1; max-width: 100%; }   /* 5 count buttons wrap on a narrow phone instead of running off the panel */
+  html[data-screen] .panel h1 { font-size: max(calc(40 * var(--u)), 24px); }
+  html[data-screen] .panel p { font-size: max(calc(22 * var(--u)), 17px); }
+  html[data-screen] .big-btn { font-size: max(calc(34 * var(--u)), 22px); min-height: var(--tap); padding: calc(16 * var(--u)) max(calc(44 * var(--u)), 22px); }
+  /* start-screen 🔊: a circle as tall as the start button, emoji centred inside (Golan 16.10, all games; as detective) */
+  html[data-screen] .big-btn.spk { --sp: max(calc(76 * var(--u)), var(--tap)); width: var(--sp); min-width: var(--sp); height: var(--sp);
+    padding: 0; min-height: 0; border-radius: 50%; display: grid; place-items: center; line-height: 1; font-size: calc(var(--sp) * .47); overflow: hidden; }
+  html[data-screen] #replay { padding: 0; line-height: 1; }
+  html[data-screen] .big-btn.small { font-size: max(calc(24 * var(--u)), 18px); min-height: var(--tap-s); padding: calc(10 * var(--u)) max(calc(26 * var(--u)), 16px); }
+  html[data-screen] #start .start-row { gap: max(calc(24 * var(--u)), 8px); }
+  html[data-screen] #start #hear { width: var(--b); min-width: var(--b); height: var(--b); font-size: calc(var(--b) * .45); }
+  html[data-screen] .mom-kid { width: max(calc(150 * var(--u)), 84px); top: calc(8 * var(--u)); left: calc(12 * var(--u)); }
+  html[data-screen] .together { font-size: max(calc(18 * var(--u)), 16px); }
+  .end-report { margin-top: calc(6 * var(--u, 1px)); text-align: center; }
+  .end-confirm { margin-top: calc(8 * var(--u, 1px)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; padding: 6px 12px; border-radius: 16px; background: #f5f9ff; box-shadow: inset 0 0 0 2px #9cc8f5; }
+  .end-confirm .ec-t { font-weight: 800; font-size: max(15px, calc(17 * var(--u, 1px))); }
+  .end-confirm.done { background: #e3f7ec; box-shadow: inset 0 0 0 2px #2bb673; } .end-confirm.no { background: #f3f4f6; box-shadow: inset 0 0 0 2px #d5dde6; }
+  #cars button.chosen { position: relative; z-index: 2; transform: scale(1.12); border-color: var(--good); background: #eafaf1;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  html[data-screen] #carPick .panel { width: min(100%, max(calc(520 * var(--u)), 340px)); max-width: none; }
+  html[data-screen] .cars { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-inline: auto;
+    width: min(100%, calc(100dvh - var(--edge-t) - var(--edge-b) - 2 * max(calc(28 * var(--u)), 14px) - 1.4 * max(calc(40 * var(--u)), 24px) - 56px)); }
   .hud { position: fixed; inset: 0; pointer-events: none; }
   .hud > * { pointer-events: auto; }
   /* top letter pill = the detective's standard (Golan 16.10, all games), fixed size for the whole game. This game never shows
@@ -230,7 +490,7 @@
   /* the adult's two buttons (as in "משחקים ביחד" of the letters island): "נסו שוב" on the left, "נכון" on the right */
   .judge { position: absolute; bottom: var(--edge-b); left: calc(var(--edge-l) + var(--help-w) + max(calc(18 * var(--u)), 12px)); right: var(--edge-r);
     display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; direction: ltr; z-index: 7; }
-  .judge .who { align-self: center; font-size: max(calc(18 * var(--u)), 15px); font-weight: 700; color: var(--ink); background: #ffffffb3; padding: 4px 12px; border-radius: 999px; direction: rtl; white-space: nowrap; }
+  .judge .who { align-self: center; margin-left: auto; margin-right: max(calc(14 * var(--u)), 10px);   /* Golan 7.11: right next to "נכון" */ font-size: max(calc(18 * var(--u)), 15px); font-weight: 700; color: var(--ink); background: #ffffffb3; padding: 4px 12px; border-radius: 999px; direction: rtl; white-space: nowrap; }
   .jbtn { pointer-events: auto; height: max(calc(96 * var(--u)), var(--tap)); min-width: max(calc(170 * var(--u)), calc(var(--tap) * 1.6)); padding: 0 calc(26 * var(--u));
     border-radius: 999px; border: 0; font: 800 max(calc(30 * var(--u)), 20px) "Noto Sans Hebrew", system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center;
     gap: 8px; cursor: pointer; direction: rtl; transition: opacity .25s ease; }
@@ -246,6 +506,7 @@
 </style>
 <canvas id="game" aria-label="מְשַׂחֲקִים בְּיַחַד"></canvas>
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+<div id="wake" aria-hidden="true"></div>
 <div class="hud" id="hud" hidden>
   <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
   <div id="picSpks"></div>
@@ -289,6 +550,17 @@
   </div>
 </div>
 
+<!-- the balloon picker of "משחקים ביחד" (tell-me's, Golan 7.11): the child picks the 4 balloons of the game -->
+<div class="overlay" id="carPick" hidden>
+  <button class="round-btn door-btn" id="doorPick" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear under-door" id="gearPick" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1>בּוֹחֲרִים 4 כַּדּוּרִים פּוֹרְחִים</h1>
+    <div class="pick-count" id="pickCount" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="cars" id="cars"></div>
+  </div>
+</div>
+
 <div class="overlay" id="end" hidden>
   <button class="round-btn door-btn" id="doorEnd" aria-label="יציאה" data-tip="יציאה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   <button class="round-btn gear under-door" id="gearEnd" aria-label="הגדרות"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
@@ -310,9 +582,11 @@
 
 <script src="../waking-letter/pictures.js"></script>
 <script src="../sound-detective/sound-pictures.js"></script>
+<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the waking pictures (Golan 7.11: the right card comes alive) -->
 <script src="../shared/screen.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js"></script>
 <script src="../shared/letter-pairs.js"></script>
+<script src="../shared/love-balloon.js"></script>   <!-- the heart balloon (balloon 5 of 9) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>
 (() => {
@@ -331,7 +605,7 @@
   const LRN = window.FL && window.FL.learner ? window.FL.learner : null;
 
   // ---------- content: the sound detective's sounds and pictures (3 pictures per sound) ----------
-  const PICS = window.PICTURES || {};
+  const PICS = window.PICTURES || {}, PA = window.PICTURES_ANIMATED || null;
   const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
@@ -406,7 +680,7 @@
   // hub_g_together = the name (as the letters island's card); stog_start2 (+_m / _f) = the start-window description, a new line
   // of the voice thread (silent until recorded). sd_q1 "אֵיזוֹ תְּמוּנָה מַתְחִילָה בַּצְּלִיל..." asks the first question of a round.
   const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_together", intro: "stog_start2", q: "sd_q1", right: "fb_correct" };
-  const CHILD_LINES = ["stog_start2"];
+  const CHILD_LINES = ["stog_start2", "ins_balloon4"];
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
   function getClip(id) {
@@ -506,30 +780,44 @@
   }
 
   // ---------- the balloons: the sound detective's balloon (patterns, basket with stripes, ropes) and a picture card under it ----------
-  const DESIGNS = [
-    { c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
-    { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a" },
-    { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
-    { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
-    { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
-    { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
-    { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F" },
-    { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a" },
+  const DESIGNS = [   // the 9 balloons of every picker (tell-me / detective, Golan 16.10: one set for all games)
+    { id: "gores", c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { id: "dots", c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { id: "zigzag", c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { id: "stars", c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { id: "checks", c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28", card: "#E3262F" },   // Golan 26.10: the heart balloon from a child's drawing, in place of the checked one (shared/love-balloon.js)
+    { id: "rings", c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { id: "hearts", c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { id: "waves", c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { id: "rainbow", c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
   ];
-  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02] };
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
+  const PICK_SHAPES = SHAPES;
   function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
   function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
-  function paintSkin(ctx, W, H, d) {   // the sound detective's painter, "uv" skin only (x = around, y = top to bottom)
+  // flat: a W x H picture of the balloon front (the caller clips it to the balloon outline). uv: W x H skin, x = around, y = top to bottom.
+  function paintBalloon(ctx, W, H, d, uv) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, uv);   // shared/love-balloon.js
     const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
     const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
-    const S = H / 256;
-    if (d.pat === "gores" || d.pat === "rainbow") { const cols = d.pat === "rainbow" ? d.c : [a, b], n = d.pat === "rainbow" ? 12 : 16; for (let i = 0; i < n; i++) { ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(i * W / n, 0, W / n + 1, H); } }
-    else if (d.pat === "dots") grid(W / 14, H / 6, (x, y) => { ctx.beginPath(); ctx.arc(x, y, 11 * S, 0, 7); ctx.fill(); });
-    else if (d.pat === "stars") grid(W / 12, H / 5.5, (x, y) => starPath(ctx, x, y, 16 * S));
-    else if (d.pat === "hearts") grid(W / 12, H / 5.5, (x, y) => heartPath(ctx, x, y, 13 * S));
+    const S = uv ? H / 256 : W / 100;   // size unit
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = uv ? (d.pat === "rainbow" ? 12 : 16) : (d.pat === "rainbow" ? 6 : 8);
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = cols[i % cols.length];
+        if (uv) { ctx.fillRect(i * W / n, 0, W / n + 1, H); continue; }
+        // flat: curved gores, wide in the middle and meeting at the top and bottom
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill();
+      }
+    } else if (d.pat === "dots") grid(uv ? W / 14 : W / 4, uv ? H / 6 : H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, (uv ? 11 : 7) * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => starPath(ctx, x, y, (uv ? 16 : 10) * S));
+    else if (d.pat === "hearts") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => heartPath(ctx, x, y, (uv ? 13 : 8) * S));
+    else if (d.pat === "checks") { const n = uv ? 16 : 6, m = uv ? 8 : 7; for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) if ((i + j) % 2) ctx.fillRect(i * W / n, j * H / m, W / n + 1, H / m + 1); }
     else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
     else if (d.pat === "zigzag" || d.pat === "waves") {
-      const teeth = 16, amp = 9 * S;
+      const teeth = uv ? 16 : 5, amp = 9 * S;
       for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
         ctx.beginPath(); ctx.moveTo(0, H * t);
         for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
@@ -539,8 +827,8 @@
     }
   }
   // sizes in the balloon's own units: the envelope on top, the basket, and the picture card hanging under the basket on two strings
-  const ENV_D = 2.3, ENV_Y = 2.05, BK = { w: 1.25, h: 0.72, d: 0.95 }, CARD = 3.1, CARD_Y = -BK.h / 2 - 0.32 - CARD / 2;
-  const B_TOP = ENV_Y + ENV_D / 2 * 1.32, B_BOT = CARD_Y - CARD / 2, B_H = B_TOP - B_BOT, B_MID = (B_TOP + B_BOT) / 2;
+  const ENV_D = 2.3, ENV_Y = 2.05, HEART = { rx: 1.08, cy: 1.62, y: 2.12 }, BK = { w: 1.25, h: 0.72, d: 0.95 }, CARD = 3.1, CARD_Y = -BK.h / 2 - 0.32 - CARD / 2;
+  const B_TOP = ENV_Y + ENV_D / 2 * 1.32 + 0.62, B_BOT = CARD_Y - CARD / 2, B_H = B_TOP - B_BOT, B_MID = (B_TOP + B_BOT) / 2;
   const ropeMat = mat("#5b4632"), floorMat = mat("#5a3d28");
   function cyl(name, d, parent) { const r = BABYLON.MeshBuilder.CreateCylinder(name, { diameter: d, height: 1, tessellation: 5 }, scene); r.material = ropeMat; r.parent = parent; r.isPickable = false; r.rotationQuaternion = new BABYLON.Quaternion(); return r; }
   function stretch(r, a, b) { const dir = b.subtract(a), len = dir.length(); r.position = a.add(b).scale(0.5); r.scaling.y = len; BABYLON.Quaternion.FromUnitVectorsToRef(BABYLON.Vector3.Up(), dir.normalize(), r.rotationQuaternion); }
@@ -548,11 +836,15 @@
     const root = new BABYLON.TransformNode("balloon" + i, scene), body = new BABYLON.TransformNode("bBody" + i, scene); body.parent = root; body.position.y = -B_MID;
     const meta = { bi: i };
     const envTex = new BABYLON.DynamicTexture("envTex" + i, { width: 512, height: 256 }, scene, true), envMat = new BABYLON.StandardMaterial("envMat" + i, scene);
-    envMat.diffuseTexture = envTex; envMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    envMat.diffuseTexture = envTex; envMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05); envMat.backFaceCulling = false;
     const envelope = BABYLON.MeshBuilder.CreateSphere("envelope" + i, { diameter: ENV_D, segments: 20 }, scene);
     envelope.material = envMat; envelope.parent = body; envelope.position.y = ENV_Y; envelope.metadata = meta;
-    const band = BABYLON.MeshBuilder.CreateTorus("band" + i, { diameter: ENV_D * 0.985, thickness: 0.17, tessellation: 32 }, scene);
-    band.material = mat("#ffffff", 0.3); band.parent = body; band.position.y = ENV_Y; band.isPickable = false;
+    // Golan 7.11: no white ring round the envelope (the balloons look like the picker's); the heart balloon has its own envelope, and 3 balloons carry a flag
+    const heart = BABYLON.MeshBuilder.CreateSphere("heart" + i, { diameterX: 2 * HEART.rx, diameterY: 2 * HEART.cy, diameterZ: 2 * HEART.rx, segments: 20, updatable: true }, scene);
+    if (window.loveShape) loveShape(heart, heart.getVerticesData(BABYLON.VertexBuffer.PositionKind), true, HEART.rx, HEART.cy, HEART.rx);
+    heart.material = envMat; heart.parent = body; heart.position.y = HEART.y; heart.metadata = meta; heart.setEnabled(false);
+    const pole = BABYLON.MeshBuilder.CreateCylinder("pole" + i, { diameter: 0.06, height: 0.62, tessellation: 5 }, scene); pole.material = ropeMat; pole.parent = body; pole.isPickable = false;
+    const flag = BABYLON.MeshBuilder.CreateDisc("flag" + i, { radius: 0.24, tessellation: 3, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene); flag.parent = body; flag.isPickable = false; flag.scaling.set(1.1, 0.7, 1);
     const skirt = BABYLON.MeshBuilder.CreateCylinder("skirt" + i, { diameterTop: 0.95, diameterBottom: 0.55, height: 0.42, tessellation: 16 }, scene);
     skirt.parent = body; skirt.isPickable = false;
     const basket = new BABYLON.TransformNode("basket" + i, scene); basket.parent = body;
@@ -569,21 +861,26 @@
     const card = BABYLON.MeshBuilder.CreatePlane("card" + i, { size: CARD }, scene); card.material = cMat; card.parent = body; card.position.set(0, CARD_Y, -0.02); card.metadata = meta;
     const strings = [-1, 1].map((sx) => { const r = cyl("cStr" + i, 0.035, body); stretch(r, new BABYLON.Vector3(sx * (BK.w / 2 - 0.08), -BK.h / 2 + 0.04, -BK.d / 2 + 0.05), new BABYLON.Vector3(sx * CARD * 0.36, CARD_Y + CARD / 2 - 0.12, -0.03)); return r; });
     root.setEnabled(false);
-    const b = { i, root, body, envelope, envTex, skirt, basket, bTex, ropes, card, cTex, strings, x: 0, y: 0, s: 1, ph: i * 1.9, state: "off", pic: null, letter: null, glow: false, wrongs: 0, design: -1, rot: 0 };
+    const b = { i, root, body, envelope, heart, pole, flag, envTex, skirt, basket, bTex, ropes, card, cTex, strings, x: 0, y: 0, s: 1, ph: i * 1.9, state: "off", pic: null, letter: null, glow: false, wrongs: 0, design: -1, rot: 0 };
     return b;
   }
   function dress(b, di) {
-    if (b.design === di) return; b.design = di; const d = DESIGNS[di], [sx, sy] = SHAPES[d.shape];
-    paintSkin(b.envTex.getContext(), 512, 256, d); b.envTex.update(true);
+    if (b.design === di) return; b.design = di; const d = DESIGNS[di], [sx, sy] = SHAPES[d.shape], isHeart = d.shape === "heart";
+    paintBalloon(b.envTex.getContext(), 512, 256, d, true); b.envTex.update(true);
+    b.envelope.setEnabled(!isHeart); b.heart.setEnabled(isHeart); b.skirt.setEnabled(!isHeart);
     b.envelope.scaling.set(sx, sy, sx); b.skirt.material = mat(d.c[0]);
     const ex = ENV_D / 2 * sx, ey = ENV_D / 2 * sy; b.skirt.position.y = ENV_Y - ey * 0.93; b.basket.position.y = 0;
+    b.pole.setEnabled(!!d.flag); b.flag.setEnabled(!!d.flag);
+    if (d.flag) { b.pole.position.y = ENV_Y + ey + 0.27; b.flag.material = mat(d.flag); b.flag.position.set(0.24, ENV_Y + ey + 0.44, 0); }
     const ctx = b.bTex.getContext(), W = 256, H = 160;
     ctx.fillStyle = d.basket; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#00000022"; for (let y = 6; y < H; y += 12) ctx.fillRect(0, y, W, 3);
     const s1 = d.c[0], s2 = d.c[1] && d.c[1] !== "#ffffff" ? d.c[1] : "#ffffff";
     ctx.fillStyle = s1; ctx.fillRect(0, 44, W, 16); ctx.fillRect(0, 108, W, 16); ctx.fillStyle = s2; ctx.fillRect(0, 78, W, 10);
     ctx.fillStyle = "#4a3222"; ctx.fillRect(0, 0, W, 14); ctx.fillRect(0, H - 8, W, 8); b.bTex.update(true);
+    // the heart's bottom is narrow: its ropes run up until they touch it (as in tell-me, Golan 28.10)
+    const hx = 0.26, hTop = HEART.y + HEART.cy * (window.loveUnder ? loveUnder(hx / HEART.rx, hx / HEART.rx, true) : -0.9) + 0.05;
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([qx, qz], k) => stretch(b.ropes[k], new BABYLON.Vector3(qx * (BK.w / 2 - 0.05), BK.h / 2, qz * (BK.d / 2 - 0.05)),
-      new BABYLON.Vector3(qx * 0.55 * ex, ENV_Y - ey * 0.8, qz * 0.45 * ex)));
+      isHeart ? new BABYLON.Vector3(qx * hx, hTop, qz * hx) : new BABYLON.Vector3(qx * 0.37 * ex, ENV_Y - ey * 0.82, qz * 0.37 * ex)));   // a point just inside the envelope's surface (Golan 7.11: the ropes must reach the balloon)
   }
   const PIC_IMG = {};
   for (const k of SOUND_L.flatMap(picsOf)) { const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${PICS[k].svg}</svg>`); PIC_IMG[k] = im; }
@@ -592,7 +889,7 @@
   function drawCard(b) {
     const ctx = b.cTex.getContext(), d = DESIGNS[Math.max(0, b.design)], g = b.glow;
     ctx.clearRect(0, 0, 512, 512);
-    rrect(ctx, 10, 10, 492, 492, 70); ctx.fillStyle = g ? "#ffc233" : d.c[0]; ctx.fill();
+    rrect(ctx, 10, 10, 492, 492, 70); ctx.fillStyle = g ? "#ffc233" : (d.card || d.c[0]); ctx.fill();
     rrect(ctx, 34, 34, 444, 444, 52); ctx.fillStyle = g ? "#fff6c9" : "#fffaf0"; ctx.fill();
     const im = PIC_IMG[b.pic];
     if (im && im.complete && im.naturalWidth) { try { if (window.FL && FL.drawPicCentred) FL.drawPicCentred(ctx, im, 64, 64, 384, 384); else ctx.drawImage(im, 64, 64, 384, 384); } catch (e) {} }
@@ -604,7 +901,7 @@
   let tasks = [], animTok = 0;
   const tween = (dur, fn) => new Promise((res) => tasks.push({ t: 0, dur: Math.max(0.001, dur), fn, res }));
   const wait = (s) => tween(s, () => {});
-  function clearTasks() { animTok++; tasks = []; }
+  function clearTasks() { animTok++; tasks = []; sleepWake(); }
   const lerp = (a, b, k) => a + (b - a) * k, easeOut = (k) => 1 - Math.pow(1 - k, 3), easeIn = (k) => k * k;
 
   // ---------- layout: the sound in the middle of the free sky, the 4 balloons in the corners around it ----------
@@ -665,6 +962,13 @@
     return out;
   }
   let qN = 0, designAt = 0;
+  // the 4 balloons the child picked (kept per device); the 4 corners take them in turn
+  const DEFAULT_FOUR = ["gores", "dots", "stars", "rainbow"];
+  function fourDesigns() {
+    const ids = (settings.balloons || []).filter((id) => DESIGNS.some((d) => d.id === id)).slice(0, 4);
+    for (const d of DEFAULT_FOUR) if (ids.length < 4 && !ids.includes(d)) ids.push(d);
+    return ids.map((id) => DESIGNS.findIndex((d) => d.id === id));
+  }
   function setSign(syl) { $("target").textContent = syl || ""; const m = $("mid"); m.hidden = !syl; m.classList.remove("in"); void m.offsetWidth; if (syl) m.classList.add("in"); }
   function newQuestion(opt = {}) {
     clearTasks(); setJudge(false);
@@ -674,9 +978,9 @@
     const q = { id: ++qN, letter: t, demo: !!opt.demo, mistakes: 0, wrongPic: null, notYet: 0, hint: false, rec: false, t0: performance.now(), opts: [t, ...others], done: false };
     balloons.forEach((b, k) => {
       const p = picks[k]; b.slot = order[k]; b.pic = p.pic; b.letter = p.letter; b.right = p.right; b.glow = false; b.wrongs = 0;
-      dress(b, (designAt + k) % DESIGNS.length); drawCard(b);
+      dress(b, fourDesigns()[(designAt + k) % 4]); drawCard(b);
     });
-    designAt = (designAt + 1) % DESIGNS.length;
+    designAt = (designAt + 1) % 4;
     state.q = q; setSign(SOUNDS[t].syl); layout();
     if (opt.still) { balloons.forEach((b) => { const sl = slots[b.slot]; b.state = "still"; b.x = sl.x; b.y = sl.y; b.root.setEnabled(true); }); return q; }
     // the balloons rise from below, one after the other, and stop in their corners
@@ -706,6 +1010,24 @@
   }
   function shake(b) { b.state = "shake"; const x0 = slots[b.slot] ? slots[b.slot].x : b.x; return tween(0.5, (e) => { b.x = x0 + Math.sin(e * Math.PI * 6) * 0.25 * bScale * (1 - e); }).then(() => { if (b.state === "shake") b.state = "hover"; }); }
   const rightBalloon = () => balloons.find((b) => b.right);
+  // Golan 7.11: the right card's picture comes alive: its moving drawing over the card's picture while Hila says the sound and the word
+  let wakeB = null;
+  function wakeUp(b) {
+    const el = $("wake"), a = PA && PA.svg && b && PA.svg[b.pic]; if (!a) { wakeB = null; return; }
+    el.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${a}</svg>`;
+    wakeB = b; placeWake(); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  }
+  function sleepWake() { const el = $("wake"); wakeB = null; if (el.classList.contains("on")) { el.classList.remove("on"); el.innerHTML = ""; } }
+  function placeWake() {
+    const b = wakeB; if (!b) return;
+    if (b.state === "off" || !b.root.isEnabled()) return sleepWake();
+    const Wm = b.card.getWorldMatrix(), RW = engine.getRenderWidth(), RH = engine.getRenderHeight(), M = scene.getTransformMatrix(), vp = cam.viewport.toGlobal(RW, RH), r = canvas.getBoundingClientRect(), h = CARD * 0.75 / 2;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const q = BABYLON.Vector3.Project(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(sx * h, sy * h, 0), Wm), BABYLON.Matrix.Identity(), M, vp);
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const kx = r.width / RW, ky = r.height / RH, sz = Math.min((x1 - x0) * kx, (y1 - y0) * ky);
+    Object.assign($("wake").style, { left: Math.round(r.left + (x0 + x1) / 2 * kx - sz / 2) + "px", top: Math.round(r.top + (y0 + y1) / 2 * ky - sz / 2) + "px", width: Math.round(sz) + "px", height: Math.round(sz) + "px" });
+  }
 
   // the answer: right (the adult's "נכון", or the child touched the right balloon), "נסו שוב", or a wrong picture touched
   function answerRight(how) {
@@ -713,13 +1035,17 @@
     const b = rightBalloon(), demo = q.demo;
     b.glow = true; drawCard(b); sfx.good(); vibrate(40);
     const r = $("mid"); r.classList.remove("yay"); void r.offsetWidth; r.classList.add("yay");
-    // Golan 6.11: Hila says the sound while the other 3 balloons fly up and disappear
-    sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
     const kind = q.mistakes ? "silver" : "gold";
     if (!demo) { recordQ(q, true); state.starKinds.push(kind); state.stars = state.starKinds.length; if (starCount) starCount.add(kind); }
-    playSeq([SOUNDS[q.letter].s, 250, demo ? null : LINES.right], 1, () => {
+    // Golan 7.11: the card's picture comes alive while Hila says the sound and the picture's word; only then do the balloons fly up
+    wakeUp(b);
+    playSeq([SOUNDS[q.letter].s, 200, wordOf(b.pic)], 1, () => {
       if (state.q !== q) return;
-      later(() => { if (state.q !== q) return; flyAway(b).then(() => afterQuestion(q)); }, 350);
+      sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
+      playSeq([300, demo ? null : LINES.right], 1, () => {
+        if (state.q !== q) return;
+        later(() => { if (state.q !== q) return; flyAway(b).then(() => afterQuestion(q)); }, 250);
+      });
     });
   }
   function answerNotYet() {
@@ -740,7 +1066,7 @@
   // 3 mistakes: the right picture lights up, Hila says the sound and the picture's name, the others fly away; no star
   function autoSolve(q) {
     if (q.done) return; q.done = true; q.hint = true; setJudge(false);
-    const b = rightBalloon(); b.glow = true; drawCard(b);
+    const b = rightBalloon(); b.glow = true; drawCard(b); wakeUp(b);
     if (!q.demo) recordQ(q, false);
     sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
     playSeq([500, SOUNDS[q.letter].s, 300, wordOf(b.pic)], 1, () => { if (state.q !== q) return; later(() => { if (state.q === q) flyAway(b).then(() => afterQuestion(q)); }, 500); });
@@ -947,6 +1273,7 @@
     for (; i < spkPool.length; i++) if (spkPool[i]) { spkPool[i].classList.remove("on"); spkPool[i]._b = null; }
   });
   const renderFrame = () => scene.render();
+  scene.onAfterRenderObservable.add(placeWake);
   engine.runRenderLoop(renderFrame);
   const onScreen = () => layout();
   if (SCR) SCR.onChange(onScreen); else window.addEventListener("resize", () => { applyQuality(); onScreen(); });
@@ -997,9 +1324,69 @@
     if ($("go").classList.contains("pressed")) return;
     $("go").classList.add("pressed"); sfx.tap(); tone([523, 784], 0.12, "triangle", 0.35);
     leaveScreen(); say(LINES.go);
-    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; startPlay(); }, 1600);
+    later(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
   });
-  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; startPlay(); }
+  function playAgain() { hush(); $("end").hidden = true; $("hud").hidden = true; openPick(); }
+  // ---------- the balloon picker (tell-me's, Golan 7.11): 9 balloons, the child picks 4; they carry the pictures ----------
+  function balloonSVG(d) {
+    const i = d.id, [sx, sy] = PICK_SHAPES[d.shape];
+    if (d.shape === "heart") return loveSvg();   // a picture of the 3D heart balloon itself (Golan 26.10, shared/love-balloon.js)
+    const cv = document.createElement("canvas"); const lv = d.shape === "heart"; cv.width = lv ? 500 : 200; cv.height = lv ? 670 : 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
+    const env = d.shape === "heart" ? LOVE_ENV : "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const G = d.flag ? Math.min(1.12, 94 * 1.25 / (84 * sy)) : 1.12, t = d.shape === "heart" ? "" : `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;   // 12% bigger, to go with the heart balloon's basket (Golan 28.10)   // stretch around the balloon's mouth
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="bc${i}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+      `<image href="${cv.toDataURL()}" x="0" y="${d.shape === "heart" ? -14 : Math.min(0, top - 2).toFixed(1)}" width="100" height="${d.shape === "heart" ? 134 : (120 - Math.min(0, top - 2)).toFixed(1)}" preserveAspectRatio="none" clip-path="url(#bc${i})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="${d.shape === "heart" ? d.c[1] : "#0000001f"}" stroke-width="${d.shape === "heart" ? 1.8 : 1.5}"/>` +
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +   // the heart balloon's basket size (Golan 28.10)
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;   // striped basket, like the 3D one
+  }
+  let pickNagT = null, pickFlashTs = [], picking = false, pickSaid = 0, chosen = [];
+  function renderPickCount() { [...$("pickCount").children].forEach((d, i) => d.classList.toggle("on", i < chosen.length)); }
+  function openPick() {
+    state.mode = "pick"; clearTasks(); balloons.forEach((b) => { b.state = "off"; b.root.setEnabled(false); });   // clean sky behind the picker
+    const box = $("cars"); box.textContent = ""; chosen = []; renderPickCount();
+    DESIGNS.forEach((d, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "כדור פורח");
+      b.innerHTML = balloonSVG(d, i); b.addEventListener("click", () => pickBalloon(d.id, b)); box.append(b);
+    });
+    $("carPick").hidden = false; stopPickFlash(); pickSaid = 1;
+    later(() => { if (!$("carPick").hidden && !picking) say(gl("ins_balloon4"), () => later(pickNag, 300)); }, 700);
+  }
+  function stopPickFlash() {
+    if (pickNagT) clearTimeout(pickNagT); pickNagT = null; pickFlashTs.forEach(clearTimeout); pickFlashTs = [];
+    [...$("cars").children].forEach((b) => b.classList.remove("flash"));
+  }
+  // nothing chosen for 4 s: the sentence again (twice in all) and the balloons not chosen yet flash one by one
+  function pickNag() {
+    if (pickNagT) clearTimeout(pickNagT);
+    pickNagT = later(() => {
+      if ($("carPick").hidden || picking) return;
+      if (pickSaid < 2) { pickSaid++; say(gl("ins_balloon4")); }
+      const btns = [...$("cars").children].filter((b) => !b.classList.contains("chosen")).sort(() => Math.random() - 0.5);
+      btns.forEach((b, i) => pickFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 420)));
+    }, 4000);
+  }
+  // a tap chooses a balloon (it grows and stays big); a second tap puts it back. The 4th one starts the round.
+  function pickBalloon(id, btn) {
+    if (picking) return;
+    stopPickFlash(); unlockAudio();
+    const at = chosen.indexOf(id);
+    if (at >= 0) chosen.splice(at, 1); else chosen.push(id);
+    btn.classList.toggle("chosen", at < 0); btn.setAttribute("aria-pressed", String(at < 0));
+    renderPickCount(); sfx.tap();
+    if (chosen.length < 4) { pickNag(); return; }
+    picking = true; const grown = performance.now() + 1800, my = screenTok;
+    settings.balloons = chosen.slice(); saveSettings();
+    say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2", () => setTimeout(() => {
+      picking = false; if (my !== screenTok || $("carPick").hidden) return;
+      $("carPick").hidden = true; startPlay();
+    }, Math.max(250, grown - performance.now())));
+  }
+  ["doorPick"].forEach((id) => $(id).addEventListener("click", () => { stopPickFlash(); picking = false; $("carPick").hidden = true; if (!toHub()) backToStart(); }));
+  $("gearPick").addEventListener("click", (e) => { e.stopPropagation(); openSettings(); });
   function startPlay() { if (starCount) starCount.reset(); $("hud").hidden = false; countdown(); }
 
   // ---------- the demo (only from the "?" card, Golan 5.11) ----------
@@ -1093,13 +1480,13 @@
     endDemoMarks(); clearTasks(); setJudge(false);
     state.mode = "intro"; if (starCount) starCount.reset(); if (HG) HG.stop();
     countToken++; $("count").innerHTML = "";
-    ["hud", "end", "settings", "paused"].forEach((id) => ($(id).hidden = true));
+    ["hud", "end", "settings", "paused", "carPick"].forEach((id) => ($(id).hidden = true)); stopPickFlash(); picking = false;
     newQuestion({ still: true, demo: true }); state.mode = "intro"; $("mid").hidden = true;
     $("start").hidden = false;
   }
   function toHub() { if (!(LRN && LRN.fromHub && LRN.hubUrl)) return false; endDemoMarks(); flushPartial(); leaveScreen(); countToken++; if (HG) HG.stop(); location.href = LRN.hubUrl + "#games"; return true; }
   ["doorGame", "doorEnd", "doorPause"].forEach((id) => $(id).addEventListener("click", () => { if (!toHub()) backToStart(); }));
-  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; startPlay(); });
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(() => { backToStart(); $("start").hidden = true; openPick(); });
 
   // test hook for automated checks (games/tests/check-games.js): open() = true while the adult may judge; points() = the screen
   // centres of the 4 picture cards with right / wrong; said() / notYet() tap the adult's buttons
