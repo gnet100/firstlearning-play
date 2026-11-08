@@ -1111,7 +1111,8 @@ ${items[item]}</svg>`;
 .fl-cell{border-radius:8px;font-size:clamp(16px,3.2vw,24px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;min-width:0;position:relative;color:#1d3557}
 .fl-cell i{position:absolute;top:1px;left:4px;font-size:12px;font-style:normal}
 .fl-pick .fl-cell{border:0;padding:0;font-family:inherit;cursor:pointer;font-weight:inherit}
-.fl-pick .fl-cell.fl-sel{box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 5px var(--fl-mark,#283593),inset 0 0 0 6px #fff;font-weight:700}
+.fl-pick .fl-cell.fl-sel{font-weight:700}
+.fl-pick .fl-cell.fl-sel::after{content:"";position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:var(--fl-mark,#283593);box-shadow:0 0 0 1.5px #fff}   /* Golan 8.11: a blue dot top-right marks a letter picked for practice (was a blue frame) */
 /* Golan 16.10: no ✓; the only mark = a glowing green ring OUTSIDE the tile + white inner ring, so it shows on every colour, green too */
 .fl-pick .fl-cell:disabled{opacity:.3;cursor:default}
 .fl-pick .fl-cell.fl-fin{cursor:pointer}
@@ -1122,7 +1123,7 @@ ${items[item]}</svg>`;
 .fl-pnote{font-size:14px;color:#4a5a70;text-align:right;direction:rtl;max-width:420px;margin:0 auto}
 .fl-leg{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;direction:rtl;font-size:16px;margin:10px auto;width:420px;max-width:100%}
 .fl-leg span{display:inline-flex;align-items:center;gap:4px}.fl-leg u{display:inline-block;width:14px;height:14px;border-radius:4px}
-.fl-leg u.fl-leg-sel{width:18px;height:18px;background:#fff;box-sizing:border-box;border:2px solid #d5dde6;box-shadow:inset 0 0 0 1px #fff,inset 0 0 0 4px var(--fl-mark,#283593)}.fl-leg u.fl-leg-off{opacity:.3}
+.fl-leg u.fl-leg-sel{width:10px;height:10px;border-radius:50%;background:var(--fl-mark,#283593)}.fl-leg u.fl-leg-off{opacity:.3}
 .fl-lit{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;direction:rtl}
 .fl-lit span{font-size:34px;width:52px;line-height:52px;border-radius:50%;text-align:center;background:#eef1f5;color:#c3cad3}
 .fl-lit span.half{background:#fff4c2;color:#c9a227;box-shadow:0 0 10px #ffe58a}
@@ -1402,7 +1403,7 @@ ${items[item]}</svg>`;
       el.append(grid);
       if (opt.legend !== false) { const leg = document.createElement("div"); leg.className = "fl-leg";
         for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch(k)}${LABELS[k]}</span>`);
-        // Golan 8.11: the key also tells the blue frame (picked for practice) and the faded letters (not in this game)
+        // Golan 8.11: the key also tells the blue dot (picked for practice) and the faded letters (not in this game)
         leg.insertAdjacentHTML("beforeend", `<span><u class="fl-leg-sel"></u>נבחרה לתרגול</span>`);
         if (grid.querySelector(".fl-cell:disabled")) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch("new").replace("<u ", '<u class="fl-leg-off" ')}לא במשחק הזה</span>`);
         el.append(leg); }
