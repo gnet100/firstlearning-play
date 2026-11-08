@@ -1551,7 +1551,8 @@ ${items[item]}</svg>`;
   function practicedThisRound() {
     const p = cur(); if (!p) return {};
     const fresh = p.events.filter((e) => e.t > endShownAt);
-    if (!fresh.length) return lastPractice;   // a redraw of the same end panel
+    if (!fresh.length) { if (Date.now() - endShownAt < 30000) return lastPractice;   // a redraw of the same end panel
+      endShownAt = Date.now(); lastPractice = {}; lastSounds = {}; return lastPractice; }   // a new round with no answers
     const n = {}, snd = {}; for (const e of fresh) if (e.l) { const m = e.m === "sound" ? snd : n; m[e.l] = (m[e.l] || 0) + 1; }   // sounds apart (the sound island)
     endShownAt = Date.now(); lastPractice = n; lastSounds = snd; return n;
   }
@@ -1559,10 +1560,14 @@ ${items[item]}</svg>`;
     css(); endCss();
     const el = document.createElement("div"); el.className = "fl-end"; el.setAttribute("role", "dialog");
     host.append(el);
-    let o = {}, tight = false; const btnEls = new Map();
+    let o = {}, tight = false, emptyNow = false; const btnEls = new Map();
     const draw = () => {
       el.innerHTML = "";
-      const h = document.createElement("h1"); h.textContent = o.title || "יש! סיימנו סיבוב"; el.append(h);
+      // Golan 8.11: a round with no answer at all (time ran out) gets a soft panel: "נגמר הזמן", no stars, no letter rows
+      const pr0 = o.practiced || practicedThisRound();
+      const empty = !(o.stars || []).length && !Object.keys(pr0).length && !Object.keys(lastSounds).length && !Array.isArray(o.letters);
+      emptyNow = empty;
+      const h = document.createElement("h1"); h.textContent = empty ? "נִגְמַר הַזְּמַן" : o.title || "יש! סיימנו סיבוב"; el.append(h);
       // stars in two centred rows (Golan 17.10), the top row one longer when odd; each row shrinks to fit
       const stars = o.stars || [];
       if (stars.length) { const box = document.createElement("div"); box.className = "fl-end-starbox"; box.setAttribute("aria-label", "כוכבים שקיבלנו");
@@ -1585,7 +1590,8 @@ ${items[item]}</svg>`;
         for (const x of list) { const sp = document.createElement("span"); sp.textContent = x.l; sp.className = x.kind; if (x.n) sp.title = x.n + " פעמים"; g.append(sp); }
         el.append(g); };
       // the sound island (Golan 29.10): sounds, not letters: the opening sounds practised this round, then the sounds known for sure
-      if (o.sounds) {
+      if (empty) {}   // Golan 8.11: nothing to show
+      else if (o.sounds) {
         practicedThisRound(); const counts = lastSounds;
         letRow("צלילי תחילת מילה שתורגלו", SOUND_LETTERS.filter((l) => counts[l]).map((l) => ({ l: SOUND_SYL[l], n: counts[l], kind: counts[l] >= 4 ? "p3" : counts[l] >= 2 ? "p2" : "p1" })), "fl-end-prac");
         const c = cur() ? cardsFor(cur()) : null;
@@ -1640,7 +1646,7 @@ ${items[item]}</svg>`;
     // fit again once the fonts are in and whenever the host changes size or is shown (a game may set() while it is hidden)
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => onR(true));
     if (window.ResizeObserver) new ResizeObserver(() => onR()).observe(host);
-    const api = { el, set: (n) => { o = { ...o, ...n }; tight = false; el.classList.remove("fl-tight"); draw(); return api; }, fit };
+    const api = { el, set: (n) => { o = { ...o, ...n }; tight = false; el.classList.remove("fl-tight"); draw(); return api; }, fit, empty: () => emptyNow };
     return api.set(opt);
   }
   // ---------- one visit to a game (Golan 16.10: the detective's flow, the same in every game) ----------
