@@ -288,7 +288,11 @@ ${items[item]}</svg>`;
   // Call once per question, when it is solved (or abandoned), with the FIRST answer's details.
   // Golan 19.10: a letter that becomes "מזהה בביטחון" during a game makes room: the system's practice set is worked out
   // again (the next letters come from the new set), and a game that stays on one letter moves on (it checks known()).
+  // Golan 8.11 (all islands, permanent): the "משחקים ביחד" games (an adult plays with the child) never feed the child's
+  // data: nothing they record counts anywhere (by: "adult", or one of these games)
+  const TOGETHER_GAMES = new Set(["tellme", "soundtogether"]);
   function record(ev) {
+    if (!ev || ev.by === "adult" || TOGETHER_GAMES.has(ev.game)) return false;
     const stateOf = () => { try { return cardsFor(cur())[ev.letter].recognize.state; } catch (e) { return null; } };
     const was = ev && ev.letter ? stateOf() : null;
     const out = recordRaw(ev);
@@ -1048,11 +1052,17 @@ ${items[item]}</svg>`;
   const PALETTES = {
     A: { known: "#1565c0", almost: "#90caf9", new: "#eceff1", knownText: "#fff", mark: "#e65100", markBg: "#fff3e0" },   // blue ramp, orange mark
     B: { known: "#2e7d32", almost: "#a5d6a7", new: "#eeeeee", knownText: "#fff", mark: "#7b1fa2", markBg: "#f3e5f5" },   // green ramp, purple mark
-    C: { known: "#00796b", almost: "#ffe082", new: "#eceff1", knownText: "#fff", mark: "#283593", markBg: "#e8eaf6" },   // teal / amber / grey, indigo mark (default, Golan 16.10)
+    C: { known: "#00796b", almost: "#ffe082", new: "#eceff1", knownText: "#fff", mark: "#283593", markBg: "#e8eaf6" },   // teal / amber / grey, indigo mark (Golan 16.10)
+    // Golan 8.11: the colours of the "משחקים ביחד" summary everywhere: light green / light yellow / white, each with its border, dark text
+    D: { known: "#e3f7ec", almost: "#fff4dc", new: "#ffffff", knownText: "#1d3557", mark: "#283593", markBg: "#e8eaf6",
+      border: { known: "#2bb673", almost: "#ffb020", new: "#d5dde6" } },
   };
-  let PAL = PALETTES.C;   // Golan 16.10 20:31 chose option ג
+  let PAL = PALETTES.D;   // Golan 8.11 (was C, 16.10)
   const COLORS = { new: PAL.new, learning: "#9cc8f5", hard: "#f6b26b", almost: PAL.almost, known: PAL.known };
   const TEXT = (st) => (st === "known" ? PAL.knownText : "#1d3557");
+  const BORDER = (st) => (PAL.border ? PAL.border[st] || PAL.border.new : "transparent");
+  const paint = (el, st) => { el.style.background = COLORS[st]; el.style.color = TEXT(st); el.style.boxSizing = "border-box"; el.style.border = "2px solid " + BORDER(st); };
+  const legSwatch = (k) => `<u style="background:${COLORS[k]};border:2px solid ${BORDER(k)};box-sizing:border-box"></u>`;
   function setPalette(name) { const q = PALETTES[name]; if (!q) return false; PAL = q; Object.assign(COLORS, { new: q.new, almost: q.almost, known: q.known });
     document.documentElement.style.setProperty("--fl-mark", q.mark); document.documentElement.style.setProperty("--fl-mark-bg", q.markBg); return true; }
   const LABELS = { new: "חדשה", learning: "בלמידה", hard: "בתרגול", almost: "מוכרת", known: "מזהה בביטחון" };   // Golan 16.10
@@ -1289,12 +1299,12 @@ ${items[item]}</svg>`;
     const grid = document.createElement("div"); grid.className = "fl-grid";
     for (const l of [...FL.LETTERS, ...FL.FINALS]) {
       // Golan 16.10: 3 states only; "בלמידה" / "בתרגול" show as "חדשה" (the model keeps them for choosing letters)
-      const k = c[l], shown = shownState(k.state), s = document.createElement("div"); s.className = "fl-cell"; s.style.background = COLORS[shown]; s.style.color = TEXT(shown);
+      const k = c[l], shown = shownState(k.state), s = document.createElement("div"); s.className = "fl-cell"; paint(s, shown);
       s.textContent = l; s.title = LABELS[shown] + (Object.keys(k.pairs).length ? " · לפעמים עם " + Object.keys(k.pairs).join(", ") : "");
       grid.append(s);
     }
     const leg = document.createElement("div"); leg.className = "fl-leg";
-    for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span><u style="background:${COLORS[k]}"></u>${LABELS[k]}</span>`);
+    for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch(k)}${LABELS[k]}</span>`);
     // Golan 16.10: no "fluent" star for the parent; "מזהה בביטחון" is the top state shown (card(l).fluent stays in the model)
     const pairs = reportablePairs(p); const pl = document.createElement("div"); pl.style.cssText = "font-size:16px;margin-top:6px";
     if (pairs.length) pl.textContent = pairs.map((x) => `${p.name} לומד/ת עכשיו להבחין בין ${x.asked} ל-${x.picked}. הן נראות דומות, וזה שלב רגיל.`)[0];
@@ -1308,7 +1318,7 @@ ${items[item]}</svg>`;
     for (const l of all) {
       const s = document.createElement("div"); s.className = "fl-cell"; s.textContent = l;
       if (!open.includes(l)) { s.style.background = "transparent"; s.style.outline = "1.5px dashed #c3ccd8"; s.style.outlineOffset = "-2px"; s.style.color = "#b4bcc8"; s.title = "עוד לא נפתחה"; }
-      else { const shown = shownState(c[l].cursive.state); s.style.background = COLORS[shown]; s.style.color = TEXT(shown); s.title = LABELS[shown]; }
+      else { const shown = shownState(c[l].cursive.state); paint(s, shown); s.title = LABELS[shown]; }
       cgrid.append(s);
     }
     const cleg = leg.cloneNode(true); cleg.insertAdjacentHTML("beforeend", `<span><u style="background:transparent;outline:1.5px dashed #c3ccd8;outline-offset:-1px"></u>עוד לא נפתחה</span>`);
@@ -1321,7 +1331,7 @@ ${items[item]}</svg>`;
       const sbox = topic(TOPICS[0], `מזהה את הצליל הפותח ב-${sKnown} צלילים שונים.` + (sKnown >= SOUND_SKILL ? " המיומנות נרכשה." : ` המיומנות נרכשת ב-${SOUND_SKILL} צלילים.`));
       const sgrid = document.createElement("div"); sgrid.className = "fl-grid fl-sounds";
       for (const l of SOUND_LETTERS) { const shown = shownState(c[l].sound.state), s = document.createElement("div"); s.className = "fl-cell";
-        s.style.background = COLORS[shown]; s.style.color = TEXT(shown); s.textContent = SOUND_SYL[l]; s.title = LABELS[shown]; sgrid.append(s); }
+        paint(s, shown); s.textContent = SOUND_SYL[l]; s.title = LABELS[shown]; sgrid.append(s); }
       sbox.append(sgrid, leg.cloneNode(true));
     }
     for (const t of TOPICS) if (!(soundEv && t === TOPICS[0])) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.");
@@ -1376,7 +1386,7 @@ ${items[item]}</svg>`;
       for (const l of [...FL.LETTERS, ...FL.FINALS]) {
         const base = FL.FINAL_BASE[l] || l, k = c && c[l], shown = !k ? "new" : shownState(k.state);
         const b = document.createElement("button"); b.type = "button"; b.className = "fl-cell" + (base !== l ? " fl-fin" : "");
-        b.style.background = COLORS[shown]; b.style.color = TEXT(shown); b.textContent = l; b.title = LABELS[shown];
+        paint(b, shown); b.textContent = l; b.title = LABELS[shown];
         b.disabled = !avail.has(base) || (!finals && base !== l);   // Golan 17.10: a game without finals shows them faded, never linked to the base letter
         const key = l, on = mode === "auto" ? autoSet.has(key) : sel.has(key); b.classList.toggle("fl-sel", on && !b.disabled); b.setAttribute("aria-pressed", on ? "true" : "false");
         b.onclick = () => {
@@ -1390,7 +1400,7 @@ ${items[item]}</svg>`;
       }
       el.append(grid);
       if (opt.legend !== false) { const leg = document.createElement("div"); leg.className = "fl-leg";
-        for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span><u style="background:${COLORS[k]}"></u>${LABELS[k]}</span>`);
+        for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch(k)}${LABELS[k]}</span>`);
         el.append(leg); }
       if (opt.buttons) {   // the shared row: "החלטת מערכת", "כל האותיות", "ניקוי" + the explanation (plain text, ruling 16.10)
         const row = document.createElement("div"); row.className = "fl-pbtns";

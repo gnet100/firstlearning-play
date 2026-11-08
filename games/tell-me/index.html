@@ -220,6 +220,8 @@
     font: 700 15px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
   .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
 
+  /* Golan 8.11: no parent summary and no "count in the other games" confirm: a game played together never feeds the child's data */
+  .end-report, #endConfirm, #reportRow, #report { display: none !important; }
   /* parent summary */
   .report { text-align: right; }
   .report h2 { margin: 0 0 6px; font-size: 26px; text-align: center; }
@@ -469,7 +471,7 @@
       <div class="seg" data-key="check">
         <button data-v="off">כבוי</button><button data-v="on">פועל</button>
       </div><small class="row-note">כמו המבדק בתחילת כיתה א': כל אות פעם אחת, בלי סופיות</small></div>
-    <div class="row"><span>סיכום להורה</span><button class="link-btn" id="reportSettings">📋 פתיחה</button></div>
+    <div class="row" id="reportRow" hidden><span>סיכום להורה</span><button class="link-btn" id="reportSettings">📋 פתיחה</button></div>
     </div>
     <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
     </div>
