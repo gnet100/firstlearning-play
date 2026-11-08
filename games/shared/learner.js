@@ -780,7 +780,7 @@ ${items[item]}</svg>`;
     }
     // "almost" letters can only be confirmed in another session, so within the session they made it, they rest (weight 0.3).
     const sess = p.session;
-    const w = (l) => { const k = st(l); return l === prev ? 0 : k.state === "hard" ? 4 : k.state === "learning" ? 3 : k.state === "almost" ? (k.okStreak[k.okStreak.length - 1].s === sess ? 0.3 : 3) : k.state === "new" ? 2 : k.due ? 1.5 : 0.25; };
+    const w = (l) => { const k = st(l); return l === prev ? 0 : k.state === "hard" ? 4 : k.state === "learning" ? 3 : k.state === "almost" ? ((k.okStreak[k.okStreak.length - 1] || {}).s === sess ? 0.3 : 3) : k.state === "new" ? 2 : k.due ? 1.5 : 0.25; };
     // known letters outside the pool still come back when they are due for review
     const strict = (chosen && chosen.length) || autoCount(p);   // a parent's choice or a game's practice set is never left (16.10)
     const extra = strict ? [] : FL.LETTERS.filter((l) => !pool.includes(l) && st(l).due);
