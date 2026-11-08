@@ -1682,14 +1682,14 @@
           hammerAt(m, true, () => {
             if (!alive()) return; if (window.FL && FL.demoArrow) FL.demoArrow(null);
             if (state.q !== q || q.done || m.state !== "up") return wait();
-            demoCont = (mm, qq) => { if (!alive()) return; if (n === 0) { replaceMole(mm, qq); example(1); } else finish(); };
+            demoCont = (mm, qq) => { if (!alive()) return; finish(); /* Golan 8.11: one example per press */ };
             answer(m);
           });
         }, 1300);
       };
       wait();
     };
-    playSeq([LINES.demo], 1, () => { if (!alive()) return; askNext(); example(0); });
+    playSeq([], 1, () => { if (!alive()) return; askNext(); example(0); });
   }
   // the "?" card at the bottom left plays the demo again (as in the other sound games); then the game goes on with a new question
   function demoAgain() {

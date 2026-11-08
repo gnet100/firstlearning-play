@@ -1627,13 +1627,13 @@
           if (i < cmds.length) { addStep(cmds[i], true); i++; setTimeout(tapNext, 260); return; }
           if (window.FL && FL.demoArrow) FL.demoArrow(null);
           setTimeout(hideHand, 400); last = null;
-          demoCont = () => { if (!alive()) return; setTimeout(() => (n === 0 ? example(1) : finish()), 500); };
+          demoCont = () => { if (!alive()) return; setTimeout(finish, 500); /* Golan 8.11: one example per press */ };
           go(true);
         }, 220));
       };
       playSeq([SOUNDS[q.letter].s], 1, () => setTimeout(tapNext, 300));
     };
-    playSeq([LINES.demo], 1, () => { if (!alive()) return; example(0); });
+    playSeq([], 1, () => { if (!alive()) return; example(0); });
   }
   // the "?" card at the bottom left plays the demo again; then the game goes on with a new river
   function demoAgain() {

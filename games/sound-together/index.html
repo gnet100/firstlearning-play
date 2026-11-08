@@ -1418,6 +1418,7 @@
     hand.classList.add("show"); step();
   }
   function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
+  let demoN = 0;   // which of the two examples the next press shows (the child touches / the adult says)
   function runDemo(done) {
     const my = ++demoTok; hush(); state.demo = true; demoCont = null; setJudge(false);
     const fin = () => { endDemoMarks(); markDemo(); state.q = null; balloons.forEach((b) => { b.state = "off"; b.root.setEnabled(false); }); if (done) done(); [600, 1200].forEach((ms) => setTimeout(onScreen, ms)); };
@@ -1444,7 +1445,7 @@
             if (!alive() || state.q !== q) return;
             if (n === 1) { $("said").classList.add("tap"); setTimeout(() => $("said").classList.remove("tap"), 200); }
             if (window.FL && FL.demoArrow) FL.demoArrow(null); setTimeout(hideHand, 400);
-            demoCont = () => { if (!alive()) return; setTimeout(() => (n === 0 ? example(1) : finish()), 400); };
+            demoCont = () => { if (!alive()) return; setTimeout(finish, 400); /* Golan 8.11: one example per press; the next press shows the other one */ };
             answerRight(n === 0 ? "touch" : "adult");
           }, 250));
         }, 300));
@@ -1452,7 +1453,7 @@
       [60, 400].forEach((ms) => setTimeout(onScreen, ms));
     };
     balloons.forEach((b) => { b.state = "off"; b.root.setEnabled(false); });
-    playSeq([LINES.demo], 1, () => { if (!alive()) return; example(0); });
+    playSeq([], 1, () => { if (!alive()) return; example(demoN++ % 2); });
   }
   // the "?" card at the bottom left plays the demo again; then the game goes on with a new question
   function demoAgain() {

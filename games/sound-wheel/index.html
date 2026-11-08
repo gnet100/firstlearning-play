@@ -1102,7 +1102,7 @@
     demoAfter = () => { hideHand(); const fin = () => { if (window.FL && FL.demoFrame) FL.demoFrame(false); markDemo(); if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };   // Golan 4.11: it all flies up, then the game
     readySpin(); state.mode = "demo";
     const my = epoch;
-    playIds(["sd_demo"], () => {
+    playIds([], () => {   // Golan 8.11: no opening line
       if (my !== epoch) return;
       const sb = mid($("spinBtn"));
       moveHand({ x: sb.x + 60, y: innerHeight + 40 }, sb, 1100, () => setTimeout(() => {

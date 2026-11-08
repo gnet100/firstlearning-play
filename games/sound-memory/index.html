@@ -1259,12 +1259,12 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
           moveHand(at(s), at(p), 1200, () => later(300, () => {
             if (!alive()) return;
             flip(state.cards.indexOf(p), true); arrow(p);
-            later(600, () => whenQuiet(() => later(1500, () => { if (!alive()) return; if (n === 0) example(1, at(p)); else finish(); })));
+            later(600, () => whenQuiet(() => later(1500, () => { if (!alive()) return; finish(); })));
           }));
         })));
       }));
     };
-    playIds(["sd_demo"], () => { if (alive()) example(0); });
+    playIds([], () => { if (alive()) example(0); });   // Golan 8.11: one example per press, no opening line
   }
 
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
