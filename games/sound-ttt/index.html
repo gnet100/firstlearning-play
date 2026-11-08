@@ -913,7 +913,11 @@
   // ---------- balloon picker (as in every game) ----------
   const PICK_STEP = 420;
   let pickNagT = 0, pickFlashTs = [], picking = false, pickSays = 0;
+  // Golan 8.11: no balloon pick in this game; a new round goes straight to the sound pick (the picker code stays unused)
   function openPick() {
+    $("pick").hidden = true; state.starRow = []; state.roundSounds = []; state.first = true; starCount.reset(); openSoundPick();
+  }
+  function openBalloonPick() {
     state.mode = "pick";
     const box = $("balloons"); box.textContent = "";
     BALLOONS.forEach((d, i) => {
