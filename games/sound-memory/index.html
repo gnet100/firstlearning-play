@@ -1302,5 +1302,6 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   window.__soundmemory = { state, settings, flip, answerLevel, askLevel, endRound, newBoard, runDemo, lvl, layout, rung: () => rung(), setRung: (r) => { progress.rung = r; progress.lvlAt = lvl(); saveProgress(); }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
 })();
 </script>
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>

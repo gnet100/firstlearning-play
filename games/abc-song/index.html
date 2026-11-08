@@ -416,5 +416,6 @@
   window.__song = { state, play, pause, seek, events: EV, endT: END_T, setSpeed: (s) => { clockT = curTime(); clock0 = now(); state.speed = s; state.fast = s > 1.5; if (state.fast && hasSong) audio.pause(); }, hasSong: () => hasSong };
 })();
 </script>
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>

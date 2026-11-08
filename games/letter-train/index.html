@@ -2490,5 +2490,6 @@
     balloonScreen() { const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(); const p = BABYLON.Vector3.Project(envelope.getAbsolutePosition(), BABYLON.Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(W, H)); return [r.left + p.x * r.width / W, r.top + p.y * r.height / H]; } };
 })();
 </script>
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>
