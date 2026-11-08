@@ -231,7 +231,7 @@
   .cmd svg { width: 52%; height: 52%; display: block; }
   .cmd:active, .cmd.tap { transform: translateY(3px); box-shadow: 0 2px 0 var(--d), 0 3px 8px #0003; }
   .cmd:disabled { filter: saturate(.3) brightness(1.08); cursor: default; }
-  #cmdJ:disabled { filter: grayscale(1); opacity: .3; box-shadow: none; }   /* Golan 8.11: a river with no spring = the spring button clearly off */
+  #cmdJ.off { filter: grayscale(1); opacity: .3; box-shadow: none; }   /* Golan 8.11: a river with no spring = the spring button clearly off */
   .c-F { --c: #3da5ff; --d: #1f6fc0; } .c-J { --c: #ff5a8a; --d: #c22d5c; } .c-L { --c: #7c5cff; --d: #5236c9; } .c-R { --c: #ff8a3d; --d: #c45f1d; }
   html[data-screen~="portrait"] .cmds { left: var(--edge-l); grid-template-columns: repeat(4, 1fr); }
   html[data-screen~="portrait"] .cmd { width: auto; }
@@ -885,7 +885,7 @@
     const edit = canEdit() && !state.demo;
     $("goBtn").disabled = plan.length < 1 || !canEdit();
     $("goBtn").classList.toggle("hot", edit && plan.length > 0 && !!state.q && plan.length >= needN());
-    document.querySelectorAll(".cmd").forEach((b) => (b.disabled = !canEdit() || (b.id === "cmdJ" && !!state.q && !!state.q.P.noJ)));   // Golan 7.11: level 1 has no spring
+    document.querySelectorAll(".cmd").forEach((b) => { const off = b.id === "cmdJ" && !!state.q && !!state.q.P.noJ; b.classList.toggle("off", off); b.disabled = !canEdit() || plan.length >= needN() || off; });   // Golan 7.11: level 1 has no spring
     $("eraseBtn").disabled = plan.length < 1 || !canEdit() || state.demo;
   }
   // the arrows shrink a little when the plan is long, then go to a second line
@@ -898,7 +898,7 @@
   }
   function addStep(k, force) {
     if (!canEdit() || (state.demo && !force)) return false;
-    if (plan.length >= MAXP) { sfx.oops(); return false; }
+    if (plan.length >= Math.min(MAXP, needN())) { sfx.oops(); return false; }   /* Golan 8.11: no more arrows than the path has moves */
     unlockAudio(); plan.push(k); badIdx = -1; renderPlan(); sfx.add(); return true;
   }
   ["F", "J", "L", "R"].forEach((k) => $("cmd" + k).addEventListener("click", (e) => { e.stopPropagation(); addStep(k); }));
