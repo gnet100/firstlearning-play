@@ -169,7 +169,7 @@
   // ---------- the six games (path from this page; "?hub=1" tells the game the child was already chosen here) ----------
   const GAMES = [
     // Golan 21.10: three additions to the letter-recognition station, 9 cards in 3x3 with the song first
-    { id: "song", ac: "#5c7cfa", name: "שִׁיר הָאָלֶף-בֵּית", path: "games/abc-song/index.html", bg: "#2a2f6b", pic: "song", noSystem: true },
+    { id: "song", ac: "#5c7cfa", name: "שִׁיר הָאָלֶף-בֵּית", path: "games/abc-song/index.html", bg: "#2a2f6b", pic: "song", noSystem: true, isle: [0, 1] },   // Golan 8.11: also on the sound island
     { id: "race", ac: "#4dabf7", name: "מֵרוֹץ הַשְּׁעָרִים", path: "voice/race-gates-voice/index.html", bg: "#d8f1ff", pic: "car" },
     { id: "detective", ac: "#22b8cf", name: "הַבַּלָּשׁ בָּעֲנָנִים", path: "games/letter-recognition/detective/index.html", bg: "#e4f6ff", pic: "detective" },
     { id: "waking", ac: "#9775fa", name: "הָאוֹת שֶׁמִּתְעוֹרֶרֶת", path: "games/waking-letter/index.html", bg: "#efe9ff", pic: "waking" },
@@ -185,9 +185,11 @@
     { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
     { id: "soundmole", ac: "#a47148", name: "חֲפַרְפֶּרֶת הַצְּלִילִים", path: "games/sound-mole/index.html", bg: "#dff3ff", pic: "soundmole", isle: 1, noSystem: true },   // Golan 30.10: the letter mole with pictures (summaries/sound-mole-spec.md)
     { id: "river", ac: "#2f8fdc", name: "לַחֲצוֹת אֶת הַנָּהָר", path: "games/river/index.html", bg: "#dff3ff", pic: "river", isle: 1, noSystem: true },   // Golan 5.11: plan the bunny's path over the stones whose picture opens with the sound
-    { id: "stogether", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/sound-together/index.html", bg: "#dff3ff", pic: "stogether", isle: 1, adult: true, noSystem: true },   // Golan 6.11: the sound island's game for a child and an adult (the sound in the middle, 4 balloons with pictures)
+    { id: "stogether", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/sound-together/index.html", bg: "#fff1df", pic: "tellme", isle: 1, adult: true, noSystem: true },   // Golan 8.11: "משחקים ביחד" = the same card on every island   // Golan 6.11: the sound island's game for a child and an adult (the sound in the middle, 4 balloons with pictures)
   ];
-  const isleOf = (g) => g.isle || 0;
+  // a game may sit on more than one island (Golan 8.11: the song on islands 1 and 2): isle can be a list
+  const islesOf = (g) => (Array.isArray(g.isle) ? g.isle : [g.isle || 0]);
+  const isleOf = (g) => (islesOf(g).includes(isleNow) ? isleNow : islesOf(g)[0]);
   let isleNow = 0; try { isleNow = +localStorage.getItem("fl-hub-isle") || 0; } catch (e) {}
   // back from a game (its door): that game's island, also when it was opened from another game ("המשך למשחק הבא") (Golan 5.11)
   try { const ref = decodeURI(document.referrer || ""), g = location.hash === "#games" && ref && GAMES.find((x) => ref.includes(x.path));
@@ -305,7 +307,7 @@
     const grid = document.querySelector(".grid"); grid.innerHTML = "";
     // the topic label over the cards: the island's topic (map_t1, map_t2 ...)
     { const t = ["זִיהוּי אוֹתִיּוֹת", "זִיהוּי צְלִילִים"][isleNow] || "זִיהוּי אוֹתִיּוֹת", tb = document.querySelector("#topic b"); tb.dataset.nq = tb.textContent = t; document.querySelector("#topic .spk").dataset.clip = "map_t" + (isleNow + 1); }
-    for (const g of GAMES.filter((x) => isleOf(x) === isleNow)) {
+    for (const g of GAMES.filter((x) => islesOf(x).includes(isleNow))) {
       const b = document.createElement("button"); b.className = "game"; b.type = "button"; b.dataset.id = g.id; b.style.setProperty("--ac", g.ac);
       // the tell-me card is "משחקים ביחד" since Golan 20.10 (one name for boys and girls; clip hub_g_together, silent until generated)
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
@@ -331,7 +333,7 @@
     hush(); $("games").classList.remove("on"); screen = "map"; $("door").hidden = $("gear").hidden = false;
     const p = LRN.profile();
     FL.map.show({ host: document.body, profile: p, colour: LRN.COMP_COLORS[p.color || 0], known: knownCount(), say, at: isleNow || 0,   /* Golan 6.11 19:56: the door of an island's list goes back to that island on the map */
-      has: (i) => GAMES.some((g) => isleOf(g) === i),
+      has: (i) => GAMES.some((g) => islesOf(g).includes(i)),
       onOpen: (i) => { isleNow = i || 0; try { localStorage.setItem("fl-hub-isle", isleNow); } catch (e) {} showGames(); }, onFail: () => showGames(), onSystem: systemPick });
     if (location.hash !== "#map") history.replaceState(null, "", "#map");
   }
@@ -833,6 +835,7 @@
   (window.FL && FL.loadBabylon ? FL.loadBabylon() : Promise.reject()).then(() => { try { build3d(); } catch (e) { sky3 = null; } }).catch(() => {});
 })();
 </script>
-<script src="games/shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>
+
+<script src="games/shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
