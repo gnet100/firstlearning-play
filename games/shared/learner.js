@@ -1582,7 +1582,7 @@ ${items[item]}</svg>`;
   function nextGame(justPlayed) {
     const now = justPlayed === undefined ? gameCfg.game : justPlayed;
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const gi = now && RANK.isle2.includes(now) ? 2 : now && RANK.isle1.includes(now) ? 1 : 0;   // Golan 8.11 (audit 6): stay on the island just played
+    const gi = now && (RANK.isle2.includes(now) || ISLE_GAMES[2].includes(now)) ? 2 : now && (RANK.isle1.includes(now) || ISLE_GAMES[1].includes(now)) ? 1 : 0;   /* Golan 8.11 (audit 6): stay on the island just played (three in a row and the together games too) */
     const isle = gi ? "isle" + gi : confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
     const w0 = isle === "isle2" ? (n <= 2 ? 0 : n <= 5 ? 1 : 2) : Math.min(rank.length - 3, Math.floor(n / 3)), win = rank.slice(w0, w0 + 3);
     const sc = lastRoundScore(now), step = sc == null ? 0 : sc >= 0.8 ? 1 : sc <= 0.5 ? -1 : 0;
