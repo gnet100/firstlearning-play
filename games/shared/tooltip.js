@@ -6,6 +6,8 @@
 (() => {
   "use strict";
   if (window.FL_TOOLTIP) return; window.FL_TOOLTIP = true;
+  // Golan 8.11: every screen that has the tooltip also gets the "turn the phone sideways" card (rotate.js, next to this file)
+  try { const me = document.currentScript; if (me && me.src && !window.FL_ROTATE) { const r = document.createElement("script"); r.src = me.src.replace(/tooltip\.js(\?.*)?$/, "rotate.js"); (document.head || document.documentElement).append(r); } } catch (e) {}
   const NIKUD = { "יציאה": "יְצִיאָה", "חזרה": "חֲזָרָה", "סגירה": "סְגִירָה", "הגדרות": "הַגְדָּרוֹת", "עצירה": "עֲצִירָה", "המשך": "הֶמְשֵׁךְ",
     "שוב": "שׁוּב", "התחלה מחדש": "הַתְחָלָה מֵחָדָשׁ", "השמעה": "הַשְׁמָעָה", "עזרה": "עֶזְרָה", "הדגמה": "הַדְגָּמָה", "מחיקה": "מְחִיקָה",
     // Golan 8.11: every tooltip with nikud
