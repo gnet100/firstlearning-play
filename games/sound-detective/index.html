@@ -1378,10 +1378,8 @@
     setTimeout(() => {
       if (state.q !== q) return;
       const shown = clouds.filter((c) => c.state !== "off").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
-      const steps = ["sd_demo"];
-      const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = screenOf(c.root.position.x, c.root.position.y + 1.25 * c.size); FL.demoArrow(a.x, a.y); };   // an arrow at each picture while its name is said
-      for (const c of shown) steps.push(() => { glowName(c, true); arrow(c); }, wordOf(c.letter), () => { glowName(c, false); FL.demoArrow && FL.demoArrow(null); });
-      steps.push(...qIds(q));
+      // Golan 8.11: the pictures' names are not read; the example opens straight with the question
+      const steps = [...qIds(q)];
       playIds(steps, () => {
         if (state.q !== q) return;
         const c = clouds.find((k) => k.letter === q.letter && k.state !== "off"); if (!c) return demoAfter && demoAfter();
