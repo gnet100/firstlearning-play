@@ -185,7 +185,7 @@
     { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
     { id: "soundmole", ac: "#a47148", name: "חֲפַרְפֶּרֶת הַצְּלִילִים", path: "games/sound-mole/index.html", bg: "#dff3ff", pic: "soundmole", isle: 1, noSystem: true },   // Golan 30.10: the letter mole with pictures (summaries/sound-mole-spec.md)
     { id: "river", ac: "#2f8fdc", name: "לַחֲצוֹת אֶת הַנָּהָר", path: "games/river/index.html", bg: "#dff3ff", pic: "river", isle: 1, noSystem: true },   // Golan 5.11: plan the bunny's path over the stones whose picture opens with the sound
-    { id: "soundttt", ac: "#f76707", name: "אִיקְס עִיגּוּל שֶׁל צְלִילִים", path: "games/sound-ttt/index.html", bg: "#e6f2ff", pic: "soundttt", isle: 1, noSystem: true },   // Golan 8.11: tic-tac-toe with sounds against the computer
+    { id: "soundttt", ac: "#f76707", name: "שְׁלוֹשָׁה בְּשׁוּרָה", path: "games/sound-ttt/index.html", bg: "#e6f2ff", pic: "soundttt", isle: 1, noSystem: true },   // Golan 8.11: tic-tac-toe with sounds against the computer
     { id: "stogether", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/sound-together/index.html", bg: "#fff1df", pic: "tellme", isle: 1, adult: true, noSystem: true },   // Golan 8.11: "משחקים ביחד" = the same card on every island   // Golan 6.11: the sound island's game for a child and an adult (the sound in the middle, 4 balloons with pictures)
   ];
   // a game may sit on more than one island (Golan 8.11: the song on islands 1 and 2): isle can be a list
@@ -230,7 +230,7 @@
       <path d="M86 12c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="#ff5a8a"/>
       <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/></svg>`;
   }
-  // אִיקְס עִיגּוּל שֶׁל צְלִילִים (Golan 8.11): a plain 3x3 board, the child's בַּ (orange) against the computer's מַ (purple), a glowing row
+  // שְׁלוֹשָׁה בְּשׁוּרָה (Golan 8.11): a plain 3x3 board, the child's בַּ (orange) against the computer's מַ (purple), a glowing row
   function tttPic() {
     const cell = (x, y, t, win) => `<rect x="${x}" y="${y}" width="26" height="26" rx="5" fill="${t === "ב" ? "#fff1e3" : t === "מ" ? "#f1ecff" : "#fff"}"${win ? ' stroke="#FFC400" stroke-width="2.6"' : ""}/>` +
       (t ? `<text x="${x + 13}" y="${y + 12}" font-size="18" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${t === "ב" ? "#f76707" : "#7048e8"}" font-family="Noto Sans Hebrew, sans-serif">${t === "ב" ? "בַּ" : "מַ"}</text>` : "");
