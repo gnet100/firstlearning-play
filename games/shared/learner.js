@@ -2094,7 +2094,7 @@ ${items[item]}</svg>`;
     host.append(box); return box;
   }
   FL.learner = {
-    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
+    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, isleGames: () => ISLE_GAMES, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,
