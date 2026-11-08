@@ -82,6 +82,20 @@
     }
     ctx.drawImage(im, x + (0.5 - b.x) * w, y + (0.5 - b.y) * h, w, h);
   };
+  // Golan 8.11 (all games): when a round ends with no answer at all, Hila says "נִגְמַר הַזְּמַן, נְנַסֶּה שׁוּב" (fb_time_up) instead of
+  // "יֵשׁ! סִיַּמְנוּ סִבוּב!" (fb_round_done). Every game plays its own clips, so the swap is done here once, at play time,
+  // right after the end panel marked the round empty (endPanel sets FL._endEmptyAt). The game still gets its "ended" event.
+  try { if (root.HTMLMediaElement && !HTMLMediaElement.prototype._flTimeUp) {
+    const P = HTMLMediaElement.prototype, play0 = P.play, pause0 = P.pause; P._flTimeUp = true;
+    P.play = function () {
+      try { const src = this.currentSrc || this.src || "";
+        if (FL._endEmptyAt && Date.now() - FL._endEmptyAt < 8000 && /\/fb_round_done\.mp3(\?|$)/.test(src)) {
+          const orig = this, alt = new Audio(src.replace("fb_round_done.mp3", "fb_time_up.mp3")); alt.volume = this.volume; orig._flAlt = alt;
+          alt.addEventListener("ended", () => { orig._flAlt = null; orig.dispatchEvent(new Event("ended")); });
+          return play0.call(alt).catch(() => { orig._flAlt = null; return play0.call(orig); }); } } catch (e) {}
+      return play0.apply(this, arguments); };
+    P.pause = function () { if (this._flAlt) { try { pause0.call(this._flAlt); } catch (e) {} this._flAlt = null; } return pause0.apply(this, arguments); };
+  } } catch (e) {}
   FL.explainClip = (word) => { const w = String(word || "").replace(/[\u0591-\u05C7]/g, ""); return WORD_P.has(w) ? "sd_explain_p" : WORD_F.has(w) ? "sd_explain_f" : "sd_explain"; };
   // Golan 6.11 19:55 (all games): the letter + speaker pill at the top is 25% smaller (it stays at the same top line)
   try { if (root.document && !document.getElementById("fl-pill-css")) { const st = document.createElement("style"); st.id = "fl-pill-css";
@@ -1566,7 +1580,7 @@ ${items[item]}</svg>`;
       // Golan 8.11: a round with no answer at all (time ran out) gets a soft panel: "נגמר הזמן", no stars, no letter rows
       const pr0 = o.practiced || practicedThisRound();
       const empty = !(o.stars || []).length && !Object.keys(pr0).length && !Object.keys(lastSounds).length && !Array.isArray(o.letters);
-      emptyNow = empty;
+      emptyNow = empty; FL._endEmptyAt = empty ? Date.now() : 0;
       const h = document.createElement("h1"); h.textContent = empty ? "נִגְמַר הַזְּמַן" : o.title || "יש! סיימנו סיבוב"; el.append(h);
       // stars in two centred rows (Golan 17.10), the top row one longer when odd; each row shrinks to fit
       const stars = o.stars || [];
