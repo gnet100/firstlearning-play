@@ -1086,6 +1086,7 @@ ${items[item]}</svg>`;
     const s = document.createElement("style"); s.id = "fl-learner-css";
     s.textContent = `.fl-cap{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:4px 0;font:inherit;font-size:20px;font-weight:800;color:inherit;cursor:pointer;text-align:start}.fl-capt{flex:1}.fl-chev{transition:transform .2s;font-size:18px}.fl-cap[aria-expanded=true] .fl-chev{transform:rotate(180deg)}.fl-cap:focus:not(:focus-visible),.fl-toph:focus:not(:focus-visible){outline:none}.fl-topics{margin-top:6px}.fl-topic{padding:8px 0;border-top:1px solid #e6ebf0}.fl-toph{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:2px 0;font:inherit;font-size:18px;font-weight:700;color:inherit;cursor:pointer;text-align:start}.fl-toph[aria-expanded=true] .fl-chev{transform:rotate(180deg)}.fl-topb{padding-top:4px}.fl-topn{font-size:16px;color:#5b6470;margin:2px 0 6px}.fl-ov{position:fixed;inset:0;z-index:9999;box-sizing:border-box;padding:var(--edge-t,env(safe-area-inset-top)) var(--edge-r,env(safe-area-inset-right)) var(--edge-b,env(safe-area-inset-bottom)) var(--edge-l,env(safe-area-inset-left));background:rgba(20,40,70,.55);display:flex;align-items:center;justify-content:center;direction:rtl;font-family:inherit}
 .fl-ovc{display:contents}
+.fl-meter{display:flex;align-items:center;gap:8px;margin:2px 0 4px}.fl-mbar{flex:1;height:14px;border:1.5px solid #9aa8b8;border-radius:4px;background:#fff;display:flex;overflow:hidden;direction:rtl}.fl-mbar i{display:block;height:100%}.fl-mpc{min-width:42px;font-size:15px;font-weight:700;color:#1d3557;text-align:end;direction:ltr}
 /* the box never sits under the door and gear: room beside them when wide, below them when tall (screens audit 16.10) */
 @media (orientation:landscape){.fl-ov{padding-left:calc(var(--edge-l,max(16px,env(safe-area-inset-left))) + 72px)}}
 @media (orientation:portrait){.fl-ov{padding-top:calc(var(--edge-t,max(12px,env(safe-area-inset-top))) + 72px)}}
@@ -1309,10 +1310,20 @@ ${items[item]}</svg>`;
     // the big menus follow the same rule: opening one closes any other open big menu on the page (Golan 19.10)
     cap.addEventListener("click", () => { if (cap.getAttribute("aria-expanded") !== "true") return;
       document.querySelectorAll(".fl-cap[aria-expanded=true]").forEach((o) => { if (o !== cap) o.click(); }); });
-    const topic = (title, sub) => { const t = document.createElement("div"); t.className = "fl-topic"; const inner = document.createElement("div"); inner.className = "fl-topb";
+    // Golan 8.11: a percent bar under every topic, seen with the topic closed: green = מזהה בביטחון, then orange = מוכרת
+    const meter = (m) => { const total = m ? m.total : 0, kn = m ? m.known : 0, al = m ? m.almost : 0, pc = total ? Math.round(100 * kn / total) : 0;
+      const w = document.createElement("div"); w.className = "fl-meter"; w.setAttribute("role", "img");
+      w.setAttribute("aria-label", total ? `${pc}% מזהה בביטחון` : "עוד לא נבדק");
+      const bar = document.createElement("div"); bar.className = "fl-mbar";
+      if (total) { const g = document.createElement("i"); g.style.cssText = `width:${100 * kn / total}%;background:${BORDER("known")}`;
+        const o = document.createElement("i"); o.style.cssText = `width:${100 * al / total}%;background:${BORDER("almost")}`; bar.append(g, o); }
+      const t = document.createElement("span"); t.className = "fl-mpc"; t.textContent = pc + "%"; w.append(bar, t); return w; };
+    const topic = (title, sub, m) => { const t = document.createElement("div"); t.className = "fl-topic"; const inner = document.createElement("div"); inner.className = "fl-topb";
       if (sub) { const n = document.createElement("div"); n.className = "fl-topn"; n.textContent = sub; inner.append(n); }
-      t.append(fold("fl-toph", title, inner, true), inner); body.append(t); return inner; };
-    const letters = topic("זיהוי אותיות", `מזהה בביטחון ${rec} אותיות מתוך 27 (22 + 5 סופיות)`);   /* Golan 18.10: no "אומר את השם של" line */
+      t.append(fold("fl-toph", title, inner, true), meter(m), inner); body.append(t); return inner; };
+    const count = (list, track) => ({ total: list.length, known: list.filter((l) => c[l] && c[l][track].state === "known").length,
+      almost: list.filter((l) => c[l] && shownState(c[l][track].state) === "almost").length });
+    const letters = topic("זיהוי אותיות", `מזהה בביטחון ${rec} אותיות מתוך 27 (22 + 5 סופיות)`, count([...FL.LETTERS, ...FL.FINALS], "recognize"));   /* Golan 18.10: no "אומר את השם של" line */
     const grid = document.createElement("div"); grid.className = "fl-grid";
     for (const l of [...FL.LETTERS, ...FL.FINALS]) {
       // Golan 16.10: 3 states only; "בלמידה" / "בתרגול" show as "חדשה" (the model keeps them for choosing letters)
@@ -1330,7 +1341,7 @@ ${items[item]}</svg>`;
     // until then its tile is faded.
     const all = [...FL.LETTERS, ...FL.FINALS], open = all.filter((l) => c[l].recognize.state === "known");
     const curKnown = all.filter((l) => c[l].cursive.state === "known").length;
-    const cbox = topic("זיהוי אותיות בכתב יד", open.length ? `מזהה בביטחון ${curKnown} אותיות כתב מתוך 27. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס (פתוחות ${open.length}).` : "עוד לא נפתחו אותיות. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס.");
+    const cbox = topic("זיהוי אותיות בכתב יד", open.length ? `מזהה בביטחון ${curKnown} אותיות כתב מתוך 27. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס (פתוחות ${open.length}).` : "עוד לא נפתחו אותיות. אות בכתב נפתחת אחרי שהילד מזהה אותה בביטחון בדפוס.", count([...FL.LETTERS, ...FL.FINALS], "cursive"));
     const cgrid = document.createElement("div"); cgrid.className = "fl-grid fl-cursive";
     for (const l of all) {
       const s = document.createElement("div"); s.className = "fl-cell"; s.textContent = l;
@@ -1345,13 +1356,13 @@ ${items[item]}</svg>`;
     const soundEv = p.events.some((e) => e.m === "sound");
     const sKnown = SOUND_LETTERS.filter((l) => c[l].sound.state === "known").length;
     if (soundEv) {
-      const sbox = topic(TOPICS[0], `מזהה את הצליל הפותח ב-${sKnown} צלילים שונים.` + (sKnown >= SOUND_SKILL ? " המיומנות נרכשה." : ` המיומנות נרכשת ב-${SOUND_SKILL} צלילים.`));
+      const sbox = topic(TOPICS[0], `מזהה את הצליל הפותח ב-${sKnown} צלילים שונים.` + (sKnown >= SOUND_SKILL ? " המיומנות נרכשה." : ` המיומנות נרכשת ב-${SOUND_SKILL} צלילים.`), count(SOUND_LETTERS, "sound"));
       const sgrid = document.createElement("div"); sgrid.className = "fl-grid fl-sounds";
       for (const l of SOUND_LETTERS) { const shown = shownState(c[l].sound.state), s = document.createElement("div"); s.className = "fl-cell";
         paint(s, shown); s.textContent = SOUND_SYL[l]; s.title = LABELS[shown]; sgrid.append(s); }
       sbox.append(sgrid, leg.cloneNode(true));
     }
-    for (const t of TOPICS) if (!(soundEv && t === TOPICS[0])) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.");
+    for (const t of TOPICS) if (!(soundEv && t === TOPICS[0])) topic(t, "עוד לא נבדק: אין עדיין משחק בנושא הזה.", t === TOPICS[0] ? count(SOUND_LETTERS, "sound") : null);
     el.append(cap, body);
   }
   // Letter picker for each game's "אותיות ללימוד" (Golan 16.10: identical to the parent table, plus choosing).
