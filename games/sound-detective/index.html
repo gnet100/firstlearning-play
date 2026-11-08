@@ -474,6 +474,8 @@
 <script src="../shared/love-balloon.js"></script>
 <script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" (spec sec 6) -->
 <script src="sound-pictures.js"></script>
+<script src="../sound-wheel/wheel-pictures.js"></script>   <!-- Golan 8.11: the sound מַ uses the wheel's pictures (plane, helicopter, truck, slide, mask) -->
+<script>if (window.PICTURES && window.WHEEL_PICTURES) for (const k in WHEEL_PICTURES.pics) if (!PICTURES[k]) PICTURES[k] = WHEEL_PICTURES.pics[k];</script>
 <script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the found picture comes alive and leaves its tag (Golan 7.11, as in sound mole) -->
 <script src="../shared/pic-exit.js"></script>   <!-- the new pictures of this game (Golan 29.10) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
@@ -521,12 +523,14 @@
   const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
     "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
     "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
-    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" } };
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" },
+    "מ": { syl: "מַ", s: "syl_ma" } };   // Golan 8.11: the 12th sound
   // Golan 29.10: 3 pictures for every sound (the new ones in sound-pictures.js); the generic camel replaces the waking game's ג here
   const PICS_OF = {   // Golan 7.11: 5 pictures for every sound (2 more each, summaries/sound-words-list.md)
     "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
     "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
-    "צ": ["צ", "plate", "painter", "parachutist", "scarf"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"] };
+    "צ": ["צ", "plate", "painter", "parachutist", "scarf"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"],
+    "מ": ["plane", "helicopter", "truck", "slide", "mask"] };
   const picsOf = (l) => PICS_OF[l] || [l];
   // sounds that sound alike never meet in one sky (spec sec 6): ט/ת, כ/ק, א/ע/ה, ח/כ, ס/שׂ, ב/ו
   const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
