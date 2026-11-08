@@ -53,11 +53,14 @@
     clearTimeout(timer); timer = setTimeout(() => { if (cur === el && el.isConnected && el.getClientRects().length) { place(el); tip.classList.add("on"); } }, 250);
   }
   function hide() { cur = null; clearTimeout(timer); tip.classList.remove("on"); }
+  // Golan 8.11: no tooltip while its button is gone from view (the 3-2-1 countdown hides the "?" card, a window covers it...)
+  const gone = (el) => document.documentElement.classList.contains("fl-counting") || !el.isConnected || !el.getClientRects().length || getComputedStyle(el).visibility === "hidden" || +getComputedStyle(el).opacity === 0;
+  setInterval(() => { if (cur && gone(cur)) hide(); }, 200);
   document.addEventListener("pointerover", (e) => {
     if (e.pointerType && e.pointerType !== "mouse") return;
     if (!e.target.closest) return;
     adopt(e.target.closest("[title], " + SEL)); const el0 = e.target.closest("[data-tip]"), el = el0 && !el0.matches(NO_TIP) ? el0 : null;
-    if (el === cur) return; hide(); if (el && !el.disabled) { cur = el; show(el); }
+    if (el === cur) return; hide(); if (el && !el.disabled && !gone(el)) { cur = el; show(el); }
   }, true);
   document.addEventListener("pointerdown", hide, true);
   addEventListener("scroll", hide, true); addEventListener("blur", hide);

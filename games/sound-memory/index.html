@@ -1261,7 +1261,20 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
         })));
       }));
     };
-    playIds([], () => { if (alive()) example(0); });   // Golan 8.11: one example per press, no opening line
+    // Golan 8.11: first the hint: the hand touches the balloon card, every closed card peeks for a moment, then one example
+    const hintFirst = () => {
+      const h = state.cards.find((c) => c.surprise && c.state === "closed");
+      if (!h) return example(0);
+      const a = at(h);
+      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
+        if (!alive()) return;
+        flip(state.cards.indexOf(h), true); arrow(h);
+        later(500, () => { if (window.FL && FL.demoArrow) FL.demoArrow(null); });
+        const wait = () => { if (!alive()) return; if (state.busy) return later(150, wait); later(500, () => example(0, a)); };
+        later(400, wait);
+      }));
+    };
+    playIds([], () => { if (alive()) hintFirst(); });   /* Golan 8.11: one example per press, no opening line */
   }
 
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); state.demoNext = true; $("go").click(); });
