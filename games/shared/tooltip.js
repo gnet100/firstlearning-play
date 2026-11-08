@@ -21,9 +21,12 @@
   const tip = document.createElement("div"); tip.className = "fl-tip"; tip.setAttribute("aria-hidden", "true");
   let cur = null, timer = 0;
   // the round buttons (door, gear, pause, speaker...) and the X of a window: their label is the tooltip too
-  const SEL = ".round-btn, .door-btn, .gear-btn, .x-close, .set-x";
+  const SEL = ".round-btn, .door-btn, .gear-btn";
+  // Golan 8.11 08:02: the X that closes a window (settings and the other popups) has no tooltip
+  const NO_TIP = ".x-close, .set-x, .x-btn, .x, [aria-label='סגירה']";
   const adopt = (el) => {
     if (!el || !el.matches || el.hasAttribute("data-tip")) return;
+    if (el.matches(NO_TIP)) { el.removeAttribute("title"); return; }
     if (el.hasAttribute("title") && el.closest("button, .round-btn")) { el.setAttribute("data-tip", el.getAttribute("title")); el.removeAttribute("title"); }
     else if (el.matches(SEL) && el.getAttribute("aria-label")) el.setAttribute("data-tip", el.getAttribute("aria-label"));
   };
@@ -45,7 +48,7 @@
   document.addEventListener("pointerover", (e) => {
     if (e.pointerType && e.pointerType !== "mouse") return;
     if (!e.target.closest) return;
-    adopt(e.target.closest("[title], " + SEL)); const el = e.target.closest("[data-tip]");
+    adopt(e.target.closest("[title], " + SEL)); const el0 = e.target.closest("[data-tip]"), el = el0 && !el0.matches(NO_TIP) ? el0 : null;
     if (el === cur) return; hide(); if (el && !el.disabled) { cur = el; show(el); }
   }, true);
   document.addEventListener("pointerdown", hide, true);
