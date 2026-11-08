@@ -231,6 +231,7 @@
   .cmd svg { width: 52%; height: 52%; display: block; }
   .cmd:active, .cmd.tap { transform: translateY(3px); box-shadow: 0 2px 0 var(--d), 0 3px 8px #0003; }
   .cmd:disabled { filter: saturate(.3) brightness(1.08); cursor: default; }
+  #cmdJ:disabled { filter: grayscale(1); opacity: .3; box-shadow: none; }   /* Golan 8.11: a river with no spring = the spring button clearly off */
   .c-F { --c: #3da5ff; --d: #1f6fc0; } .c-J { --c: #ff5a8a; --d: #c22d5c; } .c-L { --c: #7c5cff; --d: #5236c9; } .c-R { --c: #ff8a3d; --d: #c45f1d; }
   html[data-screen~="portrait"] .cmds { left: var(--edge-l); grid-template-columns: repeat(4, 1fr); }
   html[data-screen~="portrait"] .cmd { width: auto; }
