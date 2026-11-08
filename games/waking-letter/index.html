@@ -428,6 +428,7 @@
   const motionK = () => { try { const l = LRN; return l && l.speed ? l.speed("wake") : 1; } catch (e) { return 1; } };
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-wake-settings") || "{}")); } catch (e) {}
   settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת"; a saved manual list is not played (Golan 16.10, all games)
+  settings.script = "auto";   // a manual setting lasts only until the game is reopened (Golan 8.11, levels table)
   const saveSettings = () => { try { localStorage.setItem("fl-wake-settings", JSON.stringify(settings)); } catch (e) {} };
   // Golan 19.10: the challenge level belongs to the child, not to the game: each child keeps their own choice
   // (settings.byKid[child id]); a new child starts at the default. Reads and writes of settings.<key> go there.
@@ -491,9 +492,23 @@
   let QUESTIONS_PER_ROUND = 6;
   const setRoundLength = () => { QUESTIONS_PER_ROUND = (LRN && LRN.roundLength ? LRN.roundLength() : 4) + 2; };
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 sets the clouds (3 / 3 / 4) and their motion (still / slow / medium)
+  // Golan 8.11 (levels table): level 1 / 2 / 3 = 4 / 6 / 8 clouds (still / slow / fast), the letter on 1 / 2 / 3 of them;
+  // the question is solved only when every cloud with the letter was found
   const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
-  const cloudCount = () => [3, 3, 3, 4][lvl()];
+  const cloudCount = () => [4, 4, 6, 8][lvl()];
+  const targetCount = () => [1, 1, 2, 3][lvl()];
+  /* the target on nT clouds, the other letters fill the rest (a letter repeats only when the list is short) */
+  function withTargets(target, opts, prevOrder) {
+    const n = cloudCount(), nT = targetCount(), others = opts.filter((l) => l !== target);
+    const fill = others.filter((l) => !lookalikes(target).includes(l));
+    const list = Array(nT).fill(target).concat(others);
+    for (let k = 0; list.length < n && fill.length; k++) list.push(fill[k % fill.length]);
+    let order;
+    for (let i = 0; i < 8; i++) { order = shuffle(list.slice()); if (!prevOrder || order.indexOf(target) !== prevOrder.indexOf(target)) break; }
+    const targets = order.map((l, i) => (l === target ? i : -1)).filter((i) => i >= 0);
+    return { letter: target, order, correct: targets[0], targets, found: [] };
+  }
+  const uniq = (a) => [...new Set(a || [])];
   function chosenLetters() { return settings.lettersMode === "auto" ? [] : (settings.letters || []).filter((l) => LETTERS.includes(l) && hasPic(l)); }
   function teachList() { const c = chosenLetters(); return c.length ? window.TEACH_ORDER.filter((l) => c.includes(l)) : window.TEACH_ORDER.slice(); }
   // The round's letter comes from the learner model (letters the child finds hard come first, a missed letter comes back later).
@@ -525,8 +540,7 @@
   }
 
   function makeQuestion(target, prevOrder) {
-    const n = cloudCount();
-    let order;
+    let n = cloudCount();
     if (kid()) {
       // wrong letters from the learner model; in the letter's first round never a look-alike (framework 3.3.3)
       const seen = ((progress.learned || {})[target] || {}).rounds || 0;
@@ -538,8 +552,9 @@
       const isLook = (r) => (window.FL && FL.lookalikesOf ? FL.lookalikesOf(target, true).includes(r) : lookalikes(target).includes(r));
       let nLook = 0;
       const lookOk = (r) => !isLook(r) || (nLook < maxLook && knows(target) && knows(r) && ++nLook);
+      const nO = n - targetCount();   /* different wrong letters wanted */
       const cand = LRN.safeDistractors ? LRN.safeDistractors(target, n + 2, { pool: LRN.autoLetters ? LRN.autoLetters() : [] }) : LRN.distractors(target, n + 2, seen ? {} : { level: 1 });
-      const opts = [target]; for (const r of cand) if (opts.length < n && lookOk(r)) opts.push(r);
+      const opts = [target]; for (const r of uniq(cand)) if (opts.length < nO + 1 && r !== target && lookOk(r)) opts.push(r);
       // the shared list may be shorter than asked (no sound-alikes, Golan 16.10): then fewer clouds; never a single cloud
       if (opts.length < 2) {   // a second cloud: never a look-alike or sound-alike of the target; a letter the child met first, else one from the set
         const conf = (x) => (LRN.confusable ? LRN.confusable(target, x) : lookalikes(target).includes(x)) || x === target;
@@ -547,12 +562,11 @@
         const pick = shuffle(LETTERS.filter((x) => !conf(x) && met(x)))[0] || shuffle((LRN.autoLetters ? LRN.autoLetters() : []).filter((x) => !conf(x)))[0] || shuffle(LETTERS.filter((x) => !conf(x)))[0];
         if (pick) opts.push(pick);
       }
-      for (let i = 0; i < 8; i++) { order = shuffle(opts.slice()); if (!prevOrder || order.indexOf(target) !== prevOrder.indexOf(target)) break; }
-      return { letter: target, order, correct: order.indexOf(target) };
+      return withTargets(target, opts, prevOrder);
     }
     const learned = Object.keys(progress.learned || {}).filter((l) => l !== target);
     const avoid = new Set([target, ...lookalikes(target).filter((l) => !learned.includes(l))]);
-    const opts = [target];
+    const opts = [target]; n = n - targetCount() + 1;   /* distinct letters: the target once + the wrong ones */
     // one look-alike, only when both letters already woke up
     const twin = lookalikes(target).find((l) => learned.includes(l));
     if (twin && n > 2 && Math.random() < 0.6) opts.push(twin);
@@ -560,8 +574,7 @@
     for (const l of shuffle(learned.slice())) if (opts.length < n && !avoid.has(l) && !opts.includes(l)) opts.push(l);
     const rest = shuffle(LETTERS.filter((l) => !avoid.has(l) && !opts.includes(l)));
     while (opts.length < n) opts.push(rest.pop());
-    for (let i = 0; i < 8; i++) { order = shuffle(opts.slice()); if (!prevOrder || order.indexOf(target) !== prevOrder.indexOf(target)) break; }
-    return { letter: target, order, correct: order.indexOf(target) };
+    return withTargets(target, opts, prevOrder);
   }
 
   // ---------- audio: as in the car game (Hila's clips from audio/, device voice only when a clip is missing) ----------
@@ -939,7 +952,7 @@
   balloon.scaling.set(0.85, 0.85, 0.85);
 
   // ---------- letter clouds (signs look like the car game's signs, sitting on a cloud) ----------
-  const SIGN_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF"];
+  const SIGN_COLORS = ["#7C5CFF", "#FF8A3D", "#16B6A8", "#FF5A8A", "#3DA5FF", "#8BC34A", "#E0559A", "#F2A900"];   // 8 clouds at level 3 (Golan 8.11, levels table)
   const FONT = '"Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif';
   const CURSIVE = '"FL Cursive", cursive';   // כתב יד (Golan 24.10): shared/fonts, Gveret Levin
   // the two writing lines of a school notebook behind a cursive letter (Golan 27.10): the letter's body sits between them,
@@ -962,7 +975,7 @@
   // a cursive round measures the cursive letter once the letter is known in print; a heard-only cursive find does not make it known at once
   const curRec = () => !!(state.cur && state.letter && LRN && LRN.cursiveReady && LRN.cursiveReady(state.letter));
   const signs = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     const root = new BABYLON.TransformNode("lc" + i, scene);
     const holder = new BABYLON.TransformNode("holder", scene); holder.parent = root;   // the part that rises and flies on success
     const tex = new BABYLON.DynamicTexture("signTex" + i, { width: 384, height: 256 }, scene, true);
@@ -1368,23 +1381,27 @@
     // screen spots: away from the top line and from the balloon at the bottom
     let spots;
     const row = (k, v) => Array.from({ length: k }, (_, i) => [(i + 0.5) / k, v]);
-    if (!portrait) spots = row(n, 0.37).map(([u, v], i) => [0.1 + u * 0.8, v + (i % 2 ? 0.05 : -0.02)]);
+    /* Golan 8.11 (levels table): up to 8 clouds; from 5 on, two rows when lying (the lower one staggered), three when standing */
+    const k1 = Math.ceil(n / 2), wide = (k, v, i0) => row(k, v).map(([u, vv], i) => [0.1 + u * 0.8 + (k < k1 ? 0.4 / k1 : 0), vv + ((i0 + i) % 2 ? 0.03 : -0.02)]);
+    if (!portrait) spots = n <= 4 ? row(n, 0.37).map(([u, v], i) => [0.1 + u * 0.8, v + (i % 2 ? 0.05 : -0.02)]) : [...wide(k1, 0.27, 0), ...wide(n - k1, 0.55, 1)];
     else if (n <= 2) spots = row(n, 0.42);
     else if (n === 3) spots = [...row(2, 0.34), [0.5, 0.56]];
     else if (n === 4) spots = [...row(2, 0.34), ...row(2, 0.56)];
-    else spots = [...row(3, 0.33), ...row(2, 0.54)];
-    const cols = portrait ? (n <= 2 ? 2 : n === 5 ? 3 : 2) : n;
+    else if (n === 5) spots = [...row(3, 0.33), ...row(2, 0.54)];
+    else spots = [...row(3, 0.28), ...row(3, 0.45), ...row(n - 6, 0.62)];
+    const cols = portrait ? (n <= 2 ? 2 : n >= 5 ? 3 : 2) : n <= 4 ? n : k1;
+    const multi = n >= 5;   /* stacked rows: smaller clouds and a smaller up-down sway */
     // world size of one screen pixel at the clouds' distance
     const vfov = cam.fovMode === BABYLON.Camera.FOVMODE_VERTICAL_FIXED ? cam.fov : 2 * Math.atan(Math.tan(cam.fov / 2) * H / W);
     const ppu = H / (2 * CLOUD_AHEAD * Math.tan(vfov / 2));
-    const want = portrait ? Math.min((W / cols) * 0.66, H * 0.3) : Math.min((W / cols) * 0.6, H * 0.34);   // sign width in pixels
+    const want = portrait ? Math.min((W / cols) * 0.66, H * (n >= 6 ? 0.17 : 0.3)) : Math.min((W / cols) * 0.6, H * (multi ? 0.25 : 0.34));   // sign width in pixels
     const s = Math.min(4, want / (2.4 * ppu));
     state.q.order.forEach((l, i) => {
       const g = signs[i], [u, v] = spots[i];
       const x = (u - 0.5) * W / ppu, y = CAM_Y - (v - 0.5) * H / ppu + (Math.random() - 0.5) * 0.3;
       g.base.set(x, y - 0.4 * s, 0); g.size = s;
       // motion (Golan 17.10, "רמת תנועת האותיות"): all clouds sway sideways together (so they never meet), each bobs up and down on its own
-      g.ax = Math.min(0.13 * (W / cols), 0.06 * W) / ppu; g.ay = 0.05 * H / ppu; g.dir = i % 2 ? -1 : 1;
+      g.ax = Math.min(0.13 * (W / cols), 0.06 * W) / ppu; g.ay = (multi ? 0.025 : 0.05) * H / ppu; g.dir = i % 2 ? -1 : 1;
       g.root.position.set(x, y - 0.4 * s, state.z + CLOUD_AHEAD);
       g.root.scaling.set(0.01, 0.01, 0.01); g.s = 0; g.want = 1; g.root.setEnabled(true);
     });
@@ -1393,7 +1410,7 @@
   function askFind() {
     state.q = makeQuestion(state.letter, state.q && state.q.order);
     state.wrongs = 0; state.partialRec = false; state.resolved = false; state.celebrate = null; state.readings = 0; state.flashAt = 0; state.flyTo = -1; state.hintPulse = false;
-    signs.forEach((g, i) => { g.removed = false; g.wrongTaps = 0; g.holder.position.set(0, 0, 0); g.holder.scaling.set(1, 1, 1); g.board.position.y = 0.55; g.board.scaling.set(1, 1, 1); g.board.isVisible = true; g.flyAway = 0; if (i < state.q.order.length) drawSign(g, state.q.order[i], false); else { g.root.setEnabled(false); g.want = 0; } });
+    signs.forEach((g, i) => { g.removed = false; g.found = false; g.wrongTaps = 0; g.holder.position.set(0, 0, 0); g.holder.scaling.set(1, 1, 1); g.board.position.y = 0.55; g.board.scaling.set(1, 1, 1); g.board.isVisible = true; g.flyAway = 0; if (i < state.q.order.length) drawSign(g, state.q.order[i], false); else { g.root.setEnabled(false); g.want = 0; } });
     placeSigns();
     state.mode = "find"; state.qStart = performance.now();
     // a letter already "מוכרת" or known: the speaker alone in the pill, the name only said (Golan 18.10); decided once per question
@@ -1415,7 +1432,7 @@
     return clipNow === nameClip && !nameClip.paused && !nameClip.ended ? 0 : null;   // touched while the name was still playing
   }
   function chooseSign(i) {
-    if (state.mode !== "find" || state.resolved || !state.q || i >= state.q.order.length || signs[i].removed) return;
+    if (state.mode !== "find" || state.resolved || !state.q || i >= state.q.order.length || signs[i].removed || signs[i].found) return;
     if (performance.now() < (state.tapPause || 0)) return;   // Golan 29.10 21:22: a short rest after a mistake
     sfx.tap();
     if (!state.tapped) { state.tapped = true; state.firstRt = answerMs(); }
@@ -1429,7 +1446,20 @@
     const q = state.q;
     state.flyTo = -1;
     if (state.firstPicked == null) state.firstPicked = q.order[i];
-    if (i === q.correct) {
+    /* Golan 8.11 (levels table): the letter sits on 1-3 clouds; a found one stays green and the child looks for the next */
+    if (q.targets.includes(i) && !q.found.includes(i) && q.found.length + 1 < q.targets.length) {
+      q.found.push(i); signs[i].found = true;
+      sfx.good(); vibrate(30);
+      drawSign(signs[i], q.order[i], "good");
+      confetti.emitter = signs[i].root.position.add(new BABYLON.Vector3(0, 0.6, -0.5)); confetti.manualEmitCount = 60;
+      q.correct = q.targets.find((k) => !q.found.includes(k));
+      if (state.hintPulse) drawSign(signs[q.correct], q.order[q.correct], true);   // the yellow frame moves on to the next one
+      state.flashAt = 0; signs.forEach((g) => (g.board.position.y = 0.55)); state.nagAt = performance.now();
+      later(650, () => { if (state.flyTo < 0 && !state.resolved) state.balGoal = null; });
+      return;
+    }
+    if (q.targets.includes(i) && !q.found.includes(i)) {
+      q.found.push(i);
       state.resolved = true;
       sfx.good(); vibrate(40);
       showToast("", "good", LRN && LRN.star ? LRN.star(!state.wrongs) : state.wrongs ? "silver" : "gold");   // only the check on screen; Hila still says "יֵשׁ, נָכוֹן" (Golan 18.10, all games)
@@ -1443,7 +1473,7 @@
       state.qIndex++; renderDots();
       state.letterFinds++; state.streak = state.wrongs ? 0 : state.streak + 1;   // 3 in a row with no mistake: the next letter (Golan 18.10)
       // every letter found earns a star at once: gold on the first try, silver after a mistake (Golan, 15.10; learner-model.md sec 8)
-      if (LRN) LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: !state.wrongs, opts: q.order,
+      if (LRN) LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: !state.wrongs, opts: uniq(q.order),
         rtMs: state.firstRt, changed: state.changed, hint: Math.min(state.wrongs, 3), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace(), audioOnly: !curRec() && !!state.hear, perfect: perfect && !curRec() });   // Golan 19.10: a letter already "מוכרת" asked by ear only (hearOnly) and solved first try with no hint is a speaker-only check -> מזהה בביטחון
       if (VISIT && kid()) VISIT.result(state.letter, { perfect, listen: !!state.listen });
       const kind = LRN ? LRN.star(!state.wrongs) : state.wrongs ? "silver" : "gold";
@@ -1630,8 +1660,8 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); $("perf").hidden = true /* no FPS box (Golan 28.10) */; if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "wake", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים, הם זזים מהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
-      levels: ["3 עננים שעומדים במקום, בלי אותיות דומות.", "3 עננים שזזים לאט, יכולה להופיע אות דומה אחת.", "4 עננים שזזים מהר יותר, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים, הם זזים מהר יותר, האות מסתתרת ביותר עננים, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
+      levels: ["4 עננים שעומדים במקום, האות מסתתרת בענן אחד, בלי אותיות דומות.", "6 עננים שזזים לאט, האות מסתתרת בשני עננים, יכולה להופיע אות דומה אחת.", "8 עננים שזזים מהר, האות מסתתרת בשלושה עננים, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],   // Golan 8.11 (levels table)
       onLevel: () => { changed = true; },   // more or fewer clouds: the open question is asked again
       picker: { autoList: () => autoRoundLetters(), available: LETTERS.filter(hasPic), finals: true,
         onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; progress.round = 0; saveProgress(); saveSettings(); } },
@@ -1730,7 +1760,7 @@
     state.side += ((spot ? spot.k : 1) - state.side) * (1 - Math.exp(-4 * dt));
     // the grown balloon stops with its top just under the cloud, so the letter stays in sight
     // a wrong cloud: its top climbs onto the letter and hides a little of its bottom (Golan, 16.10), then the shake
-    if (state.flyTo >= 0 && state.balGoal) { const g = signs[state.flyTo], wrong = state.q && state.flyTo !== state.q.correct;
+    if (state.flyTo >= 0 && state.balGoal) { const g = signs[state.flyTo], wrong = state.q && !(state.q.targets || [state.q.correct]).includes(state.flyTo);
       const z = g.root.position.z - 1.2;
       // the right cloud: it comes right up to the letter, its top just under it (Golan, 16.10)
       const sp = boardPointCss(g, wrong ? WRONG_TOP : RIGHT_TOP), w = screenToBalloonPlane(sp.x, sp.y, z);
@@ -1970,7 +2000,7 @@
   // before it was found (door, restart, closing the page) is recorded too, as not found
   function flushPartial() {
     if (LRN && kid() && state.mode === "find" && state.letter && state.wrongs > 0 && !state.resolved && !state.partialRec) { state.partialRec = true;
-      LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: state.q ? state.q.order : [], rtMs: state.firstRt || 0, hint: Math.min(state.wrongs, 3), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace() }); }
+      LRN.record({ game: "wake", letter: state.letter, picked: state.firstPicked, firstTry: false, solved: false, opts: state.q ? uniq(state.q.order) : [], rtMs: state.firstRt || 0, hint: Math.min(state.wrongs, 3), mode: curRec() ? "cursive" : "recognize", pace: LRN.pace() }); }
   }
   addEventListener("pagehide", flushPartial);
   function backToStart() {
@@ -1999,6 +2029,7 @@
   window.__wake = { END, settings, nextLetter, drawSign, endRound: () => endRound(), visit: VISIT, roundCands: () => roundCands(), boardPointCss, screenToBalloonPlane, balTop, balloon, state, signs, magic, chooseSign, touchMagic, makeQuestion, progress, nextRoundLetter, cloudCount, voiceId, get lastRound() { return lastRound; }, get clip() { return clipNow ? clipNow.src.split("/").pop() : null; }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
 })();
 </script>
-<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>
+
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->

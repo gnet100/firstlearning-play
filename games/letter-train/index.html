@@ -416,6 +416,7 @@
   const motionK = () => { try { const l = LRN; return l && l.speed ? l.speed("train") : 1; } catch (e) { return 1; } };
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-train-settings") || "{}")); } catch (e) {}
   settings.letters = []; settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games): a saved hand list is not played
+  settings.script = "auto";   // Golan 8.11 (levels table): a manual setting lasts only until the game is reopened
   settings.match = "see";   // no closed box any more: the letter always hangs on the box (Golan 15.10)
   const saveSettings = () => { try { localStorage.setItem("fl-train-settings", JSON.stringify(settings)); } catch (e) {} };
   // Golan 19.10: the challenge level belongs to the child, not to the game: each child keeps their own choice
@@ -461,7 +462,8 @@
   }
   // 2 to 5 cars (Golan, 15.10). Until the parent picks a number, it follows the age (advisor ruling literacy/practice-set-size.md):
   // Golan 17.10: the number of cars is part of the challenge level: level 1 = 2 cars, 2 = 3, 3 = 4, 4 = 5
-  const carCount = () => 4;   // Golan 18.10: always 4 cars (the challenge is the balloon's speed only)
+  // Golan 8.11 (levels table): level 1 = 3 cars, 2 = 4, 3 = 5
+  const carCount = () => [3, 4, 5][(window.FL && FL.learner ? FL.learner.level() : 1) - 1] || 3;
   // A round fills trains until at least 6 letters were dropped (6 = the car game's questions per round): 2 cars x 3 trains, 3 x 2, 4 x 2.
   // Golan 17.10: one cube in each car, then the next train comes; a round has as many trains as it takes to reach the
   // round length by age (5 / 7 / 9 cubes, learner.js), the last train full too
@@ -1242,7 +1244,7 @@
     for (const c of cars) { for (const k of c.cubes || []) { k.root.dispose(); crates.splice(crates.indexOf(k), 1); } c.cubes = []; c.count = 0; }
     const prev = state.letter;
     state.train = makeTrain(prev, firstOfRound); state.train.cur = cursiveTrain(state.train.cars); state.dropIdx = 0; renderDots();
-    layoutCars();
+    layoutCars(); syncSeg();   /* Golan 8.11 (levels table): arrows and texts follow a level that changed by itself */
     activeCars().forEach((c, i) => { c.letter = state.train.cars[i]; c.filled = false; c.count = 0; c.quota = state.train.quota[c.letter]; c.removed = false; c.signRoot.position.y = SIGN_Y; drawCarSign(c, "normal"); });
     loco.setEnabled(false); state.locoX = -60;
     loco.setEnabled(true); state.trainX = TRAIN_IN; state.trainV = pace().cruise; trainNode.position.x = state.trainX;
@@ -1339,12 +1341,13 @@
     $("startText").textContent = gt("מפילים כל אות לקרון שלה", "הפל כל אות לקרון שלה", "הפילי כל אות לקרון שלה");   // parent text: no nikud (advisor ruling 16.10)
     $("startHow").textContent = autoMove()
       ? gt("נוגעים במסך כשהכדור מעל הקרון הנכון, והאות נופלת", "גע במסך כשהכדור מעל הקרון הנכון, והאות תיפול", "געי במסך כשהכדור מעל הקרון הנכון, והאות תיפול")
-      : gt("מזיזים את הכדור עם האצבע, העכבר או החצים", "תזיז את הכדור עם האצבע, העכבר או החצים", "תזיזי את הכדור עם האצבע, העכבר או החצים");
+      : gt("גוררים את האות לקרון שלה, או נוגעים בקרון", "גרור את האות לקרון שלה, או גע בקרון", "גררי את האות לקרון שלה, או געי בקרון");   /* Golan 8.11 (levels table) */
     $("pickTitle").textContent = gt("בוחרים כדור פורח", "בחר כדור פורח", "בחרי כדור פורח");
     $("swapAskText").textContent = gt("רוצים להחליף אותיות?", "רוצה להחליף אותיות?", "רוצה להחליף אותיות?");   // under 28px: no nikud (advisor ruling 16.10)
   }
   // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = the child moves the balloon / it flies slowly / it flies fast
-  const moveMode = () => ["hand", "slow", "fast"][(LRN ? LRN.level() : 1) - 1] || "hand";
+  // Golan 8.11 (levels table): 1 = still (drag the letter or tap the car), 2 = medium speed, 3 = fast
+  const moveMode = () => ["hand", "mid", "fast"][(LRN ? LRN.level() : 1) - 1] || "hand";
   const autoMove = () => moveMode() === "slow" || moveMode() === "mid" || moveMode() === "fast";   // 4 motion levels like the other games (17.10): still, slow, medium, fast
   function requestDrop() { if (state.phase === "ask" && !state.paused && performance.now() >= (state.tapPause || 0)) state.wantDrop = true; }   // Golan 29.10 21:22: a short rest after a mistake
 
@@ -1772,8 +1775,9 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "train", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, הכדור הפורח זז לבד ומהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
-      levels: ["הילד מזיז את הכדור הפורח בעצמו, בלי אותיות דומות.", "הכדור הפורח זז לבד ולאט, יכול להופיע זוג אחד של אותיות דומות.", "הכדור הפורח זז לבד ומהר, ונכנסות גם אותיות סופיות."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר קרונות והכדור הפורח זז לבד ומהר יותר.",   // Golan 28.10: one sentence instead of the three, in every game
+      /* Golan 8.11 (levels table) */
+      levels: ["3 קרונות. הכדור הפורח עומד, והילד גורר את האות לקרון או נוגע בקרון.", "4 קרונות. הכדור הפורח זז לבד במהירות בינונית.", "5 קרונות. הכדור הפורח זז לבד ומהר."],
       onLevel: () => { lettersChanged = true; syncSeg(); },   // the train on screen is replaced when the panel closes
       picker: { onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },
       script: seg("script", () => { lettersChanged = true; }),
@@ -2490,6 +2494,7 @@
     balloonScreen() { const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(); const p = BABYLON.Vector3.Project(envelope.getAbsolutePosition(), BABYLON.Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(W, H)); return [r.left + p.x * r.width / W, r.top + p.y * r.height / H]; } };
 })();
 </script>
-<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>
+
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->

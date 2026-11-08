@@ -501,6 +501,7 @@
   if (!settings.perfOff) { settings.perf = "off"; settings.perfOff = 1; }   // the FPS box is a developer tool: off unless turned on in the settings (screens audit 9)
   if (!settings.cloudsAuto) { settings.clouds = "auto"; settings.cloudsAuto = 1; }   // auto became the default (Golan, 16.10)
   settings.letters = []; settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan, 16.10, all games); hand taps in auto live in learner.js
+  settings.script = "auto";   // Golan 8.11 (levels table): a manual setting lasts only until the game is reopened
   const saveSettings = () => { try { localStorage.setItem("fl-sound-settings", JSON.stringify(settings)); } catch (e) {} };
   // Golan 19.10: the challenge level belongs to the child, not to the game: each child keeps their own choice
   // (settings.byKid[child id]); a new child starts at the default. Reads and writes of settings.<key> go there.
@@ -538,6 +539,7 @@
   // the picture a sound has in this sky, and its word clip
   const picFor = (l) => (state.q && state.q.pics && state.q.pics[l]) || l;
   const wordOf = (l) => (PICS[picFor(l)] || {}).clip;
+  const wordOfC = (c) => (PICS[c.pic || picFor(c.letter)] || {}).clip;   // Golan 8.11 (levels table): a cloud's own picture
   const SOUND_L = Object.keys(SOUNDS).filter((l) => picsOf(l).every((k) => PICS[k]));
   const LETTERS = SOUND_L, FINALS = [], ALL_LETTERS = SOUND_L;
   const isFinal = () => false;
@@ -549,7 +551,9 @@
   const lvl = () => (LM ? Math.min(3, Math.max(1, LM.level() || 1)) : 1);
   // Golan 28.10: level 1 = 3 pictures and their names first, level 2 = 4 pictures and their names, level 3 = 4 pictures, no names
   // (the speaker repeats the question only). The close-sound distractor of level 3 (גָּ / כַּ) waits for the literacy advisor.
-  const cloudCount = () => [3, 4, 5][lvl() - 1] || 4;   // Golan 29.10: levels 1-3 = 3, 4, 5 pictures
+  // Golan 8.11 (levels table): 4 / 6 / 8 pictures, of which 1 / 2 / 3 open with the sound; the sky is solved when all are found
+  const cloudCount = () => [4, 6, 8][lvl() - 1] || 4;
+  const targetCount = () => [1, 2, 3][lvl() - 1] || 1;
   const sayNames = () => lvl() < 3;
   const cardOf = (l) => { try { return (LM && LM.card && LM.card(l)) || null; } catch (e) { return null; } };
   const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
@@ -575,12 +579,14 @@
     return from[Math.floor(Math.random() * from.length)];
   }
   // one sky: one right picture and the others from other sounds (no two pictures open with the same sound)
-  function makeQuestion(prevTarget, onlyChosen, keepTarget) {
-    const t = keepTarget || pickTarget(prevTarget), n = cloudCount();
-    const others = shuffle(SOUND_L.filter((l) => l !== t && !alike(l, t))).reduce((a, l) => (a.length < n - 1 && !a.some((x) => alike(x, l)) ? a.concat(l) : a), []);
-    const letters = shuffle([t, ...others]), pics = {};
-    for (const l of letters) { const o = picsOf(l); pics[l] = o[Math.floor(Math.random() * o.length)]; }
-    return { target: t, letter: t, letters, pics, nTargets: 1 };
+  // Golan 8.11 (levels table): nT pictures of the sound (different pictures), the rest one picture per other sound
+  function makeQuestion(prevTarget, onlyChosen, keepTarget, demo) {
+    const t = keepTarget || pickTarget(prevTarget), n = cloudCount(), nT = Math.min(demo ? 1 : targetCount(), picsOf(t).length);
+    const others = shuffle(SOUND_L.filter((l) => l !== t && !alike(l, t))).reduce((a, l) => (a.length < n - nT && !a.some((x) => alike(x, l)) ? a.concat(l) : a), []);
+    const tPics = shuffle(picsOf(t).slice()).slice(0, nT), items = shuffle([...tPics.map((k) => [t, k]), ...others.map((l) => { const o = picsOf(l); return [l, o[Math.floor(Math.random() * o.length)]]; })]);
+    const letters = items.map((x) => x[0]), picList = items.map((x) => x[1]), pics = {};
+    for (const [l, k] of items) if (!pics[l]) pics[l] = k;
+    return { target: t, letter: t, letters, picList, pics, nTargets: nT };
   }
   if (LM && LM.setGame) LM.setGame("sound", { autoCount: () => SOUND_L.length });
   // a new kind of question gets its own question lines, said at random, never the same twice in a row (as FL.VARIANTS)
@@ -916,8 +922,10 @@
   function setLen(g, len) { g.len = len; g.str.scaling.y = len; g.str.position.y = -len / 2; g.card.position.set(0, -len - TAG_R, 0); g.sign.position.set(0, -len - TAG_R, -0.01); }
   // start the flight from the cloud letter (world position and size) to its hanging place: the letter's own place when it
   // already hangs there (this copy lands on it and takes over), otherwise the next free place
-  function flyTag(letter, fromWorld, fromSize, cardFull) {
+  function flyTag(c, fromWorld, fromSize, cardFull) {
+    const letter = c.letter;   // Golan 8.11 (levels table): the cloud itself, so the tag shows that cloud's picture
     let g = tags.find((t) => !t.on); if (!g) { g = tags[tagOver++ % tags.length]; g.on = false; }
+    g.pic = c.pic;
     const own = null;   // Golan 19.10: every right letter hangs on its own circle, equal letters are not joined
     g.cardFull = !!cardFull;              // it already is a round tag (it was dragged): keep the circle while it flies
     drawLetter(g, letter, false, true, g.cardFull);   // no writing line inside the round tag (Golan, 15.10); dark until the green circle is there
@@ -976,7 +984,7 @@
     return { sign, tex, t: 0, on: false, from: null, dir: 1, s: 1 };
   })();
   function dropLetter(c) {
-    drawLetter(dropL, c.letter, false, true);
+    dropL.pic = c.pic; drawLetter(dropL, c.letter, false, true);
     const p = c.sign.getAbsolutePosition(); dropL.from = p.clone(); dropL.dir = Math.sign(p.x || 1); dropL.s = c.root.scaling.x * c.sign.scaling.x;
     dropL.sign.position.copyFrom(p); dropL.sign.position.z -= 0.2; dropL.sign.scaling.setAll(dropL.s); dropL.sign.rotation.z = 0; dropL.sign.visibility = 1;
     dropL.t = 0; dropL.on = true; dropL.sign.setEnabled(true);
@@ -986,7 +994,7 @@
   function cloudScale(c) { return (2.1 * c.root.scaling.x * c.sign.scaling.x) / (TAG_S * balloon.scaling.x); }
   function grabTok(c, at) {
     if (tok.c) finishTok();
-    tok.c = c; tok.mode = "grab"; tok.t = 0; tok.at = at; tok.s0 = cloudScale(c);
+    tok.c = c; tok.pic = c.pic; tok.mode = "grab"; tok.t = 0; tok.at = at; tok.s0 = cloudScale(c);
     drawLetter(tok, c.letter, false, true, true);   // a green round tag with a white letter from the first touch
     drawLetter(c, "", false); c.ringOn = false; tok.root.setEnabled(true); updateTok(0);   // the cloud keeps its line, only the letter is held (Golan, 16.10)
   }
@@ -1106,7 +1114,7 @@
     const ctx = c.tex.getContext(), W = ctx.canvas.width, H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H); c.light = !!light;
     // no yellow ring around the picture (Golan 28.10 16:41: "העיגול הצהוב מיותר"); `glow` is kept for the callers
-    const im = text && PIC_IMG[picFor(text)];
+    const im = text && PIC_IMG[c.pic || picFor(text)];   /* Golan 8.11 (levels table): the cloud's own picture */
     if (im && im.complete && im.naturalWidth !== 0) { const k = light ? 0.97 : 0.84, w = W * k; FL.drawPicCentred(ctx, im, (W - w) / 2, (H - w) / 2, w, w); }
     c.tex.update(true);
   }
@@ -1154,7 +1162,7 @@
     for (const n of [12, 10]) if (cloudArea(room, n).g.sizePx >= floor) return n;
     return 8;
   }
-  const MOTION_SPEED = { "1": 0, "2": 0, "3": 0, "4": 0 };   // spec: the clouds stand still with a light float, at every level (Golan 28.10 16:30)   // radians per second of the sway (same levels as the waking-letter game)
+  const MOTION_SPEED = { "1": 0, "2": 0, "3": 0.35, "4": 0 };   // Golan 8.11 (levels table): at level 3 the clouds move slowly   // spec: the clouds stand still with a light float, at every level (Golan 28.10 16:30)   // radians per second of the sway (same levels as the waking-letter game)
   // Layout: clouds sit in a loose grid in the free part of the screen, never at the very edge, where children miss most often.
   function layout() {
     measureView();
@@ -1283,7 +1291,7 @@
     b.addEventListener("click", (e) => { e.stopPropagation(); if (!canPlay() || tok.c === c) return;
       state.idleAt = state.gameT; state.nagAt = state.gameT;
       if (state.opening) { state.opening = false; state.audioEnd = performance.now(); }
-      hush(); hushUntil = 0; playIds([wordOf(c.letter)]); });
+      hush(); hushUntil = 0; playIds([wordOfC(c)]); });
     $("cloudSpks").append(b); return b; });
   scene.onAfterRenderObservable.add(() => {
     const W = engine.getRenderWidth(), H = engine.getRenderHeight(), r = canvas.getBoundingClientRect(), box = ($("cloudSpks").offsetParent || document.body).getBoundingClientRect();
@@ -1303,18 +1311,18 @@
   // the question: one of three wordings at random, then the sound (spec sec 3)
   const qIds = (q) => ["sd_q1", SOUNDS[q.letter].s];
   function askQuestion(keepTarget, demo) {
-    state.q = makeQuestion(state.lastLetter, state.qIndex === 0, keepTarget); state.q.demo = !!demo;
+    state.q = makeQuestion(state.lastLetter, state.qIndex === 0, keepTarget, demo); state.q.demo = !!demo;
     state.lastLetter = state.q.letter;
     $("promptBox").classList.remove("listen");
     state.q.cur = cursiveFor(state.q.letter) && !!(LM && LM.cursiveReady && LM.cursiveReady(state.q.letter));   // כתב יד by "סוג כתב"
-    state.qWrongs = 0; state.firstWrong = null; state.firstTapAt = 0; state.audioEnd = Infinity; state.qHint = 0; state.auto = false;
+    state.qWrongs = 0; state.firstWrong = null; state.firstPick = null; state.firstTapAt = 0; state.audioEnd = Infinity; state.qHint = 0; state.auto = false;
     state.found = 0; state.wrongs = 0; state.locked = false; state.tapPause = 0; state.hintWait = false; state.resolved = false; state.hintPulse = false; state.hintCloud = null; state.nags = 0; state.flashAt = 0; state.reads = 1;   // the opening reading counts as the first of 2
     state.opening = true;   // the names and the question are being said: no reminder yet
     state.mode = "play"; state.idleAt = state.gameT; state.qStart = performance.now(); state.motionT = 0;
     const spots = layout(), p = pace();
     clouds.forEach((c, i) => {
       if (i >= spots.length) { c.root.setEnabled(false); c.state = "off"; return; }
-      c.letter = state.q.letters[i]; c.wrongTaps = 0; c.glowName = false; drawLetter(c, c.letter, false);
+      c.letter = state.q.letters[i]; c.pic = state.q.picList[i]; c.wrongTaps = 0; c.glowName = false; drawLetter(c, c.letter, false);
       c.home = spots[i]; c.size = spots[i].size;
       const fromX = spots[i].x < 0 ? -view.halfW - 4 : view.halfW + 4;
       c.from = { x: fromX, y: spots[i].y + (Math.random() - 0.5) * 2 };
@@ -1337,7 +1345,7 @@
   function readSteps(q, names = true) {
     const shown = clouds.filter((c) => c.state === "idle" || c.state === "in" || c.state === "wrong").sort((a, b) => (Math.abs(a.home.y - b.home.y) > 1 ? b.home.y - a.home.y : b.home.x - a.home.x));
     const steps = [];
-    if (names && sayNames()) for (const c of shown) steps.push(() => glowName(c, true), wordOf(c.letter), () => glowName(c, false));
+    if (names && sayNames()) for (const c of shown) steps.push(() => glowName(c, true), wordOfC(c), () => glowName(c, false));
     return steps.concat(qIds(q));
   }
   // a picture lights up while its name is said
@@ -1398,7 +1406,7 @@
             moveHand(at, b, 1700, (x, y) => { if (tok.c === c) tok.at = skyAt((x - r.left) / dk(), (y - r.top) / dk()); }, () => {
               if (state.q !== q) return hideHand();
               c.state = "empty"; c.t = 0; c.ringOn = false; c.glowName = false;
-              if (tok.c === c) { flyTag(c.letter, tok.root.position.clone(), TAG_S * tok.root.scaling.x, true); finishTok(); }
+              if (tok.c === c) { flyTag(c, tok.root.position.clone(), TAG_S * tok.root.scaling.x, true); finishTok(); }
               drawLetter(c, "", false); sfx.find();
               setTimeout(hideHand, 600);
               finishSky(false);
@@ -1479,7 +1487,7 @@
     state.idleAt = state.gameT; state.nagAt = state.gameT;
     if (state.opening) { state.opening = false; state.audioEnd = performance.now(); }   // the child stopped the opening: from now on it is the child's turn
     for (const k of clouds) if (k.glowName && k !== c) glowName(k, false);
-    playIds([() => glowName(c, true), wordOf(c.letter), () => glowName(c, false)]);
+    playIds([() => glowName(c, true), wordOfC(c), () => glowName(c, false)]);
   }
   function judge(c) {
     const now = performance.now();
@@ -1487,16 +1495,20 @@
     state.lastTap = { c, t: now }; state.idleAt = state.gameT; state.reads = 0; state.hintWait = false;
     if (!state.firstTapAt) state.firstTapAt = now;
     const q = state.q, ms = Math.round(now - state.qStart);
+    if (state.firstPick == null) state.firstPick = c.letter;   // Golan 8.11 (levels table): the record keeps the first answer
     if (c.letter === q.letter) {
-      state.found++; state.stars++; { const clean = !state.wrongs;   // gold on the first try, silver after a mistake (spec sec 4)
+      state.found++; q.pics[q.letter] = c.pic;   // the picture found last is the one said and shown after the sky
+      const done = state.found >= (q.nTargets || 1);
+      if (done) { state.stars++; const clean = !state.wrongs;   // one star per sky: gold with no mistake, silver after a mistake (spec sec 4)
         const k = LM ? LM.star(clean) : clean ? "gold" : "silver"; state.starKinds.push(k); if (sc) sc.add(k); }
       state.log.push({ target: q.letter, picked: c.letter, ok: true, ms });
       c.state = "empty"; c.t = 0; c.ringOn = false; c.glowName = false;
-      if (tok.c === c) { flyTag(c.letter, tok.root.position.clone(), TAG_S * tok.root.scaling.x, tok.card.visibility > 0.5); finishTok(); }
-      else flyTag(c.letter, c.sign.getAbsolutePosition().clone(), 2.1 * c.root.scaling.x * c.sign.scaling.x);
+      if (tok.c === c) { flyTag(c, tok.root.position.clone(), TAG_S * tok.root.scaling.x, tok.card.visibility > 0.5); finishTok(); }
+      else flyTag(c, c.sign.getAbsolutePosition().clone(), 2.1 * c.root.scaling.x * c.sign.scaling.x);
       drawLetter(c, "", false);
       sfx.find(); vibrate(30);
-      finishSky();
+      if (done) finishSky();
+      else { state.reads = 1; state.nagAt = state.gameT; if (state.mode === "blocked") state.mode = "play"; }   // Golan 8.11 (levels table): more pictures of the sound to find
     } else {
       // a wrong picture: the mistake sound and the picture goes back to its cloud; a 2nd mistake in the sky: the game solves it
       c.wrongTaps = (c.wrongTaps || 0) + 1; state.wrongs++; state.roundWrongs++; state.qWrongs++; if (!state.firstWrong) state.firstWrong = c.letter;
@@ -1519,16 +1531,20 @@
   // Recorded as not right; the star is silver (there are no zero stars).
   function autoSolve() {
     const q = state.q; if (!q || state.resolved) return;
-    const c = clouds.find((k) => k.letter === q.letter && (k.state === "idle" || k.state === "in" || k.state === "wrong")); if (!c) return;
+    /* Golan 8.11 (levels table): every right picture still in the sky */
+    const left = clouds.filter((k) => k.letter === q.letter && (k.state === "idle" || k.state === "in" || k.state === "wrong")); if (!left.length) return;
     if (tok.c) finishTok();
     state.auto = true; state.qHint = Math.max(1, state.qHint); state.resolved = true; state.mode = "celebrate"; hush(); hushUntil = 0;
-    c.ringOn = true; drawLetter(c, c.letter, true);
+    for (const c of left) { c.ringOn = true; drawLetter(c, c.letter, true); }
     setTimeout(() => {
       if (state.q !== q) return;
-      state.found = 1; state.stars++; const k = LM ? LM.star(false) : "silver"; state.starKinds.push(k); if (sc) sc.add(k);
-      c.state = "empty"; c.ringOn = false;
-      flyTag(c.letter, c.sign.getAbsolutePosition().clone(), 2.1 * c.root.scaling.x * c.sign.scaling.x);
-      drawLetter(c, "", false); sfx.find();
+      state.found = q.nTargets || 1; state.stars++; const k = LM ? LM.star(false) : "silver"; state.starKinds.push(k); if (sc) sc.add(k);
+      for (const c of left) {
+        c.state = "empty"; c.ringOn = false;
+        flyTag(c, c.sign.getAbsolutePosition().clone(), 2.1 * c.root.scaling.x * c.sign.scaling.x);
+        drawLetter(c, "", false);
+      }
+      q.pics[q.letter] = left[left.length - 1].pic; sfx.find();
       finishSky(true);
     }, 900);
   }
@@ -1551,7 +1567,7 @@
   // (every cloud, no mistake, no hint) asks the shared card to mark the letter as known with confidence (Golan, 16.10).
   function recordSky(solved) {
     const q = state.q; if (!LM || !q || q.recorded || q.demo) return; q.recorded = true;
-    const ok = !state.qWrongs && !state.auto;
+    const ok = (state.firstPick == null ? !state.qWrongs : state.firstPick === q.letter) && !state.auto;   // Golan 8.11 (levels table): the first answer
     // the per-letter "sound" skill (learner.js mode "sound", same states as the letters): right on the first try, the picture
     // dragged by mistake (a sound mix-up), the time from the end of the question to the first drag; taps to listen do not count
     LM.record({ game: "sound", letter: q.letter, picked: ok ? q.letter : state.firstWrong || null, firstTry: ok, solved: solved && !state.auto, opts: [...new Set(q.letters)],
@@ -1687,8 +1703,9 @@
     if (form) return form.refresh();
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LM.settingsForm($("flForm"), { game: "sound", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות (3, 4, 5), וברמה 3 הקריינית לא אומרת את השמות.",   // one sentence, as in every game (Golan 28.10)
-      levels: ["3 תמונות, הקריינית אומרת את השמות.", "4 תמונות, הקריינית אומרת את השמות.", "5 תמונות, בלי שמות: שומעים רק את הצליל."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות (4, 6, 8) ויותר תמונות נכונות למצוא (1, 2, 3), וברמה 3 העננים זזים והקריינית לא אומרת את השמות.",   // one sentence, as in every game (Golan 28.10)
+      /* Golan 8.11 (levels table) */
+      levels: ["4 תמונות, אחת מתחילה בצליל. הקריינית אומרת את השמות.", "6 תמונות, שתיים מתחילות בצליל. הקריינית אומרת את השמות.", "8 תמונות, שלוש מתחילות בצליל. העננים זזים לאט, בלי שמות."],
       onLevel: () => { lettersChanged = lettersChanged || "keep"; },
       // only the 8 sounds of this game can be marked (spec sec 7)
       picker: { available: SOUND_L, finals: false, autoList: () => soundPool(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },

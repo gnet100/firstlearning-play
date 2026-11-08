@@ -536,6 +536,7 @@
   const settings = { voice: "on", letters: [], balloon: null, script: "auto", topic: "animals" };
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-wheel-settings") || "{}")); } catch (e) {}
   settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games)
+  settings.script = "auto";   // Golan 8.11 (levels table): a manual setting lasts only until the game is reopened
   const saveSettings = () => { try { localStorage.setItem("fl-wheel-settings", JSON.stringify(settings)); } catch (e) {} };
 
   const LRN = (window.FL && window.FL.learner) || null;
@@ -573,7 +574,9 @@
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
   const ballCount = () => [3, 4, 5][lvl() - 1] || 4;   // spec 6: 3, 4, 5 balls (as the sound detective, Golan 29.10)
-  const saySounds = () => lvl() < 3;
+  // Golan 8.11 (levels table): level 1 reads each sound as its ball comes in, level 2 only after a mistake, level 3 never
+  const saySounds = (q) => lvl() === 1 || (lvl() === 2 && !!(q && q.wrongs));
+  const spinV = () => SPIN_V * ([1, 1.15, 1.3][lvl() - 1] || 1);   // Golan 8.11 (levels table): the wheel 15% / 30% faster at levels 2 / 3
   const cardOf = (l) => { try { return (LRN && LRN.card && LRN.card(l)) || null; } catch (e) { return null; } };
   const soundKnown = (l) => { const c = cardOf(l); return !!(c && c.sound && c.sound.state === "known"); };
   if (LRN && LRN.setGame) LRN.setGame(GAME, { autoCount: () => SOUND_L.length });
@@ -865,7 +868,7 @@
   function spin(v) {
     if (!(state.mode === "ready2spin" || state.mode === "spin")) return;
     unlockAudio(); clearNudge();
-    state.mode = "spin"; state.spinning = true; state.v = Math.max(SPIN_V, Math.min(SPIN_V * 2, v || SPIN_V)); snap = null;
+    state.mode = "spin"; state.spinning = true; state.v = Math.max(spinV(), Math.min(spinV() * 2, v || spinV())); snap = null;
     $("spinBtn").hidden = true; $("stopBtn").hidden = false; tone([523, 659], 0.08, "triangle", 0.2);
     run(); nudgeLater("stopBtn", 6000);
   }
@@ -944,7 +947,7 @@
   // the question, then the word ("בְּאֵיזֶה צְלִיל מַתְחִילָה הַמִּלָּה" + word, Golan 29.10); levels 1-2: then each ball's sound as it lights (spec 3)
   function readSteps(q, names) {
     const steps = ["sw_q", word(q.k)];
-    if (names && saySounds()) for (const b of [...$("balls").children].filter((x) => !x.classList.contains("gone"))) steps.push(() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false), ms(350));
+    if (names && saySounds(q)) for (const b of [...$("balls").children].filter((x) => !x.classList.contains("gone"))) steps.push(() => lit(b, true), SOUNDS[b._l].s, () => lit(b, false), ms(350));
     return steps;
   }
   function ask() {
@@ -962,7 +965,10 @@
     playIds(["sw_q", word(k)], () => {
       if (state.q !== q) return;
       const steps = [];
-      q.balls.forEach((bl, i) => steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); sfx.pop(); }, ms(500)));   // half a second apart (Golan 4.11 11:10)
+      q.balls.forEach((bl, i) => {
+        steps.push(() => { const b = makeBall(bl, i); box.append(b); layout(); sfx.pop(); }, ms(500));   // half a second apart (Golan 4.11 11:10)
+        if (lvl() === 1) steps.push(() => lit(box.lastElementChild, true), SOUNDS[bl].s, () => lit(box.lastElementChild, false), ms(200));   // Golan 8.11 (levels table): level 1 says each ball's sound as it comes in
+      });
       // Golan 29.10 21:46: no taps until every ball is in (a tap before stopped the voice, and the other balls never came)
       playIds(steps, () => { if (state.q === q) { state.mode = "play"; q.audioEnd = performance.now(); idleFrom(); } });
     });
@@ -994,6 +1000,10 @@
     state.log.push({ target: q.l, picked: b._l, ok: false });
     sfx.oops(); b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong");
     q.reads = 1; idleFrom();
+    /* Golan 8.11 (levels table): level 2 reads the balls' sounds after a mistake */
+    if (lvl() === 2 && q.wrongs < 3) setTimeout(() => { if (state.q !== q || q.resolved || paused) return; const bs = [...$("balls").children].filter((x) => !x.classList.contains("gone")), st = [];
+      for (const x of bs) st.push(() => lit(x, true), SOUNDS[x._l].s, () => lit(x, false), ms(250));
+      playIds(st, () => { if (state.q === q && !q.resolved) idleFrom(); }); }, 1000);
     // 2 mistakes on the same ball: it flies off; then one more try. 2 mistakes on different balls, or a mistake after a ball
     // flew off: the game solves it (as the sound detective)
     if (b._wrong >= 2 && q.wrongs === 2) { q.dropped++; setTimeout(() => { b.classList.add("gone"); }, 450); return; }
@@ -1165,12 +1175,14 @@
   }
 
   // ---------- settings (the one shared form) ----------
-  let form = null, modeBeforeSettings = null;
+  let form = null, modeBeforeSettings = null, levelChanged = false;
   function renderForm() {
     if (form) return;
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר כדורים (3, 4, 5), וברמה 3 הקריינית אומרת רק את שם התמונה.",
-      levels: ["3 כדורים, הקריינית מקריאה את הצלילים.", "4 כדורים, הקריינית מקריאה את הצלילים.", "5 כדורים, הקריינית אומרת רק את שם התמונה."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר כדורים (3, 4, 5), הגלגל מהיר יותר, והקריינית מקריאה פחות צלילים.",
+      /* Golan 8.11 (levels table) */
+      levels: ["3 כדורים, הקריינית מקריאה כל צליל כשהכדור שלו מגיע.", "4 כדורים, הגלגל מהיר יותר, והצלילים מוקראים רק אחרי טעות.", "5 כדורים, הגלגל מהיר עוד יותר, בלי הקראת צלילים."],
+      onLevel: () => { levelChanged = true; },   // the board is rebuilt when the panel closes
       picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); } },
       script: { get: () => settings.script || "auto", set: (v) => { settings.script = v; saveSettings(); }, note: "האות על הכדורים. החלטת מערכת: דפוס בלבד. כתב יד מופיע רק באות שהילד כבר מזהה בביטחון בדפוס. משולב: חצי מהפעמים בכתב יד." },
       voice: { get: () => settings.voice, set: (v) => { settings.voice = v; saveSettings(); } } });
@@ -1185,6 +1197,9 @@
     if (modeBeforeSettings === "settings") { modeBeforeSettings = null; resumeCore(); }
     if (!$("start").hidden && !heardIntro) scheduleIntro();
     if (state.mode === "ready") countdown();
+    /* Golan 8.11 (levels table): a new level rebuilds the balls of the question on screen (same picture) */
+    if (levelChanged && state.q && !state.q.resolved && !state.q.demo && (state.mode === "ask" || state.mode === "play")) { stopVoice(); clearTimeout(idleT); ask(); }
+    levelChanged = false;
     layout();
   }
   $("gear").addEventListener("click", openSettings);

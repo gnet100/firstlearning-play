@@ -448,6 +448,7 @@
   const motionK = () => { try { const l = LRN; return l && l.speed ? l.speed("soundtrain") : 1; } catch (e) { return 1; } };
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-soundtrain-settings") || "{}")); } catch (e) {}
   settings.letters = []; settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games): a saved hand list is not played
+  settings.script = "auto";   // Golan 8.11 (levels table): a manual setting lasts only until the game is reopened
   settings.match = "see";   // no closed box any more: the letter always hangs on the box (Golan 15.10)
   const saveSettings = () => { try { localStorage.setItem("fl-soundtrain-settings", JSON.stringify(settings)); } catch (e) {} };
   // Golan 19.10: the challenge level belongs to the child, not to the game: each child keeps their own choice
@@ -1265,7 +1266,7 @@
     for (const c of cars) { for (const k of c.cubes || []) { k.root.dispose(); crates.splice(crates.indexOf(k), 1); } c.cubes = []; c.count = 0; }
     const prev = state.letter;
     state.train = makeTrain(state.lastLetter || prev); state.dropIdx = 0; renderDots();
-    layoutCars();
+    layoutCars(); syncSeg();   /* Golan 8.11 (levels table): arrows and texts follow a level that changed by itself */
     activeCars().forEach((c, i) => { c.letter = state.train.cars[i]; c.pic = state.train.pics[c.letter]; c.filled = false; c.count = 0; c.quota = 1; c.removed = false; c.leaving = null; c.wake = null; placeWake(null);
       c.signRoot.position.y = SIGN_Y; c.signRoot.scaling.set(1, 1, 1); c.signRoot.rotation.z = 0; c.sign.plane.isVisible = true; c.sign.plane.visibility = 1; drawCarSign(c, "normal"); });
     loco.setEnabled(false); state.locoX = -60;
@@ -1392,7 +1393,8 @@
     $("swapAskText").textContent = gt("רוצים להחליף אותיות?", "רוצה להחליף אותיות?", "רוצה להחליף אותיות?");   // under 28px: no nikud (advisor ruling 16.10)
   }
   // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = the child moves the balloon / it flies slowly / it flies fast
-  const moveMode = () => ["hand", "slow", "fast"][lvl() - 1] || "hand";   // Golan 30.10 07:17: as the letter train: level 1 the child moves it, levels 2-3 it flies by itself and the cube is dropped in flight (+ more wagons)
+  // Golan 8.11 (levels table): as the letter train: 1 still (drag or tap the wagon), 2 medium speed, 3 fast
+  const moveMode = () => ["hand", "mid", "fast"][lvl() - 1] || "hand";   // Golan 30.10 07:17: as the letter train: level 1 the child moves it, levels 2-3 it flies by itself and the cube is dropped in flight (+ more wagons)
   const autoMove = () => moveMode() === "slow" || moveMode() === "mid" || moveMode() === "fast";   // 4 motion levels like the other games (17.10): still, slow, medium, fast
   // Golan 30.10 06:36: a touch drops only a cube that is there now (a touch kept from before dropped it later, by itself, anywhere)
   function requestDrop() { if (state.demo && !state.autoDrop) return;   // a tap during the demo never drops the letter (Golan 30.10 16:04: it fell in the middle of the names)
@@ -1931,7 +1933,8 @@
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "soundtrain", lettersId: "letters",
       levelsText: "ככל שרמת הקושי עולה, יש יותר קרונות (3, 4, 5), הכדור הפורח זז לבד ומהר יותר, וברמה 3 הקריינית לא אומרת את שמות התמונות.",   // Golan 30.10: + the moving balloon   // one sentence, as in every game (Golan 28.10)
-      levels: ["3 קרונות, הקריינית אומרת את שמות התמונות.", "4 קרונות, הקריינית אומרת את שמות התמונות.", "5 קרונות, בלי שמות: שומעים רק את הצליל."],
+      /* Golan 8.11 (levels table) */
+      levels: ["3 קרונות. הכדור הפורח עומד, והקריינית אומרת את שמות התמונות.", "4 קרונות. הכדור הפורח זז לבד במהירות בינונית, והקריינית אומרת את השמות.", "5 קרונות. הכדור הפורח זז לבד ומהר, בלי שמות: שומעים רק את הצליל."],
       onLevel: () => { lettersChanged = true; syncSeg(); },   // the train on screen is replaced when the panel closes
       // only the sounds of this game can be marked (as the sound detective)
       picker: { available: SOUND_L, finals: false, autoList: () => soundPool(), onChange: (list, m) => { settings.letters = list; settings.lettersMode = m; lettersChanged = true; saveSettings(); } },

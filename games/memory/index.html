@@ -468,6 +468,7 @@
   // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
   const settings = { voice: "on", letters: [], balloon: null, script: "auto" };
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-memory-settings") || "{}")); } catch (e) {}
+  settings.script = "auto";   /* Golan 8.11: a manual setting lasts only until the game is opened again */
   settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan 16.10, all games)
   const saveSettings = () => { try { localStorage.setItem("fl-memory-settings", JSON.stringify(settings)); } catch (e) {} };
 
@@ -508,7 +509,7 @@
     16: { letters: 16, hints: 2, wide: [6, 6, 6], tall: [3, 3, 3, 3, 3, 3] },
     18: { letters: 18, hints: 3, wide: [7, 7, 7], tall: [3, 3, 3, 3, 3, 3, 3] },   // Golan 7.11: a level above 18 cards: 21, with one more balloon (3) in the middle
   };
-  const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
+  const lvl = () => 1;   /* Golan 8.11 (levels table): the memory games have no levels; the cards grow with the child's own progress and the card slider */
   const RUNGS = [4, 6, 9, 10, 12, 14, 16, 18], START = [0, 0, 2, 4];
   // Golan 22.10: the mistakes count again from zero after every pair found; the limit for gold follows how many cards are still
   // waiting (unmatched, not the hint card) when the search for the pair starts: 2 -> always gold, 4-6 -> 1, 7-12 -> 2, 13-16 -> 3; silver above it.
@@ -516,7 +517,7 @@
   const goldMax = (cards) => (cards <= 2 ? 0 : cards <= 6 ? 1 : cards <= 12 ? 2 : 3);
   const WINS_TO_ASK = 2;
   // the rung: kept per child; a new difficulty level (the parent's choice or the system's) starts again from that level's rung
-  function rung() { const L = lvl(); if (progress.rung < 0 || progress.lvlAt !== L) { progress.rung = START[L]; progress.lvlAt = L; progress.wins = 0; saveProgress(); } return progress.rung; }
+  function rung() { if (progress.rung < 0) { progress.rung = START[1]; progress.lvlAt = 1; progress.wins = 0; saveProgress(); } return progress.rung; }   /* no levels (Golan 8.11): only the ladder moves the board */
   // the cells of a row shape, centred, in units of one card + gap: [{x, y}], plus its size in cells
   function cellsOf(rows) {
     const cols = Math.max(...rows), out = [];
@@ -1029,9 +1030,6 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function renderForm() {
     if (form) return;
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר קלפים על הלוח.",   // Golan 28.10: one sentence instead of the three, in every game
-      levels: ["מתחילים ב-4 קלפים (2 זוגות).", "מתחילים ב-9 קלפים: 4 זוגות, ובאמצע קלף הפתעה (כדור פורח) שמראה לרגע את כל הקלפים.", "מתחילים ב-12 קלפים (6 זוגות). אחרי 2 לוחות מוצלחים הילד נשאל אם לעלות ללוח הבא: 4, 6, 9, 10, 12, 14, 16."],
-      onLevel: () => { progress.rung = -1; saveProgress(); },
       picker: { autoList: () => (LRN.autoLetters ? LRN.autoLetters() : []), available: LETTERS, finals: true,
         onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); } },
       script: { get: () => settings.script || "auto", set: (v) => { settings.script = v; saveSettings(); } },
@@ -1180,6 +1178,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   window.__memory = { state, settings, flip, answerLevel, askLevel, endRound, newBoard, lvl, layout, rung: () => rung(), setRung: (r) => { progress.rung = r; progress.lvlAt = lvl(); saveProgress(); }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
 })();
 </script>
-<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
 </body>
 </html>
+
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->

@@ -416,7 +416,7 @@
   // "רמת קושי" 1 / 2 / 3 (Golan 30.10, "easier" than the letter mole): 5 / 7 / 10 holes, 2 / 3 / 4 moles out at once,
   // out until touched / 6 s / 4 s
   const lvl = () => (LRN && LRN.level ? Math.min(3, Math.max(1, LRN.level() || 1)) : 1);
-  const HOLES = [0, 5, 7, 10], MOLES = [0, 2, 3, 4], STAY_MS = [0, Infinity, 6000, 4000];
+  const HOLES = [0, 5, 7, 10], MOLES = [0, 3, 4, 5], STAY_MS = [0, 5000, 4000, 2500];   /* Golan 8.11 (levels table): like the letter mole */
   const REPEAT_S = 5;        // easy level, no touch: the question once more after 5 s, then once after 8 s; 3 times in all (Golan 22.10)
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -1392,9 +1392,9 @@
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
       levelsText: "ככל שרמת הקושי עולה, יש יותר חורים ויותר חפרפרות.",
-      levels: ["5 חורים ו-2 חפרפרות. החפרפרות מחכות עד שנוגעים בהן.",
-        "7 חורים ו-3 חפרפרות. כל חפרפרת בחוץ 6 שניות, ואז קופצת מחור אחר.",
-        "10 חורים ו-4 חפרפרות. כל חפרפרת בחוץ 4 שניות, ואז קופצת מחור אחר."],
+      levels: ["5 חורים ו-3 חפרפרות. כל חפרפרת בחוץ 5 שניות, ואז קופצת מחור אחר.",
+        "7 חורים ו-4 חפרפרות. כל חפרפרת בחוץ 4 שניות, ואז קופצת מחור אחר.",
+        "10 חורים ו-5 חפרפרות. כל חפרפרת בחוץ 2.5 שניות, ואז קופצת מחור אחר."],
       onLevel: () => { levelChanged = true; },
       // the sounds, as sound memory and the sound wheel (no "סוג כתב" row: print only in the sound games)
       picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); state.pool = null; lettersChanged = true; } },

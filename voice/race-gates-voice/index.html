@@ -454,6 +454,7 @@
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-race-settings") || "{}")); } catch (e) {}
   // Every page load starts in "החלטת מערכת" (Golan 16.10, all games): a saved manual list is not played; taps in auto are handled by the picker
   settings.letters = []; settings.lettersMode = "auto";
+  settings.script = "auto";   // a manual setting lasts only until the game is reopened (Golan 8.11, levels table)
   // Gates by age is the new default (advisor ruling 16.10: 2 up to age 4, 3 from 5); an older saved default moves to it once
   if (settings.gatesV !== 2) { settings.gatesV = 2; if (settings.gates === "3") settings.gates = "age"; }
   const saveSettings = () => { try { localStorage.setItem("fl-race-settings", JSON.stringify(settings)); } catch (e) {} };
@@ -519,11 +520,10 @@
   const VISIT = LRN && LRN.visit ? LRN.visit("race") : null;   // one visit per page load, kept across rounds
   // hourglass (Golan 18.10): a round runs until the golden sand is out, not a set number of gates; no hourglass = the old count
   const hg = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || settingsOpen(), onEnd: () => timeUp() }) : null;
-  // "לפי הרמה" = the child's level decides (3 or 4 gates); a number chosen by the parent wins (README step 2).
-  // gates by age (advisor ruling 16.10, section 11): 2 up to 4, 3 at 5, 3 at 6-7 (4 at 6-7 only when the child's level is high)
-  const gatesByAge = () => { const a = LRN && LRN.age ? LRN.age() : null; if (a != null && a <= 4) return 2; if (a != null && a >= 6 && LRN.levelInfo().choices >= 4) return 4; return 3; };
-  // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = 2 / 3 / 4 gates
-  const laneCount = () => [2, 2, 3, 4][LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 2];
+  // Golan 8.11 (levels table): the island level alone decides: 1 / 2 / 3 = 2 / 3 / 4 gates, the car at normal / +15% / +30% speed (no age rule)
+  const lvl = () => (LRN ? Math.min(3, Math.max(1, LRN.level() || 1)) : 2);
+  const laneCount = () => [2, 2, 3, 4][lvl()];
+  const LEVEL_SPEED = [1, 1, 1.15, 1.3];
   function makeQuestion(prevTarget, onlyChosen) {
     const chosen0 = chosenLetters();
     const lrnArgs = { mode: "recognize", prev: prevTarget, lastOk: state.lastOk !== false, lastLetter: state.lastLetter };
@@ -1073,7 +1073,8 @@
   const pace = () => {
     const p = { cruise: 12, near: 6 };   // the speed slider acts on the frame time (motionK, Golan 19.10) //   // Golan 19.10: the shared speed slider (−30%..+30% around the challenge level) instead of slow/normal/fast
     const k = LRN ? LRN.pace() : 1;   // the child's own pace (0.6-1.5), from how the game itself went in recent rounds
-    return { cruise: p.cruise * k, near: p.near * k };
+    const v = LEVEL_SPEED[lvl()];   /* Golan 8.11 (levels table) */
+    return { cruise: p.cruise * k * v, near: p.near * k * v };
   };
 
   function renderDots() {
@@ -1403,8 +1404,8 @@
     if (form) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: "race", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר שערים ויותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
-      levels: ["2 שערים, בלי אותיות דומות.", "3 שערים, יכולה להופיע אות דומה אחת.", "4 שערים, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר שערים, המכונית נוסעת מהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
+      levels: ["2 שערים, נסיעה רגילה, בלי אותיות דומות.", "3 שערים, נסיעה מהירה יותר, יכולה להופיע אות דומה אחת.", "4 שערים, נסיעה הכי מהירה, עד שתי אותיות דומות, ונכנסות גם אותיות סופיות."],   // Golan 8.11 (levels table)
       onLevel: () => { applyLanes(); lettersChanged = true; },   // the open question is asked again with the new number of gates
       picker: { onChange: (list, mode) => { settings.letters = mode === "auto" ? [] : list; settings.lettersMode = mode; lettersChanged = true; saveSettings(); } },
       voice: seg("voice"), quality: seg("quality", () => applyQuality()),

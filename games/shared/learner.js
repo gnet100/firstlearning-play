@@ -275,7 +275,7 @@ ${items[item]}</svg>`;
         level: 1, levelLock: false, levelChangedSession: -1, pace: 1, rounds: [], events: [], session: 0, lastAt: 0,
         birthYear: age ? new Date().getFullYear() - age : null, motor: [] };
       const q = db.profiles[id];
-      if (age && levelForAge(age) > 1) { q.level = levelForAge(age); q.pace = LEVELS[q.level].startPace; }
+      // Golan 8.11 (levels Q1): every island starts at level 1, whatever the age (the age no longer sets a level)
       if (q.color == null || q.item == null || taken(id).includes(q.color + ":" + q.item)) Object.assign(q, freeCombo(id));
       db.current = id; return q;
     });
@@ -286,7 +286,7 @@ ${items[item]}</svg>`;
       if ("name" in patch) p.name = cleanName(patch.name) || p.name;
       if ("age" in patch) { const first = p.birthYear == null; p.birthYear = patch.age ? new Date().getFullYear() - patch.age : null;
         // the first age given to an older profile also sets its starting level, if it never played and nothing set it yet
-        if (first && patch.age && levelForAge(patch.age) > 1 && !(p.events || []).length && !("level" in patch)) { p.level = levelForAge(patch.age); p.pace = LEVELS[p.level].startPace; } }
+        void first; }
       if ("color" in patch || "item" in patch) { const c = patch.color ?? p.color, it = patch.item ?? p.item;
         if (!taken(id).includes(c + ":" + it)) { p.color = c; p.item = it; } }
       if ("level" in patch) p.level = Math.max(1, Math.min(3, patch.level | 0));
@@ -424,6 +424,9 @@ ${items[item]}</svg>`;
     for (const l of all) {
       const c = cards[l];
       for (const k of ["recognize", "name", "cursive", "sound"]) finish(c[k]);
+      // Golan 8.11 (levels Q5): a sound known with confidence makes its letter at least "מוכרת" on the letters island
+      // (confidence itself only comes from the letter games)
+      if (c.sound.state === "known" && (c.recognize.state === "new" || c.recognize.state === "learning")) c.recognize.state = "almost";
       // One colour per letter: "name" wins when there is data on it (literacy review)
       c.state = c.name.n ? c.name.state : c.recognize.state;
       c.fluent = c.recognize.fluent;
@@ -520,13 +523,35 @@ ${items[item]}</svg>`;
     2: { size: [10, 15], choices: 3, lookalikes: 1, startPace: 1 },
     3: { size: [22, 27], choices: 4, lookalikes: 2, startPace: 1 },
   };
-  // Golan 19.10 (one settings form): "רמת קושי" per child AND per game = החלטת מערכת (the child's own level, p.level,
-  // moved by results) or 1 / 2 / 3 chosen by hand for this game only (p.gameLevels[game]). The old one-lock-for-all
-  // (levelLock) is gone: the automatic level always keeps moving, a game set by hand simply does not follow it.
-  const gameLevelOf = (p, game) => { const g = game || gameCfg.game, v = p && p.gameLevels && g ? p.gameLevels[g] : null; return v >= 1 && v <= 3 ? v : null; };
-  const effLevel = (p, game) => gameLevelOf(p, game) || (p && p.level) || 1;
-  function setGameLevel(n, game) { const g = game || gameCfg.game; if (!g) return; mutate(() => { const p = cur(); if (!p) return;
-    p.gameLevels = p.gameLevels || {}; if (n >= 1 && n <= 3) p.gameLevels[g] = n | 0; else delete p.gameLevels[g]; p.levelLock = false; }); }
+  // Golan 8.11 (summaries/levels-plan + levels-table.md): 3 levels PER ISLAND, shared by all the island's games.
+  // Every island starts at level 1. Up: level 2 once 25% of the island's items are "מזהה בביטחון", level 3 at 50%, and
+  // 85%+ of the island's last 20 answers right. Down: a weak day (<60% of the last 15 answers on the island) or forgetting
+  // (the confident share fell under the level's threshold). At most one change per island per session.
+  // A level picked by hand is for the whole island and lasts only until the game is closed (sessionStorage); the system
+  // keeps learning meanwhile. The parent never sees a level number. The memory games have no levels.
+  const ISLE_GAMES = { 1: ["wake", "detective", "circle", "mole", "memory", "train", "race", "tellme"], 2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain", "river", "soundtogether"] };
+  const isleOfGame = (g) => { for (const k of Object.keys(ISLE_GAMES)) if (ISLE_GAMES[k].includes(g)) return +k; return 1; };
+  const isleItems = (isle) => (isle === 2 ? SOUND_LETTERS : [...FL.LETTERS, ...FL.FINALS]);
+  const ISLE_TRACK = { 1: "recognize", 2: "sound" }, LEVEL_SHARE = { 2: 0.25, 3: 0.5 };
+  function isleShare(p, isle) { const c = cardsFor(p), items = isleItems(isle), tr = ISLE_TRACK[isle] || "recognize";
+    return items.length ? items.filter((l) => c[l] && c[l][tr].state === "known").length / items.length : 0; }
+  const levelForShare = (s) => (s >= LEVEL_SHARE[3] ? 3 : s >= LEVEL_SHARE[2] ? 2 : 1);
+  // the island's answers that move its level (no slips, no memory pairs, no together games)
+  const isleAnswers = (p, isle) => { const games = ISLE_GAMES[isle] || [], tr = ISLE_TRACK[isle] || "recognize";
+    return p.events.filter((e) => e.m === tr && !e.fast && games.includes(e.g) && !MATCH_GAMES.has(e.g) && !TOGETHER_GAMES.has(e.g)); };
+  // an older profile kept one level for everything (p.level): it stays island 1's level if the child played there
+  function isleLevel(p, isle) { if (!p) return 1; const v = p.isleLevels && p.isleLevels[isle];
+    if (v >= 1 && v <= 3) return v;
+    return isle === 1 && p.level > 1 && isleAnswers(p, 1).length ? Math.min(3, p.level) : 1; }
+  const manKey = (p, isle) => "fl-isle-level:" + (p ? p.id : "") + ":" + isle;
+  const gameLevelOf = (p, game) => { const g = game || gameCfg.game; if (!p || !g) return null;
+    let v = null; try { v = +sessionStorage.getItem(manKey(p, isleOfGame(g))); } catch (e) {} return v >= 1 && v <= 3 ? v : null; };
+  const effLevel = (p, game) => { const g = game || gameCfg.game; return gameLevelOf(p, g) || isleLevel(p, isleOfGame(g)); };
+  function setGameLevel(n, game) { const g = game || gameCfg.game, p = cur(); if (!g || !p) return;
+    try { if (n >= 1 && n <= 3) sessionStorage.setItem(manKey(p, isleOfGame(g)), String(n | 0)); else sessionStorage.removeItem(manKey(p, isleOfGame(g))); } catch (e) {} }
+  // the child's general knowledge level: the average of the islands played (internal, never shown as a number)
+  function overallLevel(p) { p = p || cur(); if (!p) return 1; const played = Object.keys(ISLE_GAMES).map(Number).filter((i) => isleAnswers(p, i).length);
+    return played.length ? +(played.reduce((a, i) => a + isleLevel(p, i), 0) / played.length).toFixed(2) : 1; }
   function levelFromKnownCount(n) { return n >= 15 ? 3 : n >= 6 ? 2 : 1; }
   // After a diagnostic: start level from how many regular letters are known or almost known.
   function setLevelFromDiagnostic() {
@@ -539,26 +564,25 @@ ${items[item]}</svg>`;
   function roundEnd({ game, skillIssue } = {}) {
     return mutate(() => {
       const p = cur(); if (!p) return null;
-      if (TOGETHER_GAMES.has(game)) return { pace: p.pace, level: p.level, levelChanged: 0, ...dayInfo(p) };   // Golan 8.11 (fix 5): a together game never moves pace or level
+      if (TOGETHER_GAMES.has(game)) return { pace: p.pace, level: effLevel(p, game), levelChanged: 0, ...dayInfo(p) };   // Golan 8.11 (fix 5): a together game never moves pace or level
       p.rounds.push({ t: Date.now(), g: game || "", issue: !!skillIssue }); if (p.rounds.length > 50) p.rounds.shift();
       p.roundSeq = (p.roundSeq || 0) + 1;   // never reset (p.rounds is emptied after 5 rounds): the practice set's round key
       const last5 = p.rounds.slice(-5);
       if (last5.filter((r) => r.issue).length >= 3) { p.pace = Math.max(0.6, +(p.pace * 0.85).toFixed(3)); p.rounds = []; }
       else if (last5.length === 5 && last5.every((r) => !r.issue)) { p.pace = Math.min(1.5, +(p.pace * 1.1).toFixed(3)); p.rounds = []; }
-      let changed = 0;
-      if (p.levelChangedSession !== p.session) {
-        const ev = p.events.filter((e) => e.m === "recognize" && !e.fast);
-        const last20 = ev.slice(-20), last15 = ev.slice(-15);
+      let changed = 0; const isle = isleOfGame(game || gameCfg.game);
+      p.isleLevels = p.isleLevels || {}; p.isleChanged = p.isleChanged || {};
+      let lv = isleLevel(p, isle);
+      if (p.isleChanged[isle] !== p.session) {
+        cache = null;
+        const ev = isleAnswers(p, isle), last20 = ev.slice(-20), last15 = ev.slice(-15), target = levelForShare(isleShare(p, isle));
         const acc = (a) => a.filter((e) => e.ok).length / a.length;
-        // Up: 85%+ over the last 20 answers in 2+ sessions, and enough known letters for the next level
-        // (the same counts as the diagnostic start: 6 for level 2, 15 for level 3).
-        cache = null; const c = cardsFor(p);
-        const known = FL.LETTERS.filter((l) => c[l].recognize.state === "known").length;
-        if (p.level < 3 && last20.length >= 20 && new Set(last20.map((e) => e.s)).size >= 2 && acc(last20) >= 0.85 && levelFromKnownCount(known) > p.level) changed = 1;
-        else if (p.level > 1 && last15.length >= 15 && acc(last15) < 0.6) changed = -1;
-        if (changed) { p.level += changed; p.levelChangedSession = p.session; }
+        if (lv < 3 && target > lv && last20.length >= 20 && acc(last20) >= 0.85) changed = 1;
+        else if (lv > 1 && (target < lv || (last15.length >= 15 && acc(last15) < 0.6))) changed = -1;
+        if (changed) { lv += changed; p.isleChanged[isle] = p.session; }
       }
-      return { pace: p.pace, level: p.level, levelChanged: changed, ...dayInfo(p) };
+      p.isleLevels[isle] = lv; if (isle === 1) p.level = lv;   // p.level kept = island 1, for older readers
+      return { pace: p.pace, level: effLevel(p, game), levelChanged: changed, ...dayInfo(p) };
     });
   }
 
@@ -1011,8 +1035,7 @@ ${items[item]}</svg>`;
       const ul = document.createElement("ul"); ul.className = "fl-flv";
       const note = document.createElement("div"); note.className = "fl-fnote"; note.textContent = LEVEL_AUTO_NOTE;
       const draw = () => {
-        const p = cur(), man = gameLevelOf(p, cfg.game), auto = p ? p.level : 1, eff = man || auto;
-        const b = r3.querySelector('.fl-fseg button[data-v="auto"]'); if (b) b.textContent = "החלטת מערכת (" + auto + ")";
+        const p = cur(), eff = effLevel(p, cfg.game);   // Golan 8.11: no level number for the parent; one pick for the whole island, until the game is closed
         ul.innerHTML = ""; if (cfg.levelsText) { const li = document.createElement("li"); li.textContent = cfg.levelsText; ul.append(li); } else cfg.levels.forEach((t, i) => { const li = document.createElement("li"); li.textContent = "רמה " + (i + 1) + ": " + t; if (i + 1 === eff) li.className = "on"; ul.append(li); });
         if (drawSeg) drawSeg();
       };
@@ -1559,7 +1582,8 @@ ${items[item]}</svg>`;
   function nextGame(justPlayed) {
     const now = justPlayed === undefined ? gameCfg.game : justPlayed;
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
-    const isle = confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
+    const gi = now && RANK.isle2.includes(now) ? 2 : now && RANK.isle1.includes(now) ? 1 : 0;   // Golan 8.11 (audit 6): stay on the island just played
+    const isle = gi ? "isle" + gi : confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
     const w0 = isle === "isle2" ? (n <= 2 ? 0 : n <= 5 ? 1 : 2) : Math.min(rank.length - 3, Math.floor(n / 3)), win = rank.slice(w0, w0 + 3);
     const sc = lastRoundScore(now), step = sc == null ? 0 : sc >= 0.8 ? 1 : sc <= 0.5 ? -1 : 0;
     const at = rank.indexOf(now), base = at >= w0 && at < w0 + 3 ? at - w0 : 1, want = Math.max(0, Math.min(2, base + step));
@@ -1984,8 +2008,7 @@ ${items[item]}</svg>`;
   function cursiveShare(l) {
     if (!cursiveReady(l)) return 0;
     if (cur() && effLevel(cur()) <= 1) return 0;   // Golan 30.10: in the automatic mix, level 1 is print only; cursive opens from level 2 (all games)
-    const st = cardsFor(cur())[l].cursive.state;
-    return st === "known" ? 0.5 : st === "almost" ? 0.4 : st === "new" ? 0.25 : 0.32;
+    return effLevel(cur()) >= 3 ? 0.5 : 0.25;   // Golan 8.11 (levels table): level 2 about a quarter in cursive, level 3 half
   }
   // ---------- moving progress between devices (Golan 29.10: a file; all the children; merged, nothing is lost) ----------
   // The file holds the learner store and every other "fl-" setting of this browser. Opening it on another device merges:
@@ -2023,7 +2046,7 @@ ${items[item]}</svg>`;
         const rs = new Set(), rounds = [...(lp.rounds || []), ...(ip.rounds || [])].filter((r) => { const k = r.t + "|" + r.g; return rs.has(k) ? false : (rs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-50);
         const keep = { id: lp.id, name: lp.name, color: lp.color, item: lp.item, created: Math.min(lp.created || Infinity, ip.created || Infinity) };
         Object.assign(lp, newer === lp ? {} : ip, keep, {
-          events: evs.slice(-MAX_EVENTS), rounds, session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1,
+          events: evs.slice(-MAX_EVENTS), rounds, session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1, isleLevels: Object.assign({}, (newer === lp ? ip : lp).isleLevels || {}, newer.isleLevels || {}), isleChanged: {},
           motor: [...(lp.motor || []), ...(ip.motor || [])].slice(-12), gameLevels: Object.assign({}, (newer === lp ? ip : lp).gameLevels || {}, newer.gameLevels || {}),
           gender: lp.gender || ip.gender || null, birthYear: lp.birthYear || ip.birthYear || null });
       }
@@ -2076,7 +2099,7 @@ ${items[item]}</svg>`;
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,
     nextLetter, distractors, safeDistractors, confusable, lookAlike: looksLike, level: () => (cur() ? effLevel(cur()) : 1), levelInfo: (n) => LEVELS[n || (cur() ? effLevel(cur()) : 1)],
-    gameLevel: (game) => gameLevelOf(cur(), game), autoLevel: () => (cur() ? cur().level : 1), setGameLevel,
+    gameLevel: (game) => gameLevelOf(cur(), game), autoLevel: (game) => isleLevel(cur(), isleOfGame(game || gameCfg.game)), setGameLevel, isleOfGame, overallLevel,
     speed, speedPct, setSpeedPct, speedRow, refreshSpeed,
     pace: () => (cur() ? cur().pace : 1), roundEnd, setLevelFromDiagnostic, star, starSvg, starCounter, lineIds, stripNikud,
     dayInfo: () => dayInfo(), breakShown, warmup, motorMedian: () => { const p = cur(); return p ? median(p.motor || []) : null; },

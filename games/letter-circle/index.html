@@ -305,14 +305,19 @@
   try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-circle-settings") || "{}")); } catch (e) {}
   if (!settings.v2) { settings.perf = "off"; settings.v2 = 1; }   // the FPS box is off unless turned on in settings (screens audit 16.10; it was on by default)
   if (!settings.ages || typeof settings.ages !== "object") settings.ages = {};
+  settings.script = "auto";   // a manual setting lasts only until the game is reopened (Golan 8.11, levels table)
   const saveSettings = () => { try { localStorage.setItem("fl-circle-settings", JSON.stringify(settings)); } catch (e) {} };
   const prof = () => (LRN ? LRN.profile() : null);
   const pid = () => (prof() ? prof().id : "anon");
   const ageOf = () => (LRN ? LRN.age() : settings.ages.anon || null);
   const setAge = (a) => { if (LRN && prof()) LRN.updateProfile(prof().id, { age: a }); else { settings.ages.anon = a; saveSettings(); } };
-  // Golan 19.10 (one settings form): "רמת קושי" 1 / 2 / 3 = 4 / 6 / 6 clouds on the ring, look-alike letters on the ring only at 3
+  // Golan 8.11 (levels table): level 1 / 2 / 3 = 8 / 10 / 12 clouds on the ring, as in the detective game; the ring stands
+  // still / turns slowly / turns fast. A small screen gets fewer clouds (never under 8), as in the detective (screens standard 3).
+  // Look-alike letters on the ring only at 3 (Golan 19.10).
   const lvl = () => (LRN && LRN.level ? Math.min(3, Math.max(1, LRN.level() || 1)) : (ageOf() || 5) <= 4 ? 1 : 2);
-  const ringSize = () => [4, 4, 6, 6][lvl()];
+  const ringWanted = () => [8, 8, 10, 12][lvl()];
+  const ringSize = () => { const w = ringWanted(); for (const n of [12, 10]) if (n <= w && ringFitsN(n)) return n; return 8; };
+  const RING_LAP_S = [0, 0, 90, 36];   /* seconds for one full turn of the ring; 0 = standing still */
 
   // ---------- content: the same 27 letters as the race game (22 without dagesh or shin dot, and 5 finals), no nikud ----------
   const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת"];
@@ -838,8 +843,8 @@
   measureCloud();
   let balloonBase = 0.9, balloonGrow = 1;
   let ringGeo = null;
-  function layout(n, turn) {
-    measureView();
+  /* the free part of the screen for the ring (shared by layout and ringFitsN) */
+  function ringArea() {
     const W = canvas.clientWidth, H = canvas.clientHeight, tall = H > W;
     // the free part of the screen: without the safe areas (notch, home bar) and the buttons (screens standard sec 5)
     let top, left, right, bottom;
@@ -861,18 +866,29 @@
     // a cloud is the thing the child touches: never smaller than 20 mm on the screen (--tap-play, standard sec 3)
     const minCloud = SCR ? SCR.mmToPx(SCR.MM.tapPlay) : 84;
     const aw = right - left, ah = Math.max(120, bottom - top), cx = (left + right) / 2, cy = top + ah / 2;
-    const TURNS = 12;
-    // cloud size: as big as fits; smaller until no two clouds touch, whatever the turn
+    return { W, H, tall, minCloud, aw, ah, cx, cy };
+  }
+  const TURNS = 12;
+  /* cloud size for n clouds: as big as fits; smaller until no two clouds touch, whatever the turn (ok = they fit at >= 20 mm) */
+  function ringFit(n, A) {
+    const { tall, minCloud, aw, ah } = A;
+    let ok = false;
     let sizePx = Math.max(minCloud, Math.min(Math.max(230, minCloud * 1.6), (tall ? aw * 0.42 : Math.min(aw, ah) * 0.34) * (n <= 4 ? 1.12 : 1))), rx, ry, cw, ch;
     for (let tries = 0; tries < 20; tries++) {
       cw = sizePx * CLOUD_HW; ch = sizePx * CLOUD_HH;   // half width with the side puffs, half height (measured from the mesh)
       rx = aw / 2 - cw; ry = ah / 2 - ch;
-      let ok = true;
+      ok = true;
       for (let k = 0; k < TURNS && ok; k++) { const pts = ringPoints(n, rx, ry, k / TURNS);
         for (let i = 0; i < n && ok; i++) { const a = pts[i], b = pts[(i + 1) % n]; const dx = (a.x - b.x) / (2 * cw), dy = (a.y - b.y) / (2 * ch); if (dx * dx + dy * dy < 1.02) ok = false; } }
       if (ok || sizePx <= minCloud) break;
       sizePx *= 0.94;
     }
+    return { sizePx, rx, ry, cw, ch, ok };
+  }
+  function ringFitsN(n) { if (!canvas.clientWidth) return true; measureView(); return ringFit(n, ringArea()).ok; }
+  function layout(n, turn) {
+    measureView();
+    const A = ringArea(), { W, H, cx, cy } = A, { sizePx, rx, ry, cw, ch } = ringFit(n, A);
     // The balloon (flag top +5.0, hanging letter -2.6, half width 1.75, in balloon units) gets the biggest size at which
     // it touches no cloud, whatever the turn, so no letter is ever hidden behind it.
     const allTurns = []; for (let k = 0; k < TURNS; k++) allTurns.push(...ringPoints(n, rx, ry, k / TURNS));
@@ -994,8 +1010,8 @@
   }
   // the other letters on the ring: no letter twice, never a final with its own regular letter (two right answers);
   // the first time no look-alike of the letter asked, the confirmation with other letters than the first time
-  function ringLetters(t, kind, avoid) {
-    const n = ringSize(), used = new Set([baseOf(t)]);
+  function ringLetters(t, kind, avoid, nRing) {
+    const n = nRing || ringSize(), used = new Set([baseOf(t)]);
     const set = practiceSet();
     let pool = [...LETTERS, ...FINALS.filter((f) => isFinal(t) || set.includes(f))].filter((l) => l !== t && baseOf(l) !== baseOf(t));
     if (kind === "first" && lvl() < 3) { const look = lookalikes(t); const p2 = pool.filter((l) => !look.includes(l)); if (p2.length >= n) pool = p2; }
@@ -1014,6 +1030,10 @@
     if (HG && HG.done()) return endRound();   // the sand ran out during the last item: it finished, the round ends (Golan 18.10)
     const q = nextQuestion();
     if (!q) return endRound();
+    showQuestion(q);
+  }
+  /* lays the question's clouds on the ring (also again after a level change in settings, Golan 8.11) */
+  function showQuestion(q) {
     const n = ringSize(), rot = Math.random(), spots = layout(n, rot);   // the ring turns a little every question
     let ti = Math.floor(Math.random() * n);
     // Golan 19.10: each warm-up star in another place, the farthest cloud from where the last star was
@@ -1022,7 +1042,7 @@
     if (q.from) {   // confirmation: the letter goes to the place on the ring farthest from where it was
       let best = -1; spots.forEach((p, i) => { const d = Math.hypot(p.fx - q.from.fx, p.fy - q.from.fy); if (d > best) { best = d; ti = i; } });
     }
-    const letters = q.kind === "warm" ? Array(n).fill("") : shuffle(ringLetters(q.letter, q.kind, q.avoid));
+    const letters = q.kind === "warm" ? Array(n).fill("") : shuffle(ringLetters(q.letter, q.kind, q.avoid, n));
     if (q.kind !== "warm") letters.splice(ti, 0, q.letter);
     q.letters = letters; q.rot = rot; q.ti = ti; q.pos = spots[ti]; q.armed = false; q.firstEnd = null; q.lastEnd = null; q.repeats = 0; q.done = false;
     q.cur = cursiveFor(q);
@@ -1235,7 +1255,13 @@
       else { s.queue = af(s.queue); if (!s.queue.length) topUp(s); } }
     chosenChanged = false;
     $("settings").hidden = true; if (!bgHold) releaseGame();
+    // Golan 8.11 (levels table): another level = another number of clouds and speed: the open question is laid out again
+    const q = state.q;
+    if (levelChanged && !bgHold && state.mode === "play" && q && !q.done) { hush(); showQuestion({ kind: q.kind, letter: q.letter, avoid: q.avoid, from: q.from }); }
+    else if (levelChanged && !q) layout(ringSize(), 0);
+    levelChanged = false;
   }
+  let levelChanged = false;
   let picker = null, form = null;
   function renderLetters() {
     if (form) return form.refresh();
@@ -1246,8 +1272,9 @@
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     // no "קול הקריינית" row here: in this game the question is only heard (no letter on the screen)
     form = LRN.settingsForm($("flForm"), { game: "circle", lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים במעגל ויותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
-      levels: ["4 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, בלי אותיות דומות.", "6 עננים במעגל, ויכולות להופיע גם אותיות דומות לאות שמחפשים."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר עננים במעגל, המעגל מסתובב מהר יותר, ויש יותר אותיות דומות.",   // Golan 28.10: one sentence instead of the three, in every game
+      levels: ["8 עננים במעגל שעומד במקום, בלי אותיות דומות.", "10 עננים במעגל שמסתובב לאט, בלי אותיות דומות.", "12 עננים במעגל שמסתובב מהר, ויכולות להופיע גם אותיות דומות לאות שמחפשים."],   // Golan 8.11 (levels table)
+      onLevel: () => { levelChanged = true; },
       picker: { key: "circle", autoList, onChange: (list, m) => { chosen = m === "auto" ? [] : list.slice(); chosenChanged = true; } },
       script: seg("script"),
       quality: seg("quality", () => applyQuality()),
@@ -1360,10 +1387,11 @@
       g.root.rotation.z = g.hang.x * 0.6 * (1 - Math.exp(-h * 2.5)) + Math.sin(h * 3) * 0.28 * Math.exp(-h * 0.9) + Math.sin(T * 1.5 + g.ph) * 0.11;
     }
     const q = state.q;
-    // Golan 19.10: until a letter is touched, the whole ring turns slowly clockwise on its ellipse (one turn in 90 s);
+    // Golan 19.10: until a letter is touched, the whole ring turns slowly clockwise on its ellipse (8.11: by level, RING_LAP_S);
     // every cloud keeps its own small bob and sway on top. The layout already checked every turn: no clouds touch.
     if (!paused && q && !q.done && state.mode === "play" && ringGeo && ringGeo.n === q.letters.length) {
-      q.spin = (q.spin || 0) + dt * ringGeo.n / 90;
+      const lap = RING_LAP_S[lvl()];   /* Golan 8.11 (levels table): still / slow / fast */
+      if (lap) q.spin = (q.spin || 0) + dt * ringGeo.n / lap;
       ringPoints(ringGeo.n, ringGeo.rx, ringGeo.ry, (q.rot || 0) + q.spin).forEach((pt, i) => {
         const c = clouds[i], w = skyAt(ringGeo.cx + pt.x, ringGeo.cy + pt.y); if (!c || !c.home) return;
         c.home = { x: w.x, y: w.y, size: c.home.size, fx: pt.fx, fy: pt.fy };

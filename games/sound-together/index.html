@@ -896,7 +896,10 @@
     if (im && im.complete && im.naturalWidth) { try { if (window.FL && FL.drawPicCentred) FL.drawPicCentred(ctx, im, 64, 64, 384, 384); else ctx.drawImage(im, 64, 64, 384, 384); } catch (e) {} }
     b.cTex.update(true);
   }
-  const balloons = [0, 1, 2, 3].map(makeBalloon);
+  // Golan 8.11 (levels table): 3 / 4 / 5 pictures by the sound island's level; the first N balloons play, the rest stay off
+  const allBalloons = [0, 1, 2, 3, 4].map(makeBalloon);
+  const picCount = () => [3, 4, 5][Math.min(3, Math.max(1, (LRN && LRN.level ? LRN.level() : 2) || 2)) - 1];
+  let balloons = allBalloons.slice(0, 4);
   // Golan 7.11: on a right answer confetti stars fly out of the card (its frame lights up gold), as in the sound mole
   const starTex = new BABYLON.DynamicTexture("starTex", { width: 64, height: 64 }, scene, false);
   { const c = starTex.getContext(); c.fillStyle = "#fff"; c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 12 : 30; c.lineTo(32 + rr * Math.cos(a), 32 + rr * Math.sin(a)); } c.closePath(); c.fill(); starTex.update(); starTex.hasAlpha = true; }
@@ -934,7 +937,16 @@
     const R = region, w = R.x1 - R.x0, h = R.y1 - R.y0, cx = (R.x0 + R.x1) / 2, cy = (R.y0 + R.y1) / 2;
     const mid = $("mid"); mid.style.left = cx + "px"; mid.style.top = cy + "px";
     let pts, hPx;
-    if (lying()) {
+    const N = balloons.length;
+    if (N !== 4) {
+      const mr0 = mid.getBoundingClientRect(), gap = Math.max(12, w * 0.012), low = N - 2;
+      hPx = Math.min(h * 0.5 - gap / 2, (w / Math.max(low, 2) - gap * 2) * B_H / CARD * 0.8);
+      const cardW = hPx * CARD / B_H, upY = R.y0 + hPx / 2, loY = R.y1 - hPx / 2;
+      const ox = Math.min(w / 2 - cardW / 2, Math.max(w * 0.3, mr0.width / 2 + gap + cardW * 0.7));
+      mid.style.top = upY + "px";
+      pts = [[cx + ox, upY], [cx - ox, upY]];
+      for (let i = 0; i < low; i++) pts.push([cx + ((low - 1) / 2 - i) * (w / low), loY]);
+    } else if (lying()) {
       // a lying screen: the two upper balloons further out, the two lower ones closer in, so each may be taller than half the sky:
       // as tall as the screen lets them, while an upper card and the lower one beside it never overlap sideways
       const mr = mid.getBoundingClientRect(), gap = Math.max(12, w * 0.012), outX = w * 0.4;
@@ -985,12 +997,14 @@
   function newQuestion(opt = {}) {
     clearTasks(); setJudge(false);
     const t = opt.letter || pickSound(); state.lastLetter = t;
-    const others = otherSounds(t, 3), picks = [{ pic: pick(picsOf(t)), letter: t, right: true }, ...others.map((l) => ({ pic: pick(picsOf(l)), letter: l, right: false }))];
-    const order = shuffle([0, 1, 2, 3]);
+    const N = picCount(); balloons = allBalloons.slice(0, N);
+    for (const b of allBalloons.slice(N)) { b.state = "off"; b.root.setEnabled(false); if (!b.dressed) { b.dressed = true; b.pic = pick(picsOf(t)); dress(b, fourDesigns()[0]); drawCard(b); } }   /* a balloon never drawn keeps the scene "not ready" */
+    const others = otherSounds(t, N - 1), picks = [{ pic: pick(picsOf(t)), letter: t, right: true }, ...others.map((l) => ({ pic: pick(picsOf(l)), letter: l, right: false }))];
+    const order = shuffle([...Array(N).keys()]);
     const q = { id: ++qN, letter: t, demo: !!opt.demo, mistakes: 0, wrongPic: null, notYet: 0, hint: false, rec: false, t0: performance.now(), opts: [t, ...others], done: false };
     balloons.forEach((b, k) => {
       const p = picks[k]; b.slot = order[k]; b.pic = p.pic; b.letter = p.letter; b.right = p.right; b.glow = false; b.wrongs = 0;
-      dress(b, fourDesigns()[(designAt + k) % 4]); drawCard(b);
+      dress(b, fourDesigns()[(designAt + k) % 4]); drawCard(b);   /* a fifth balloon repeats one of the four picked */
     });
     designAt = (designAt + 1) % 4;
     state.q = q; setSign(SOUNDS[t].syl); layout();
@@ -1193,8 +1207,8 @@
     if (!LRN || !LRN.settingsForm) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
-      levelsText: "הצלילים נבחרים לפי ההתקדמות של הילד. בכל שאלה ארבע תמונות, ורק אחת מתחילה בצליל.",
-      levels: ["הצלילים שהילד כבר מכיר, ועוד מעט חדשים.", "יותר צלילים חדשים.", "כל הצלילים."],
+      levelsText: "ככל שרמת הקושי עולה, יש יותר תמונות לבחור מהן.",
+      levels: ["3 תמונות, ורק אחת מתחילה בצליל.", "4 תמונות, ורק אחת מתחילה בצליל.", "5 תמונות, ורק אחת מתחילה בצליל."],
       onLevel: () => { levelChanged = true; },
       picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); state.pool = null; } },
       quality: seg("quality", () => applyQuality()),
@@ -1206,7 +1220,8 @@
     if (seqBusy && curSeq) { heldSeq = heldSeq || curSeq; hush(); }
     else if (clipNow && !clipNow.paused) { heardIntro = false; hush(); }
   }
-  function closeSettings() { $("settings").hidden = true; levelChanged = false; state.pool = null; if (!bgHold) releaseGame(); }
+  function closeSettings() { const lv = levelChanged; $("settings").hidden = true; levelChanged = false; state.pool = null; if (!bgHold) releaseGame();
+    if (lv && state.mode === "play" && state.q && !state.q.done) newQuestion({ letter: state.q.letter }); }   /* Golan 8.11: a new level = the question again with 3 / 4 / 5 pictures */
   function releaseGame() {
     if (state.mode === "paused" && pausedFrom === null) state.mode = modeBeforeSettings || "play";
     if (pausedFrom !== null) return;
@@ -1504,7 +1519,7 @@
 
   // test hook for automated checks (games/tests/check-games.js): open() = true while the adult may judge; points() = the screen
   // centres of the 4 picture cards with right / wrong; said() / notYet() tap the adult's buttons
-  window.__stog = { state, settings, balloons, engine, scene, cam, canvas, hg: HG, SOUNDS, SOUND_L, PICS_OF, alike, layout, endRound, runDemo, demoSeen: () => demoSeen(), region: () => region,
+  window.__stog = { state, settings, get balloons() { return balloons; }, engine, scene, cam, canvas, hg: HG, SOUNDS, SOUND_L, PICS_OF, alike, layout, endRound, runDemo, demoSeen: () => demoSeen(), region: () => region,
     open: () => canAnswer(),
     points: () => { const cr = canvas.getBoundingClientRect(), k = cr.width / (canvas.clientWidth || cr.width); cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
       return balloons.filter((b) => b.state === "hover" || b.state === "shake").map((b) => { const r = cardRect(b); return { right: b.right, x: cr.left + (r.x0 + r.x1) / 2 * k, y: cr.top + (r.y0 + r.y1) / 2 * k, pic: b.pic }; }); },

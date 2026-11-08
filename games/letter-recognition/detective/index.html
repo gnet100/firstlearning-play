@@ -457,6 +457,7 @@
   if (!settings.perfOff) { settings.perf = "off"; settings.perfOff = 1; }   // the FPS box is a developer tool: off unless turned on in the settings (screens audit 9)
   if (!settings.cloudsAuto) { settings.clouds = "auto"; settings.cloudsAuto = 1; }   // auto became the default (Golan, 16.10)
   settings.letters = []; settings.lettersMode = "auto";   // every page load starts in "החלטת מערכת" (Golan, 16.10, all games); hand taps in auto live in learner.js
+  settings.script = "auto";   // a manual setting lasts only until the game is reopened (Golan 8.11, levels table)
   const saveSettings = () => { try { localStorage.setItem("fl-detective-settings", JSON.stringify(settings)); } catch (e) {} };
   // Golan 19.10: the challenge level belongs to the child, not to the game: each child keeps their own choice
   // (settings.byKid[child id]); a new child starts at the default. Reads and writes of settings.<key> go there.
