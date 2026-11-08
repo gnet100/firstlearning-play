@@ -1391,14 +1391,14 @@ ${items[item]}</svg>`;
         const base = FL.FINAL_BASE[l] || l, k = c && c[l], shown = !k ? "new" : shownState(k.state);
         const b = document.createElement("button"); b.type = "button"; b.className = "fl-cell" + (base !== l ? " fl-fin" : "");
         paint(b, shown); b.textContent = l; b.title = LABELS[shown];
-        b.disabled = !finals && base !== l; const nc = !avail.has(base); if (nc) { b.classList.add("fl-nc"); b.title = "אין עדיין תוכן לאות הזאת במשחק הזה"; }   // Golan 8.11: every letter can be picked   // Golan 17.10: a game without finals shows them faded, never linked to the base letter
+        const nc = !avail.has(base) || (!finals && base !== l);   // Golan 8.11: finals too, in a game without finals they are letters with no content if (nc) { b.classList.add("fl-nc"); b.title = "אין עדיין תוכן לאות הזאת במשחק הזה"; }   // Golan 8.11: every letter can be picked   // Golan 17.10: a game without finals shows them faded, never linked to the base letter
         const key = l, on = mode === "auto" ? (nc ? ncAuto.has(key) : autoSet.has(key)) : sel.has(key); b.classList.toggle("fl-sel", on && !b.disabled); b.setAttribute("aria-pressed", on ? "true" : "false");
         b.onclick = () => {
           if (mode === "auto" && nc) { if (ncAuto.has(key)) ncAuto.delete(key); else ncAuto.add(key); return draw(); }
           if (mode === "auto") {   // auto: the letter is forced in / out on top of the system's pick, which keeps adapting
             if (autoSet.has(key)) { autoForce.out.add(key); autoForce.in.delete(key); } else { autoForce.in.add(key); autoForce.out.delete(key); }
             return changed(); }
-          if (base !== l && finals) { if (sel.has(l)) sel.delete(l); else sel.add(l); }   // a final on its own
+          if (nc || (base !== l && finals)) { if (sel.has(l)) sel.delete(l); else sel.add(l); }   // a final, or a letter with no content here, on its own
           else if (sel.has(base)) sel.delete(base); else sel.add(base);   // Golan 16.10: each letter toggles only itself (מ no longer takes ם)
           changed(); };
         grid.append(b);
