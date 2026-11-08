@@ -1477,7 +1477,7 @@ ${items[item]}</svg>`;
 .fl-end-lets span.p1{background:#fff6cc;color:#8a6d00}
 .fl-end-lets span.p2{background:#ffe082;color:#6b4f00}
 .fl-end-lets span.p3{background:#ffc107;color:#4a3500}
-.fl-end-lets span.kn{background:var(--fl-known,#00796b);color:#fff}
+.fl-end-lets span.kn{background:#e3f7ec;color:#1d3557;box-sizing:border-box;border:calc(2px + .04 * var(--ls)) solid #2bb673}   /* Golan 8.11: the same green as every progress screen */
 .fl-end-lets span.half{background:#fff4c2;color:#c9a227;box-shadow:0 0 calc(var(--ls) * .2) #ffe58a}
 .fl-end-lets span.full{background:#ffd43b;color:#7a5200;box-shadow:0 0 calc(var(--ls) * .3) #ffd43b}
 .fl-end-note{margin:0;font-size:max(calc(24 * var(--u,1px) * var(--k)),16px);font-weight:700;color:#2b6cb0}
