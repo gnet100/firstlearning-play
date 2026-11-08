@@ -986,7 +986,7 @@ ${items[item]}</svg>`;
     // 2. letters to practise: the shared list ("החלטת מערכת") or the letters tapped by hand
     if (cfg.picker) {
       const r2 = row(PICKER_TITLE), box = document.createElement("div"); box.className = "fl-fletters"; if (cfg.lettersId) box.id = cfg.lettersId; r2.append(box);
-      api.picker = letterPicker(box, { legend: false, buttons: true, key: cfg.game || "default", ...cfg.picker });
+      api.picker = letterPicker(box, { buttons: true, key: cfg.game || "default", ...cfg.picker });
       api.refreshers.push(() => api.picker.refresh());
     }
     // 3. difficulty: החלטת מערכת or 1 / 2 / 3, per child and per game
@@ -1122,6 +1122,7 @@ ${items[item]}</svg>`;
 .fl-pnote{font-size:14px;color:#4a5a70;text-align:right;direction:rtl;max-width:420px;margin:0 auto}
 .fl-leg{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;direction:rtl;font-size:16px;margin:10px auto;width:420px;max-width:100%}
 .fl-leg span{display:inline-flex;align-items:center;gap:4px}.fl-leg u{display:inline-block;width:14px;height:14px;border-radius:4px}
+.fl-leg u.fl-leg-sel{width:18px;height:18px;background:#fff;box-sizing:border-box;border:2px solid #d5dde6;box-shadow:inset 0 0 0 1px #fff,inset 0 0 0 4px var(--fl-mark,#283593)}.fl-leg u.fl-leg-off{opacity:.3}
 .fl-lit{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;direction:rtl}
 .fl-lit span{font-size:34px;width:52px;line-height:52px;border-radius:50%;text-align:center;background:#eef1f5;color:#c3cad3}
 .fl-lit span.half{background:#fff4c2;color:#c9a227;box-shadow:0 0 10px #ffe58a}
@@ -1401,6 +1402,9 @@ ${items[item]}</svg>`;
       el.append(grid);
       if (opt.legend !== false) { const leg = document.createElement("div"); leg.className = "fl-leg";
         for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch(k)}${LABELS[k]}</span>`);
+        // Golan 8.11: the key also tells the blue frame (picked for practice) and the faded letters (not in this game)
+        leg.insertAdjacentHTML("beforeend", `<span><u class="fl-leg-sel"></u>נבחרה לתרגול</span>`);
+        if (grid.querySelector(".fl-cell:disabled")) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch("new").replace("<u ", '<u class="fl-leg-off" ')}לא במשחק הזה</span>`);
         el.append(leg); }
       if (opt.buttons) {   // the shared row: "החלטת מערכת", "כל האותיות", "ניקוי" + the explanation (plain text, ruling 16.10)
         const row = document.createElement("div"); row.className = "fl-pbtns";
