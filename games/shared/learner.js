@@ -529,7 +529,7 @@ ${items[item]}</svg>`;
   // (the confident share fell under the level's threshold). At most one change per island per session.
   // A level picked by hand is for the whole island and lasts only until the game is closed (sessionStorage); the system
   // keeps learning meanwhile. The parent never sees a level number. The memory games have no levels.
-  const ISLE_GAMES = { 1: ["wake", "detective", "circle", "mole", "memory", "train", "race", "tellme"], 2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain", "river", "soundtogether"] };
+  const ISLE_GAMES = { 1: ["wake", "detective", "circle", "mole", "memory", "train", "race", "tellme"], 2: ["sound", "wheel", "soundmole", "soundmemory", "soundtrain", "river", "soundtogether", "soundttt"] };
   const isleOfGame = (g) => { for (const k of Object.keys(ISLE_GAMES)) if (ISLE_GAMES[k].includes(g)) return +k; return 1; };
   const isleItems = (isle) => (isle === 2 ? SOUND_LETTERS : [...FL.LETTERS, ...FL.FINALS]);
   const ISLE_TRACK = { 1: "recognize", 2: "sound" }, LEVEL_SHARE = { 2: 0.25, 3: 0.5 };

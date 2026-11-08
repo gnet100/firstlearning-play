@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>איקס עיגול של צלילים</title>
+<link rel="stylesheet" href="../shared/fonts/fonts.css">   <!-- local font, no internet needed (screens standard ס8) -->
+<style>
+    /* no size jump on refresh: the start panel waits for FL.screen (screen.js adds .fl-ready), at most 3 s (Golan 23.10) */
+    html:not(.fl-ready) #start > * { visibility: hidden; animation: flShow 0s 3s forwards; }
+    @keyframes flShow { to { visibility: visible; } }
+  /* Same look, buttons and sizes as the car and gates game (voice/race-gates-voice), so the child feels it is one game. */
+  :root {
+    --sky: #bfe6ff;
+    --ink: #1d2a3a;
+    --card: #ffffffee;
+    --accent: #ff8a3d;
+    --accent-ink: #ffffff;
+    --good: #2bb673;
+    --muted: #5b6b7f;
+  }
+  /* single deliberate look (daylight world): same colours in light and dark */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--sky);
+    font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .hud[hidden] { display: none; }
+
+  .round-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+    font-size: 30px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #c45f1d;
+  }
+  .round-btn:active { box-shadow: 0 1px 0 #c45f1d; }
+
+  .stars {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px;
+    background: var(--card); border-radius: 999px; padding: 8px 18px; font-size: 26px; font-weight: 800;
+    box-shadow: 0 4px 16px #0002;
+  }
+
+  .gear {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink);
+    box-shadow: 0 4px 16px #0002;
+  }
+  /* buttons in a column at the top left: door, settings (as in the car game; no pause button, Golan 16.10) */
+  .hud .gear, .overlay-gear { top: calc(max(12px, env(safe-area-inset-top)) + 76px); }
+  /* settings gear on every screen, a bigger, darker grey icon (Golan, 15.10) */
+  .gear-ico { width: 1.45em; height: 1.45em; display: block; color: #5b6573; }
+  .overlay-gear { position: absolute; left: 16px; z-index: 30; }
+  .start-gear { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; }
+  /* exit door, ajar, opening toward the left edge; "יציאה" tip on mouse hover (as in the car game, Golan 15.10) */
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { z-index: 30; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: #2b2f3a; color: #fff; font: 700 18px "Noto Sans Hebrew", system-ui, sans-serif; padding: 6px 12px; border-radius: 10px;
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s ease .25s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  .door-btn { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 16px; background: var(--card); color: var(--ink); box-shadow: 0 4px 16px #0002; font-size: 40px; }
+  /* balloon picker (instead of the car picker) */
+  .cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .cars button { border: 3px solid #d5dde6; border-radius: 18px; background: #eaf6ff; padding: 4px; cursor: pointer; aspect-ratio: 1; }
+  .cars button svg { width: 100%; height: 100%; display: block; }
+  .cars button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .cars button:active { transform: scale(.96); }
+  .cars button.flash { animation: carFlash 1s ease-in-out; }   /* slower highlight (Golan, 16.10) */
+  /* the chosen balloon grows at once, slowly, while the praise plays (as in the car game, Golan 15.10; slower 16.10) */
+  #balloons button.chosen { position: relative; z-index: 2; transform: scale(1.3); border-color: var(--accent); background: #fff3ea;
+    transition: transform 1.8s ease-out, box-shadow 1.8s ease-out; box-shadow: 0 8px 24px #0003; }
+  @keyframes carFlash { 50% { transform: scale(1.18); border-color: #ffb27a; } }
+  /* green continue button with space before the arrow (as in the car game, Golan 15.10) */
+
+
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center; background: #bfe6ffcc; z-index: 20; padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+  /* X in the top-right corner of settings (Golan 16.10, all games): stays in view while the panel scrolls; the scroll bar is on the left (RTL) */
+  .settings { --xs: max(var(--tap-s, 48px), calc(56 * var(--u, 1px))); }
+  .x-close { position: sticky; top: 0; z-index: 3; display: block; margin: 0 0 calc(-1 * var(--xs)) auto; margin-inline: 0 auto;
+    width: var(--xs); height: var(--xs); border: 0; border-radius: 50%; background: #eef2f7; color: #2b2f3a;
+    font: 800 calc(var(--xs) * .5) system-ui, sans-serif; line-height: 1; cursor: pointer; box-shadow: 0 2px 6px #0002; }
+  .x-close:active { transform: scale(.94); }
+  .panel {
+    background: #fff; border-radius: 28px; padding: 28px 24px; max-width: 520px; width: 100%;
+    text-align: center; box-shadow: 0 10px 40px #0003;
+  }
+  .panel h1 { margin: 0 0 8px; font-size: 34px; }
+  .panel p { margin: 6px 0 18px; font-size: 19px; color: var(--muted); }
+  .swap-ask { background: #fff3ea; border-radius: 20px; padding: 10px 12px 14px; margin: 0 0 16px; }
+  .swap-ask p { color: var(--ink); font-weight: 800; font-size: 24px; margin: 4px 0 10px; }
+  .big-btn.small { font-size: 22px; padding: 10px 26px; min-height: 56px; }
+  .big-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 5px 0 #d5dde6; border: 2px solid #d5dde6; }
+  .big-btn {
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    font: 800 30px "Noto Sans Hebrew", system-ui, sans-serif; padding: 18px 44px; min-height: 76px;
+    box-shadow: 0 5px 0 #c45f1d;
+  }
+  .big-btn:active { box-shadow: 0 2px 0 #c45f1d; }
+  .big-btn:disabled { opacity: .6; }
+  .start-row { display: flex; gap: 14px; justify-content: center; align-items: center; }
+  #start .start-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; margin: 0 -12px; }
+  #start #go { grid-column: 2; white-space: nowrap; } #start #hear { grid-column: 3; justify-self: end; }
+  .spk { padding: 0; width: 84px; min-width: 84px; height: 84px; font-size: 42px; }
+  #start #hear { width: 64px; min-width: 64px; height: 64px; min-height: 0; font-size: 30px; }
+  .go-btn { background: #34b36b; box-shadow: 0 5px 0 #1f8048; }
+  #closeSettings { background: #34b36b; box-shadow: 0 5px 0 #1f8048; } #closeSettings:active { box-shadow: 0 2px 0 #1f8048; }   /* Golan 22.10: back to the game = starts it again, green */
+  .go-btn:active { box-shadow: 0 2px 0 #1f8048; }
+  .go-btn.pressed { animation: goPress .9s ease-in-out; box-shadow: 0 0 0 6px #34b36b33, 0 3px 0 #1f8048; }
+  @media (hover: hover) and (pointer: fine) {
+    .big-btn, .round-btn, .cars button, .seg button, .letters:not(.shared) button { transition: transform .15s ease, filter .15s ease; }
+    .big-btn:hover, .round-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    .cars button:hover, .seg button:hover, .letters:not(.shared) button:hover:not(:disabled) { transform: translateY(-2px); border-color: #ffb27a; }
+  }
+
+  .settings { text-align: right; }
+  .settings h2 { margin: 0 0 12px; font-size: 26px; text-align: center; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 18px; }
+  .seg { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; max-width: 100%; }
+  .row { flex-wrap: wrap; row-gap: 8px; justify-content: flex-start; }
+  .row > span:first-child { flex-basis: 100%; font-weight: 700; }   /* Golan 16.10: title on its own first line, then the options, then the explanation */
+  /* settings rows (Golan 16.10, all games): title on the right of the buttons (or above them if they do not fit), the explanation on its own full line below */
+  .row-note { flex-basis: 100%; display: block; font-size: 14px; line-height: 1.45; color: var(--muted); font-weight: 400; }
+  .row.stack { flex-wrap: wrap; }
+  .row.stack .seg { flex-shrink: 1; flex-wrap: wrap; }
+  /* settings = a fixed header (X + title) over a scrolling body, as in the detective game (screens standard 4א) */
+  .settings { max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+  .set-head { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .set-head .x-close { position: static; margin: 0; flex: 0 0 auto; }
+  .settings .set-head h2 { flex: 1 1 auto; margin: 0; padding-inline: 0 calc(var(--xs) + 6px); }   /* the title stays centred on the window */
+  .set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+  html[data-screen~="phone"] .settings .set-head h2 { padding-inline-end: 0; font-size: 22px; }   /* a narrow phone: the title keeps one line */
+  .seg button {
+    min-width: 76px; min-height: 52px; border-radius: 14px; border: 2px solid #d5dde6; background: #fff;
+    font: 700 17px "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters-row { align-items: flex-start; }
+  .letters-row > span { display: flex; flex-direction: column; gap: 4px; }
+  .letters-row small { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .letters.shared, #parentTable { display: block; max-width: none; width: 100%; }   /* both tables the same width, so they look the same */
+  .letters { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; width: 100%; max-width: 372px; margin: 0; }   /* Golan 16.10: 3 rows of 8 (tiles the size of the parent table) on every screen, like the parent table */
+  .letters:not(.shared) button { width: auto; height: auto; aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 8px; border: 2px solid #d5dde6; background: #fff; cursor: pointer;
+    font: 800 clamp(16px,3.2vw,24px) "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); }
+  .letters:not(.shared) button[aria-pressed="true"] { border-color: var(--accent); background: #fff3ea; }
+  .letters:not(.shared) button:disabled { opacity: .3; cursor: default; }
+  #parentTable { margin: 6px 0 8px; }
+  .diag { direction: ltr; text-align: left; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-top: 10px; white-space: pre-wrap; }
+  /* 3-2-1 countdown, as in the car game */
+  .count { position: absolute; left: 50%; top: 42%; width: 0; height: 0; pointer-events: none; z-index: 40; }
+  .count span { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 110px; font-weight: 800; color: #fff; text-shadow: 0 4px 0 #0003;
+    box-shadow: 0 0 0 4px #3dff7f88, 0 0 24px #3dff7f, 0 0 54px #00e05a, 0 8px 30px #0003; animation: countPop .95s ease-out forwards; }
+  @keyframes countPop { 0% { transform: scale(.4); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 60% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  /* ===== screens standard (screens/screens-standard.md): every size and place from FL.screen variables =====
+     --u = one pixel of a 1280x720 board (720x1280 standing); --tap-s / --tap / --tap-play / --gap = finger floors in mm;
+     --edge-* = safe area or 12 design px. No width breakpoints: only standing (portrait) or lying (landscape). */
+  html[data-screen] {
+    --s: max(calc(72 * var(--u)), var(--tap-s));      /* door, settings */
+    --b: max(calc(84 * var(--u)), var(--tap));        /* the child's main buttons: the speakers */
+    --g: max(calc(14 * var(--u)), var(--gap));        /* space between buttons */
+  }
+  html[data-screen] .round-btn { width: var(--s); height: var(--s); font-size: calc(var(--s) * .45); }
+  html[data-screen] .door-btn { font-size: calc(var(--s) * .6); }
+  html[data-screen] .door-btn, html[data-screen] .start-gear { top: var(--edge-t); left: var(--edge-l); }
+  html[data-screen] .hud .gear, html[data-screen] .overlay-gear { top: calc(var(--edge-t) + var(--s) + var(--g)); left: var(--edge-l); }
+  html[data-screen] .stars { top: var(--edge-t); right: var(--edge-r); font-size: max(calc(32 * var(--u)), 20px); padding: calc(8 * var(--u)) calc(18 * var(--u)); }
+  html[data-screen] .overlay { padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
+  html[data-screen] .panel { max-width: max(calc(640 * var(--u)), min(520px, 100%)); max-height: 100%; overflow-y: auto; padding: max(calc(28 * var(--u)), 14px) max(calc(24 * var(--u)), 14px); }
+  html[data-screen] .panel h1 { font-size: max(calc(44 * var(--u)), 24px); }
+  html[data-screen] .panel p { font-size: max(calc(24 * var(--u)), 17px); }
+  html[data-screen] .big-btn { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--tap); padding: calc(16 * var(--u)) calc(44 * var(--u)); }
+  html[data-screen] .big-btn.small { font-size: max(calc(26 * var(--u)), 18px); min-height: var(--tap-s); padding: calc(10 * var(--u)) calc(26 * var(--u)); }
+  html[data-screen] #start .start-row { gap: calc(24 * var(--u)); }
+  /* start speaker: a circle as tall as the start button, the icon centred inside it (as in detective, Golan 16.10, all games) */
+  html[data-screen] #start { --h: max(calc(76 * var(--u)), var(--tap)); }
+  html[data-screen] #start #go { min-height: var(--h); height: var(--h); padding-block: 0; }
+  html[data-screen] #start #hear { width: var(--h); min-width: var(--h); height: var(--h); min-height: 0; padding: 0;
+    border-radius: 50%; display: grid; place-items: center; line-height: 1; overflow: hidden; font-size: calc(var(--h) * .47); }
+  html[data-screen] .count span { width: calc(220 * var(--u)); height: calc(220 * var(--u)); left: calc(-110 * var(--u)); top: calc(-110 * var(--u)); font-size: calc(130 * var(--u)); }
+  /* settings are for the parent: may go down to 9 mm buttons and 14px text (standard sec. 3) */
+  html[data-screen] .seg button { min-width: max(calc(76 * var(--u)), 50px); min-height: max(calc(52 * var(--u)), calc(var(--tap-s) * .9)); font-size: max(calc(17 * var(--u)), 15px); padding: 0 calc(8 * var(--u)); }
+  html[data-screen] .seg { gap: max(calc(6 * var(--u)), 5px); }
+  /* balloon picker = the detective layout in every game (Golan 16.10, detective/balloon-picker-spec.md): a white card, 3 x 3 equal tiles on every screen */
+  html[data-screen] #pick .panel { width: min(100%, max(calc(520 * var(--u)), 340px)); max-width: none; border-radius: max(calc(28 * var(--u)), 18px); }
+  html[data-screen] .cars { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-inline: auto;   /* never taller than the window: on a short PC window the tiles shrink */
+    width: min(100%, calc(100dvh - var(--edge-t) - var(--edge-b) - 2 * max(calc(28 * var(--u)), 14px) - 1.4 * max(calc(34 * var(--u)), 24px) - 40px)); }
+  html[data-screen] .cars button { padding: 6px; display: grid; place-items: center; }
+  html[data-screen] .cars button svg { width: 94%; height: 94%; }
+  /* end window = the shared FL.learner.endPanel (screens-standard 4א, all games); only the swap question is ours */
+  #end .swap-ask { width: 100%; box-sizing: border-box; margin: 0; }
+  @media (max-height: 520px) {
+    #end .fl-end:has(#swapAsk:not([hidden])) .fl-end-note { display: none; }   /* a low screen: the swap question (it needs an answer) hides the day note */
+    #end .swap-ask { padding: 6px 12px 8px; }
+    #end .swap-ask p { font-size: 20px; margin: 2px 0 6px; }
+  }
+  html[data-screen~="landscape"] #pick { padding-inline: calc(max(var(--edge-l), var(--edge-r)) + var(--s) + 8 * var(--u)); }
+  #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;   /* Golan 29.10 20:22: bigger */
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
+  #demoStart { display: none; }   /* Golan 30.10: the "?" card in the game replaces the button in the start window (as the other sound games) */
+  /* the demo hand and the "איך משחקים?" buttons, as in the sound wheel */
+  .demo-hand { position: fixed; z-index: 47; width: max(calc(90 * var(--u, 1px)), 64px); pointer-events: none; display: none; transform: translate(-30%, -8%); filter: drop-shadow(0 4px 8px #0004); }
+  .demo-hand.show { display: block; }
+  .demo-hand svg { display: block; width: 100%; height: auto; }
+  .demo-btn { margin-top: 12px; }
+  /* ===== אִיקְס עִיגּוּל שֶׁל צְלִילִים (Golan 8.11): a 3x3 board, the child's sound against the computer's sound ===== */
+  html, body { background: linear-gradient(#bfe6ff, #e6f6ff); }
+  :root { --kid: #f76707; --kid-bg: #fff1e3; --kid-rim: #ffc38f; --pc: #7048e8; --pc-bg: #f1ecff; --pc-rim: #c6b6ff; }
+  #board { position: fixed; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    width: var(--bs, 300px); height: var(--bs, 300px); gap: calc(var(--bs, 300px) * .035); padding: calc(var(--bs, 300px) * .045);
+    background: #dcecfb; border-radius: calc(var(--bs, 300px) * .08); box-shadow: 0 8px 26px #0002, inset 0 0 0 3px #ffffffaa; z-index: 2; }
+  #board[hidden], .chip[hidden] { display: none; }
+  .cell { position: relative; border: 0; padding: 0; border-radius: 18%; background: #fff; cursor: pointer; box-shadow: 0 calc(var(--bs, 300px) * .012) 0 #b9cde3;
+    display: grid; place-items: center; font: 800 calc(var(--bs, 300px) * .17)/1 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: var(--ink); -webkit-tap-highlight-color: transparent; }
+  .cell.k { background: var(--kid-bg); color: var(--kid); box-shadow: 0 calc(var(--bs, 300px) * .012) 0 var(--kid-rim); cursor: default; }
+  .cell.c { background: var(--pc-bg); color: var(--pc); box-shadow: 0 calc(var(--bs, 300px) * .012) 0 var(--pc-rim); cursor: default; }
+  .cell .syl { display: block; transform: translateY(-6%); animation: tttPop .45s cubic-bezier(.3, 1.6, .5, 1) both; pointer-events: none; }
+  @keyframes tttPop { 0% { transform: translateY(-6%) scale(.2); opacity: 0; } 100% { transform: translateY(-6%) scale(1); opacity: 1; } }
+  @media (hover: hover) and (pointer: fine) { #board.open .cell:not(.k):not(.c):hover { background: #fff8ef; box-shadow: 0 calc(var(--bs, 300px) * .012) 0 var(--kid-rim); } }
+  #board.open .cell:not(.k):not(.c):active { transform: scale(.96); }
+  /* three in a row: the line glows, the other squares fade a little */
+  .cell.win { animation: tttWin 1.1s ease-in-out infinite; z-index: 1; }
+  @keyframes tttWin { 50% { box-shadow: 0 0 0 calc(var(--bs, 300px) * .014) #FFC400, 0 0 calc(var(--bs, 300px) * .09) #FFD54F; filter: brightness(1.06); } }
+  #board.over .cell:not(.win) { opacity: .5; transition: opacity .5s; }
+  #winLine { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 3; }
+  #winLine line { stroke: #FFC400; stroke-linecap: round; filter: drop-shadow(0 0 6px #FFE082); stroke-dasharray: 1; stroke-dashoffset: 1; animation: tttLine .6s ease-out forwards; }
+  @keyframes tttLine { to { stroke-dashoffset: 0; } }
+  .tstar { position: absolute; left: 50%; top: 50%; translate: -50% -50%; line-height: 0; z-index: 4; pointer-events: none; animation: tttPop .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+  /* the two players beside the board: the child (its companion) and the computer, each with its sound in its own colour */
+  .chip { position: fixed; z-index: 2; width: var(--cw, 100px); padding: calc(var(--cw, 100px) * .08) 0 calc(var(--cw, 100px) * .06); box-sizing: border-box;
+    border-radius: calc(var(--cw, 100px) * .2); background: #fff; display: flex; flex-direction: column; align-items: center; gap: calc(var(--cw, 100px) * .02);
+    box-shadow: 0 5px 16px #0002; border: calc(var(--cw, 100px) * .035) solid var(--rim); transition: transform .3s; }
+  .chip.k { --rim: var(--kid-rim); --col: var(--kid); }
+  .chip.c { --rim: var(--pc-rim); --col: var(--pc); }
+  .chip .av { width: 62%; aspect-ratio: 1; display: grid; place-items: center; }
+  .chip .av svg { width: 100%; height: 100%; display: block; }
+  .chip .syl { font: 800 calc(var(--cw, 100px) * .42)/1.25 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: var(--col); min-height: 1.25em; }
+  .chip .syl.in { animation: tttPop .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+  .chip.turn { border-color: var(--col); animation: tttTurn 1.5s ease-in-out infinite; }
+  @keyframes tttTurn { 50% { transform: scale(1.06); box-shadow: 0 0 0 calc(var(--cw, 100px) * .05) color-mix(in srgb, var(--col) 30%, transparent), 0 5px 16px #0002; } }
+  /* the sound picker before every match: 3 big buttons, each a syllable (Golan 8.11) */
+  #sndPick .panel { width: auto; max-width: none; }
+  .snds { display: flex; gap: max(calc(26 * var(--u, 1px)), 14px); justify-content: center; margin-top: max(calc(12 * var(--u, 1px)), 6px); }
+  .snds button { --z: min(26vw, calc(100dvh - 190px), max(calc(190 * var(--u, 1px)), 110px)); width: var(--z); height: var(--z); border-radius: 24%; cursor: pointer;
+    border: calc(var(--z) * .035) solid var(--kid-rim); background: var(--kid-bg); color: var(--kid); box-shadow: 0 calc(var(--z) * .04) 0 var(--kid-rim);
+    font: 800 calc(var(--z) * .5)/1 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; display: grid; place-items: center; padding: 0; }
+  .snds button span { transform: translateY(-6%); pointer-events: none; }
+  .snds button:active { transform: scale(.96); }
+  .snds button.flash { animation: carFlash 1s ease-in-out; }
+  .snds button.chosen { transform: scale(1.16); border-color: var(--kid); box-shadow: 0 8px 24px #0003; transition: transform 1.2s ease-out; position: relative; z-index: 2; }
+  .snds button.off { opacity: .35; transition: opacity .6s; }
+  @media (hover: hover) and (pointer: fine) { .snds button:hover:not(.off) { border-color: var(--kid); } }
+  /* the level slider (FL.learner.cardSlider, as the memory games): our own small board icon in place of the card deck */
+  .fl-cs.ttt-lv .fl-cs-ico { display: none; }
+  .fl-cs.ttt-lv .ttt-ico { width: 84%; height: auto; margin-bottom: 2px; filter: drop-shadow(0 1px 2px #0004); }
+  .fl-cs.ttt-lv .fl-cs-tr { height: min(var(--fl-csh, 170px), 24vh); }   /* 3 steps only: a shorter track, so it fits a low phone */
+</style>
+</head>
+<body>
+<div id="board" aria-label="לוּחַ" hidden><svg id="winLine" aria-hidden="true"></svg></div>
+<div class="chip k" id="chipK" hidden><div class="av" id="avK"></div><div class="syl" id="sylK"></div></div>
+<div class="chip c" id="chipC" hidden><div class="av" id="avC"></div><div class="syl" id="sylC"></div></div>
+<div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+
+<div class="hud" id="hud" hidden>
+  <button id="helpCard" type="button" aria-label="אֵיךְ מְשַׂחֲקִים?" title="אֵיךְ מְשַׂחֲקִים?">?</button>
+  <div class="stars" id="stars" data-fl-stars data-fl-title="אִיקְס עִיגּוּל שֶׁל צְלִילִים"></div>
+  <button class="round-btn gear" id="gear" aria-label="הַגְדָּרוֹת"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorGame" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="overlay" id="start">
+  <button class="round-btn door-btn" id="doorStart" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <button class="round-btn gear overlay-gear" id="gearStart" aria-label="הַגְדָּרוֹת"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <div class="panel">
+    <h1>אִיקְס עִיגּוּל שֶׁל צְלִילִים</h1>
+    <p><span id="startText">בּוֹחֲרִים צְלִיל וּמְנַסִּים לָשִׂים שְׁלוֹשָׁה בְּשׁוּרָה</span></p>
+    <div class="start-row">
+      <button class="big-btn go-btn" id="go" disabled>טוֹעֵן…</button>
+      <button class="big-btn spk" id="hear" aria-label="הַקְשָׁבָה לְהוֹרָאוֹת" title="הַקְשָׁבָה לְהוֹרָאוֹת">🔊</button>
+    </div>
+    <button class="big-btn small ghost demo-btn" id="demoStart" type="button">▶ אֵיךְ מְשַׂחֲקִים?</button>
+  </div>
+</div>
+
+<div class="overlay" id="pick" hidden>
+  <button class="round-btn gear overlay-gear" id="gearPick" aria-label="הַגְדָּרוֹת"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorPick" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="panel">
+    <h1 id="pickTitle">בּוֹחֲרִים כַּדּוּר פּוֹרֵחַ</h1>
+    <div class="cars" id="balloons"></div>
+  </div>
+</div>
+
+<div class="overlay" id="sndPick" hidden>
+  <button class="round-btn gear overlay-gear" id="gearSnd" aria-label="הַגְדָּרוֹת"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorSnd" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+  <div class="panel">
+    <h1 id="sndTitle">בּוֹחֲרִים צְלִיל</h1>
+    <div class="snds" id="snds"></div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <button class="round-btn gear overlay-gear" id="gearEnd" aria-label="הַגְדָּרוֹת"><svg class="gear-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+  <button class="round-btn door-btn" id="doorEnd" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="panel settings">
+    <div class="set-head"><button class="x-close" id="xSettings" aria-label="סגירה" data-tip="סגירה">✕</button>
+      <h2>הגדרות (להורה או למורה)</h2>
+    </div>
+    <div class="set-body">
+    <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm); no levels row: the slider beside the board is the level (Golan 8.11) -->
+    <div id="flForm"></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ אֵיךְ מְשַׂחֲקִים?</button></div>
+    <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חֲזָרָה לַמִּשְׂחָק</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/screen.js"></script>
+<script src="../shared/love-balloon.js"></script>
+<script src="../shared/learner.js"></script>
+<script>
+(() => {
+  "use strict";
+  // אִיקְס עִיגּוּל שֶׁל צְלִילִים (Golan 8.11): tic-tac-toe against the computer on the sound island. Before every match the
+  // child picks one of 3 sounds not picked yet; the computer gets another sound that is not alike. The two syllables are the
+  // X and the O of the match. Play only: no learner answers are recorded. The shell is the sound memory game's.
+  const $ = (id) => document.getElementById(id);
+  const GAME = "soundttt";
+
+  // ---------- settings (kept per device, wrapped because storage can be blocked) ----------
+  const settings = { voice: "on", letters: [], balloon: null };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem("fl-soundttt-settings") || "{}")); } catch (e) {}
+  settings.lettersMode = "auto";
+  const saveSettings = () => { try { localStorage.setItem("fl-soundttt-settings", JSON.stringify(settings)); } catch (e) {} };
+
+  const LRN = (window.FL && window.FL.learner) || null;
+  const kid = () => (LRN ? LRN.profile() : null);
+  const gt = (pl, m, f) => { const g = kid() && kid().gender; return g === "m" ? m : g === "f" ? f : pl; };
+  function genderTexts() {
+    $("startText").textContent = gt("בּוֹחֲרִים צְלִיל וּמְנַסִּים לָשִׂים שְׁלוֹשָׁה בְּשׁוּרָה", "בְּחַר צְלִיל וְנַסֵּה לָשִׂים שְׁלוֹשָׁה בְּשׁוּרָה", "בַּחֲרִי צְלִיל וְנַסִּי לָשִׂים שְׁלוֹשָׁה בְּשׁוּרָה");
+    $("pickTitle").textContent = gt("בּוֹחֲרִים כַּדּוּר פּוֹרֵחַ", "בְּחַר כַּדּוּר פּוֹרֵחַ", "בַּחֲרִי כַּדּוּר פּוֹרֵחַ");
+    $("sndTitle").textContent = gt("בּוֹחֲרִים צְלִיל", "בְּחַר צְלִיל", "בַּחֲרִי צְלִיל");
+  }
+
+  // ---------- the sounds: FL.learner.SOUND_SYL (14), with the sound wheel's syllable clips ----------
+  const SOUNDS = { "ב": { syl: "בַּ", s: "syl_ba" }, "ג": { syl: "גָּ", s: "syl_ga" }, "נ": { syl: "נָ", s: "syl_na" },
+    "ט": { syl: "טַ", s: "syl_ta_tet" }, "י": { syl: "יַ", s: "syl_ya" }, "כ": { syl: "כַּ", s: "syl_ka" },
+    "א": { syl: "אַ", s: "syl_a" }, "ח": { syl: "חָ", s: "syl_cha" },
+    "צ": { syl: "צָ", s: "syl_tsa" }, "ר": { syl: "רָ", s: "syl_ra" }, "ת": { syl: "תָּ", s: "syl_ta" },
+    "מ": { syl: "מַ", s: "syl_ma" }, "ע": { syl: "עַ", s: "syl_a_ayin" }, "פ": { syl: "פַּ", s: "syl_pa" } };
+  const SYL = (LRN && LRN.SOUND_SYL) || {};
+  for (const l in SYL) if (SOUNDS[l]) SOUNDS[l].syl = SYL[l];
+  const SOUND_L = (Object.keys(SYL).length ? Object.keys(SYL) : Object.keys(SOUNDS)).filter((l) => SOUNDS[l]);
+  // sounds that sound alike never meet in one match (the sound games' ALIKE rule)
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+  if (LRN && LRN.setGame) LRN.setGame(GAME, { autoCount: () => SOUND_L.length });
+
+  // ---------- the child's own game level (Golan 8.11): 1..3 per child, NOT the island level ----------
+  // up after 3 wins in the last 4 matches, down after 3 losses in a row; a hand pick on the slider lasts until the game is reopened
+  const prog = { level: 1, hist: [], lossRow: 0 };
+  const progKey = () => "fl-soundttt-progress" + (kid() ? "-" + kid().id : "");
+  function loadProg() { prog.level = 1; prog.hist = []; prog.lossRow = 0; try { Object.assign(prog, JSON.parse(localStorage.getItem(progKey()) || "{}")); } catch (e) {} prog.level = Math.min(3, Math.max(1, prog.level | 0 || 1)); }
+  const saveProg = () => { try { localStorage.setItem(progKey(), JSON.stringify(prog)); } catch (e) {} };
+  let manualLevel = null;
+  const curLevel = () => manualLevel || prog.level;
+  function countResult(r) {
+    if (manualLevel) return;
+    prog.hist = [...prog.hist, r].slice(-4); prog.lossRow = r === "l" ? prog.lossRow + 1 : 0;
+    if (prog.hist.filter((x) => x === "w").length >= 3 && prog.level < 3) { prog.level++; prog.hist = []; prog.lossRow = 0; }
+    else if (prog.lossRow >= 3 && prog.level > 1) { prog.level--; prog.hist = []; prog.lossRow = 0; }
+    saveProg();
+  }
+  // the sounds this child already picked (per child); when all were picked, the list starts again
+  const usedKey = () => "fl-soundttt-used" + (kid() ? "-" + kid().id : "");
+  function loadUsed() { try { const u = JSON.parse(localStorage.getItem(usedKey()) || "[]"); return Array.isArray(u) ? u : []; } catch (e) { return []; } }
+  const saveUsed = (u) => { try { localStorage.setItem(usedKey(), JSON.stringify(u)); } catch (e) {} };
+  function chosenLetters() { return settings.lettersMode === "auto" ? [] : [...new Set(settings.letters || [])].filter((l) => SOUND_L.includes(l)); }
+  const poolNow = () => { const mine = chosenLetters(); return mine.length >= 3 ? mine : SOUND_L.slice(); };
+  function offerSounds() {
+    const pool = poolNow(), used = loadUsed();
+    const out = shuffle(pool.filter((l) => !used.includes(l))).slice(0, 3);
+    for (const l of shuffle(pool.slice())) if (out.length < 3 && !out.includes(l)) out.push(l);
+    return out;
+  }
+  function markUsed(l) {
+    const pool = poolNow(); let u = loadUsed().filter((x) => x !== l); u.push(l);
+    if (pool.every((x) => u.includes(x))) u = [];
+    saveUsed(u);
+  }
+  let lastPc = null;
+  function pcSoundFor(k) {
+    const c = SOUND_L.filter((l) => l !== k && !alike(l, k)), fresh = c.filter((l) => l !== lastPc);
+    return (lastPc = rnd(fresh.length ? fresh : c));
+  }
+
+  // ---------- audio: the shared clip bank; a missing clip stays silent, never a browser voice ----------
+  let actx = null;
+  function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }
+  function tone(freqs, dur = 0.14, type = "triangle", vol = 0.18) {
+    if (!actx) return;
+    let t = actx.currentTime;
+    for (const f of freqs) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+      t += dur * 0.9;
+    }
+  }
+  function bell(freqs, gap = 0.09, vol = 0.22, dur = 0.5) {
+    if (!actx || paused) return;
+    try {
+      let t = actx.currentTime;
+      for (const f of freqs) {
+        for (const [mul, v] of [[1, 1], [2, 0.25], [3.01, 0.08]]) {
+          const o = actx.createOscillator(), g = actx.createGain(); o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur / mul);
+          o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.05);
+        }
+        t += gap;
+      }
+    } catch (e) {}
+  }
+  const sfx = {
+    kid: () => bell([659, 988], 0.08, 0.18, 0.4),
+    pc: () => bell([523, 392], 0.08, 0.16, 0.4),
+    win: () => bell([784, 988, 1175, 1568, 1976], 0.07, 0.2, 0.7),
+    draw: () => bell([659, 784, 659], 0.12, 0.16, 0.5),
+    lose: () => tone([392, 330, 262], 0.2, "sine", 0.3),
+  };
+  const AUDIO = "../../voice/audio/";
+  const clipCache = {}; let clipNow = null;
+  const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = a.playbackRate = 0.85; a.preservesPitch = true; }
+      a.addEventListener("canplaythrough", () => { a._ok = true; }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  // new lines (ttt_*, hub_g_soundttt) come from the voice thread: silent until recorded
+  const LINES = ["fb_correct", "fb_round_done", "fb_go", "fb_choice1", "fb_choice2", "ins_balloon", "demo_back", "day_break", "day_end",
+    "hub_g_soundttt", "ttt_start", "ttt_pick", "ttt_pc_sound", "ttt_you_first", "ttt_pc_first", "ttt_win", "ttt_draw", "ttt_lose"];
+  const CHILD_LINES = ["ttt_start", "ttt_pick", "ttt_you_first", "ins_balloon", "day_break"];
+  LINES.forEach(getClip); Object.values(SOUNDS).forEach((o) => getClip(o.s));
+  if (LRN) CHILD_LINES.forEach((id) => { getClip(id + "_m"); getClip(id + "_f"); });
+  function voiceId(id) {
+    if (!LRN || !CHILD_LINES.includes(id)) return id;
+    for (const x of LRN.lineIds(id)) if (getClip(x)._ok) return x;
+    return id;
+  }
+  // a new line not recorded yet: an older clip that fits, else silence
+  const orElse = (id, alt) => (getClip(id)._bad ? alt : id);
+  let paused = false, epoch = 0, heldLine = null;
+  function later(ms, cb) {
+    const my = epoch; let left = ms, last = performance.now();
+    const tick = () => { const now = performance.now(); if (!paused) left -= now - last; last = now;
+      if (my !== epoch) return; if (left <= 0) cb(); else setTimeout(tick, Math.min(50, left)); };
+    setTimeout(tick, Math.min(50, ms));
+  }
+  function say(id) {
+    if (settings.voice !== "on" || !id) return;
+    if (paused) { heldLine = id; return; }
+    seqTok++; seqOn = false;
+    id = voiceId(vary(id));
+    const a = getClip(id);
+    if (!a || a._bad) return;
+    try { if (clipNow && clipNow !== a) clipNow.pause(); a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+  // clips one after another: a function in the list is a step in between, a number a rest in ms
+  let seqTok = 0, seqOn = false;
+  function playIds(ids, then) {
+    const my = ++seqTok; let i = 0; seqOn = true;
+    const next = () => {
+      if (my !== seqTok) return;
+      if (paused) return setTimeout(next, 120);
+      if (i >= ids.length) { seqOn = false; return then && then(); }
+      const item = ids[i++];
+      if (typeof item === "function") { item(); return next(); }
+      if (typeof item === "number") return setTimeout(next, item);
+      const a = item && settings.voice === "on" ? getClip(voiceId(vary(item))) : null;
+      if (!a || a._bad) return setTimeout(next, settings.voice === "on" ? 0 : 450);
+      try { if (clipNow && clipNow !== a) clipNow.pause(); } catch (e) {}
+      let done = false; const fin = () => { if (done) return; done = true; setTimeout(next, 140); };
+      a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a;
+      a.addEventListener("ended", fin, { once: true });
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => { if (!a._ok) a._bad = true; fin(); });
+      setTimeout(() => { if (!done && (a.paused || a._bad) && !paused) fin(); }, 6000);
+    };
+    next();
+  }
+  const voiceBusy = () => seqOn || !!(clipNow && !clipNow.paused && !clipNow.ended);
+  function stopVoice() { seqTok++; seqOn = false; if (clipNow) clipNow.pause(); }
+  function whenQuiet(cb) {
+    let n = 0; const my = epoch;
+    const tick = () => { if (my !== epoch) return; if ((paused || voiceBusy()) && (paused || n++ < 60)) return setTimeout(tick, 100); cb(); };
+    setTimeout(tick, 150);
+  }
+  const motionK = () => { try { return LRN && LRN.speed ? LRN.speed(GAME) : 1; } catch (e) { return 1; } };
+  const ms = (t) => t / motionK();
+
+  // ---------- the 9 balloons, as every game (the balloon is the child's "?" card colour here only for the pick) ----------
+  const BALLOONS = [
+    { c: ["#FF5A4E", "#ffffff"], pat: "gores", shape: "round", basket: "#A0703F" },
+    { c: ["#FF8A3D", "#FFE14D"], pat: "dots", shape: "wide", basket: "#7a5230" },
+    { c: ["#FFC233", "#3D6BFF"], pat: "zigzag", shape: "tall", basket: "#A0703F", flag: "#3D6BFF" },
+    { c: ["#2BB673", "#ffffff"], pat: "stars", shape: "round", basket: "#c98b4a" },
+    { c: ["#FFF6EF", "#E3262F"], pat: "love", shape: "heart", basket: "#C81E28" },
+    { c: ["#3DA5FF", "#ffffff"], pat: "rings", shape: "tall", basket: "#c98b4a", flag: "#FF5A4E" },
+    { c: ["#7C5CFF", "#FFC233"], pat: "hearts", shape: "round", basket: "#A0703F" },
+    { c: ["#FF5A8A", "#ffffff"], pat: "waves", shape: "wide", basket: "#c98b4a", flag: "#FFC233" },
+    { c: ["#FF5A4E", "#FF8A3D", "#FFC233", "#2BB673", "#3DA5FF", "#7C5CFF"], pat: "rainbow", shape: "tall", basket: "#7a5230" },
+  ];
+  const SHAPES = { round: [1, 1.15], tall: [0.86, 1.32], wide: [1.14, 1.02], heart: [0.98, 1.6] };
+  function starPath(ctx, x, y, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+  function heartPath(ctx, x, y, r) { ctx.beginPath(); ctx.moveTo(x, y + r * 0.9); ctx.bezierCurveTo(x - r * 1.4, y, x - r * 0.7, y - r * 1.1, x, y - r * 0.35); ctx.bezierCurveTo(x + r * 0.7, y - r * 1.1, x + r * 1.4, y, x, y + r * 0.9); ctx.fill(); }
+  function paintBalloon(ctx, W, H, d, uv) {
+    if (d.pat === "love") return paintLove(ctx, W, H, d, uv);
+    const [a, b] = d.c; ctx.fillStyle = a; ctx.fillRect(0, 0, W, H); ctx.fillStyle = b; ctx.strokeStyle = b;
+    const grid = (stepX, stepY, fn) => { for (let row = 0, y = stepY * 0.6; y < H; y += stepY, row++) for (let x = (row % 2 ? stepX / 2 : 0) + stepX / 4; x < W + stepX; x += stepX) fn(x, y); };
+    const S = uv ? H / 256 : W / 100;
+    if (d.pat === "gores" || d.pat === "rainbow") {
+      const cols = d.pat === "rainbow" ? d.c : [a, b], n = uv ? (d.pat === "rainbow" ? 12 : 16) : (d.pat === "rainbow" ? 6 : 8);
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = cols[i % cols.length];
+        if (uv) { ctx.fillRect(i * W / n, 0, W / n + 1, H); continue; }
+        const x0 = W / 2 + (i - n / 2) * W / n, x1 = x0 + W / n, bulge = (x) => W / 2 + (x - W / 2) * 1.25;
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.quadraticCurveTo(bulge(x0), H * 0.5, (W / 2 + x0) / 2, H);
+        ctx.lineTo((W / 2 + x1) / 2, H); ctx.quadraticCurveTo(bulge(x1), H * 0.5, W / 2, 0); ctx.fill();
+      }
+    } else if (d.pat === "dots") grid(uv ? W / 14 : W / 4, uv ? H / 6 : H / 5.5, (x, y) => { ctx.beginPath(); ctx.arc(x, y, (uv ? 11 : 7) * S, 0, 7); ctx.fill(); });
+    else if (d.pat === "stars") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => starPath(ctx, x, y, (uv ? 16 : 10) * S));
+    else if (d.pat === "hearts") grid(uv ? W / 12 : W / 3.6, uv ? H / 5.5 : H / 5, (x, y) => heartPath(ctx, x, y, (uv ? 13 : 8) * S));
+    else if (d.pat === "rings") { for (const t of [0.3, 0.5, 0.7]) ctx.fillRect(0, H * t - 7 * S, W, 14 * S); }
+    else if (d.pat === "zigzag" || d.pat === "waves") {
+      const teeth = uv ? 16 : 5, amp = 9 * S;
+      for (const t of d.pat === "zigzag" ? [0.5] : [0.35, 0.62]) {
+        ctx.beginPath(); ctx.moveTo(0, H * t);
+        for (let i = 0; i <= teeth * 8; i++) { const x = i * W / (teeth * 8), ph = (i / 8) % 1;
+          const yy = d.pat === "zigzag" ? (ph < 0.5 ? ph * 4 - 1 : 3 - ph * 4) : Math.sin(ph * Math.PI * 2); ctx.lineTo(x, H * t + yy * amp); }
+        ctx.lineWidth = (d.pat === "zigzag" ? 16 : 11) * S; ctx.lineJoin = "round"; ctx.stroke();
+      }
+    }
+  }
+  let svgN = 0;
+  function balloonSvg(i) {
+    const d = BALLOONS[i] || BALLOONS[0], [sx, sy] = SHAPES[d.shape], id = "bc" + i + "_" + (svgN++);
+    if (d.shape === "heart") return loveSvg();
+    const cv = document.createElement("canvas"); cv.width = 200; cv.height = 240; paintBalloon(cv.getContext("2d"), cv.width, cv.height, d, false);
+    const env = "M50 6c22 0 38 16 38 38 0 20-18 36-28 46H40C30 80 12 64 12 44 12 22 28 6 50 6z";
+    const G = d.flag ? Math.min(1.12, 94 * 1.25 / (84 * sy)) : 1.12, t = `translate(50 90) scale(${(G * sx / 1.1).toFixed(3)} ${(G * sy / 1.25).toFixed(3)}) translate(-50 -90)`;
+    const top = 90 - 84 * G * sy / 1.25, mx = 9 * G * sx / 1.1;
+    return `<svg viewBox="0 -14 100 134" aria-hidden="true"><defs><clipPath id="${id}"><path d="${env}" transform="${t}"/></clipPath></defs>` +
+      (d.flag ? `<path d="M50 ${top + 1}V${top - 10}" stroke="#5b4632" stroke-width="2"/><path d="M50 ${top - 10}h14l-4 4.5 4 4.5H50z" fill="${d.flag}"/>` : "") +
+      `<image href="${cv.toDataURL()}" x="0" y="${Math.min(0, top - 2).toFixed(1)}" width="100" height="${(120 - Math.min(0, top - 2)).toFixed(1)}" preserveAspectRatio="none" clip-path="url(#${id})"/>` +
+      `<path d="${env}" transform="${t}" fill="none" stroke="#0000001f" stroke-width="1.5"/>` +
+      `<path d="M${50 - mx} 89L32 97M${50 + mx} 89L68 97" stroke="#5b4632" stroke-width="2.5"/><rect x="30" y="96" width="40" height="24" rx="4" fill="${d.basket}"/>` +
+      `<rect x="30" y="96" width="40" height="4" fill="#4a3222"/><rect x="30" y="104.5" width="40" height="3.6" fill="${d.c[0]}"/>` +
+      `<rect x="30" y="110.4" width="40" height="2.4" fill="${d.c[1] || "#fff"}"/><rect x="30" y="114.6" width="40" height="3.6" fill="${d.c[0]}"/></svg>`;
+  }
+
+  // ---------- the players' pictures ----------
+  // the computer: a friendly little screen with a face (Golan 8.11)
+  const PC_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="12" width="80" height="58" rx="12" fill="#7048e8"/><rect x="18" y="20" width="64" height="42" rx="7" fill="#e9e3ff"/>
+<circle cx="38" cy="38" r="5" fill="#2b2f3a"/><circle cx="62" cy="38" r="5" fill="#2b2f3a"/><path d="M40 49 Q50 56 60 49" stroke="#2b2f3a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+<circle cx="30" cy="47" r="3.5" fill="#ff9fb8"/><circle cx="70" cy="47" r="3.5" fill="#ff9fb8"/><rect x="42" y="70" width="16" height="10" fill="#5a3fd1"/><rect x="28" y="80" width="44" height="8" rx="4" fill="#5a3fd1"/></svg>`;
+  const KID_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#ffd9b8"/><circle cx="37" cy="44" r="5" fill="#2b2f3a"/><circle cx="63" cy="44" r="5" fill="#2b2f3a"/><path d="M36 60 Q50 72 64 60" stroke="#2b2f3a" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M14 40 Q20 10 50 10 Q80 10 86 40 Q70 22 50 26 Q30 22 14 40z" fill="#7a4a22"/></svg>`;
+  const kidSvg = () => { try { const p = kid(); return p && LRN.companionSvg ? LRN.companionSvg(p, 100) : KID_SVG; } catch (e) { return KID_SVG; } };
+
+  // ---------- the board ----------
+  const LINES3 = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+  const state = { mode: "intro", demo: false, board: Array(9).fill(null), kidL: null, pcL: null, starter: "k", matchNo: 0, starRow: [], roundSounds: [], first: true, offer: [] };
+  const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars"), { title: $("stars").dataset.flTitle }) : { add() {}, reset() {} };
+  const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => paused || !$("settings").hidden || state.demo || ["soundpick", "flying", "end"].includes(state.mode), onEnd: () => timeUp() }) : null;
+  const END = LRN.endPanel($("end"), { stars: [], letters: true, buttons: [{ text: "עוד סיבוב", primary: true, id: "again", onClick: () => { $("end").hidden = true; openPick(); } }, { text: "לסיים", ghost: true, id: "finishEnd", onClick: () => $("doorEnd").click() }] });
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "cell"; b.dataset.i = i; b.setAttribute("aria-label", "מִשְׁבֶּצֶת " + (i + 1));
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); tapCell(i); });
+    $("board").insertBefore(b, $("winLine")); cells.push(b);
+  }
+  const sylOf = (l) => (SOUNDS[l] ? SOUNDS[l].syl : "");
+  const clipOfL = (l) => (SOUNDS[l] ? SOUNDS[l].s : null);
+  function clearBoard() {
+    state.board = Array(9).fill(null);
+    cells.forEach((c) => { c.className = "cell"; c.innerHTML = ""; });
+    $("winLine").innerHTML = ""; $("board").classList.remove("over", "open");
+    [...$("board").querySelectorAll(".tstar")].forEach((s) => s.remove());
+  }
+  function setTurn(who) {
+    $("chipK").classList.toggle("turn", who === "k"); $("chipC").classList.toggle("turn", who === "c");
+    $("board").classList.toggle("open", who === "k");
+  }
+  function showPlayers(on) { ["board", "chipK", "chipC"].forEach((id) => ($(id).hidden = !on)); if (on) layout(); }
+  function setChips() {
+    $("avK").innerHTML = kidSvg(); $("avC").innerHTML = PC_SVG;
+    $("sylK").textContent = sylOf(state.kidL); $("sylC").textContent = sylOf(state.pcL);
+    ["sylK", "sylC"].forEach((id) => { const e = $(id); e.classList.remove("in"); void e.offsetWidth; e.classList.add("in"); });
+  }
+
+  // free room for the board and the two players: right of the door / gear / "?" column, left of the stars pill, the hourglass and the slider
+  function rooms() {
+    const cs = getComputedStyle(document.documentElement), px = (v, d) => parseFloat(cs.getPropertyValue(v)) || d;
+    const W = innerWidth, H = innerHeight, et = px("--edge-t", 12), eb = px("--edge-b", 12), el = px("--edge-l", 12), er = px("--edge-r", 12);
+    if (state.demo) { const m = Math.max(16, Math.min(W, H) * 0.06); return [{ x0: el + m, x1: W - er - m, y0: et + m, y1: H - eb - m }]; }
+    const door = $("doorGame").getBoundingClientRect(), gear = $("gear").getBoundingClientRect(), pill = $("stars").getBoundingClientRect();
+    const hc = $("helpCard").getBoundingClientRect(), rs = $("flRestart"), rsR = rs && rs.offsetParent ? rs.getBoundingClientRect() : null;
+    const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), colW = Math.max(hgH * 1.012 + 8, Math.min(64, Math.max(38, hgH * 1.06)) + 8);
+    const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, gear.right, rsR ? rsR.right : 0, hc.width ? hc.right : 0, el + 60) + g;
+    return [{ x0: left, x1: pill.left - g, y0: et, y1: H - eb }, { x0: left, x1: W - er - colW - g, y0: pill.bottom + g, y1: H - eb }];
+  }
+  // the biggest board that fits with a player card on each side (lying) or above and below it (standing)
+  function layout() {
+    if ($("board").hidden) return;
+    const K = 0.3, GAP = 0.05;
+    const fit = (r) => { const w = r.x1 - r.x0, h = r.y1 - r.y0, side = w >= h;
+      const s = side ? Math.min(h, w / (1 + 2 * (K + GAP))) : Math.min(w, h / (1 + 2 * (K * 1.25 + GAP))); return { r, side, s }; };
+    const best = rooms().map(fit).sort((a, b) => b.s - a.s)[0];
+    const s = Math.max(120, Math.min(best.s, 640)), cw = s * K, r = best.r, cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+    const bd = $("board"); bd.style.setProperty("--bs", s + "px"); bd.style.left = Math.round(cx - s / 2) + "px"; bd.style.top = Math.round(cy - s / 2) + "px";
+    for (const id of ["chipK", "chipC"]) { const c = $(id); c.style.setProperty("--cw", cw + "px"); }
+    const hK = $("chipK").offsetHeight || cw * 1.3, gap = s * GAP;
+    if (best.side) {
+      /* lying: the child on the right (RTL first), the computer on the left */
+      $("chipK").style.left = Math.round(cx + s / 2 + gap) + "px"; $("chipC").style.left = Math.round(cx - s / 2 - gap - cw) + "px";
+      $("chipK").style.top = $("chipC").style.top = Math.round(cy - hK / 2) + "px";
+    } else {
+      $("chipK").style.left = $("chipC").style.left = Math.round(cx - cw / 2) + "px";
+      $("chipK").style.top = Math.round(cy - s / 2 - gap - hK) + "px"; $("chipC").style.top = Math.round(cy + s / 2 + gap) + "px";
+    }
+  }
+  const relayout = () => layout();
+
+  // ---------- one match ----------
+  function winner(b) {
+    for (const L of LINES3) { const [a, c, d] = L; if (b[a] && b[a] === b[c] && b[a] === b[d]) return { who: b[a], line: L }; }
+    return b.every(Boolean) ? { who: null } : null;
+  }
+  // the cell that would finish a line for `who` now, or -1
+  function lineMove(who) {
+    for (const L of LINES3) { const v = L.map((i) => state.board[i]); if (v.filter((x) => x === who).length === 2 && v.includes(null)) return L[v.indexOf(null)]; }
+    return -1;
+  }
+  // the computer by the child's game level (Golan 8.11): L1 almost random (a win only 30% of the time, never blocks);
+  // L2 always wins, blocks about half the time; L3 wins, blocks, then centre, then a corner. No fork logic: the child can win.
+  function aiPick() {
+    const lv = curLevel(), empty = state.board.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+    const win = lineMove("c"), block = lineMove("k");
+    const avoid = (...bad) => { const p = empty.filter((i) => !bad.includes(i)); return rnd(p.length ? p : empty); };
+    if (lv <= 1) return win >= 0 && Math.random() < 0.3 ? win : avoid(win, block);
+    if (win >= 0) return win;
+    if (lv === 2) return block >= 0 && Math.random() < 0.5 ? block : avoid(block);
+    if (block >= 0) return block;
+    if (empty.includes(4)) return 4;
+    const corners = [0, 2, 6, 8].filter((i) => empty.includes(i));
+    return corners.length ? rnd(corners) : rnd(empty);
+  }
+  // who starts (Golan 8.11): L1 the child always; L2 the child 2 matches of 3; L3 every other match
+  const kidStarts = () => { const lv = curLevel(), n = state.matchNo; return lv <= 1 ? true : lv === 2 ? n % 3 !== 2 : n % 2 === 0; };
+  function put(i, who) {
+    state.board[i] = who;
+    const l = who === "k" ? state.kidL : state.pcL, c = cells[i];
+    c.classList.add(who); c.innerHTML = `<span class="syl">${sylOf(l)}</span>`;
+    (who === "k" ? sfx.kid : sfx.pc)();
+    stopVoice(); playIds([clipOfL(l)]);
+  }
+  function tapCell(i, byDemo) {
+    if (paused || !(state.mode === "kid" || (byDemo && state.mode === "demo"))) return;
+    if (state.board[i]) { if (state.board[i] === "k" && !byDemo) { stopVoice(); playIds([clipOfL(state.kidL)]); } return; }
+    unlockAudio(); put(i, "k");
+    if (byDemo) return;
+    const r = winner(state.board);
+    if (r) return finish(r);
+    state.mode = "pc"; setTurn("c"); pcTurn();
+  }
+  function pcTurn(then) {
+    const my = epoch;
+    whenQuiet(() => later(ms(650), () => {
+      if (my !== epoch || !(state.mode === "pc" || state.mode === "demo")) return;
+      const i = aiPick(); if (i == null || i < 0) return;
+      put(i, "c");
+      if (then) return then();
+      const r = winner(state.board);
+      if (r) return finish(r);
+      later(ms(250), () => { if (state.mode !== "pc") return; state.mode = "kid"; setTurn("k"); });
+    }));
+  }
+  function startMatch() {
+    epoch++; clearBoard(); setChips(); showPlayers(true); setTurn(null);
+    state.starter = kidStarts() ? "k" : "c"; state.mode = "intro2";
+    const my = epoch;
+    // the computer's sound is said, then who starts (new lines ttt_*: silent until recorded)
+    playIds([300, "ttt_pc_sound", clipOfL(state.pcL), 250, state.starter === "k" ? "ttt_you_first" : "ttt_pc_first"], () => {
+      if (my !== epoch || state.mode !== "intro2") return;
+      if (state.starter === "k") { state.mode = "kid"; setTurn("k"); } else { state.mode = "pc"; setTurn("c"); pcTurn(); }
+    });
+  }
+  function restartMatch() { if (!state.kidL) return; stopVoice(); startMatch(); }
+  function finish(r) {
+    state.mode = "over"; setTurn(null); $("board").classList.add("over");
+    const res = r.who === "k" ? "w" : r.who === "c" ? "l" : "d";
+    state.matchNo++; countResult(res);
+    if (r.line) {
+      r.line.forEach((i) => cells[i].classList.add("win"));
+      const bd = $("board").getBoundingClientRect(), c0 = cells[r.line[0]].getBoundingClientRect(), c2 = cells[r.line[2]].getBoundingClientRect();
+      const x1 = c0.left + c0.width / 2 - bd.left, y1 = c0.top + c0.height / 2 - bd.top, x2 = c2.left + c2.width / 2 - bd.left, y2 = c2.top + c2.height / 2 - bd.top;
+      const dx = (x2 - x1) * 0.12, dy = (y2 - y1) * 0.12;
+      $("winLine").innerHTML = `<line x1="${x1 - dx}" y1="${y1 - dy}" x2="${x2 + dx}" y2="${y2 + dy}" stroke-width="${Math.max(6, bd.width * 0.03)}" pathLength="1"/>`;
+    }
+    // a star (Golan 8.11): gold for a win, silver for a draw, none for a loss
+    const kind = res === "w" ? "gold" : res === "d" ? "silver" : null;
+    if (kind) {
+      state.starRow.push(kind); starCount.add(kind);
+      const host = r.line ? cells[r.line[1]] : cells[4], s = document.createElement("span"); s.className = "tstar";
+      s.innerHTML = LRN ? LRN.starSvg(kind, Math.round(host.getBoundingClientRect().width * 0.7)) : "";
+      host.append(s);
+    }
+    (res === "w" ? sfx.win : res === "d" ? sfx.draw : sfx.lose)();
+    const line = res === "w" ? orElse("ttt_win", "fb_correct") : res === "d" ? "ttt_draw" : "ttt_lose";
+    const my = epoch;
+    whenQuiet(() => later(ms(300), () => playIds([line], () => later(ms(1600), () => {
+      if (my !== epoch || state.mode !== "over") return;
+      if (HG && HG.done()) endRound(); else openSoundPick();
+    }))));
+  }
+
+  // ---------- the sound picker before every match (Golan 8.11) ----------
+  let sndNagT = 0, sndFlash = [], sndPicking = false;
+  function openSoundPick() {
+    epoch++; state.mode = "soundpick"; sndPicking = false;
+    showPlayers(false); setTurn(null);
+    state.offer = offerSounds();
+    const box = $("snds"); box.textContent = "";
+    state.offer.forEach((l, k) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", sylOf(l)); b.innerHTML = `<span>${sylOf(l)}</span>`;
+      b.addEventListener("click", () => pickSound(k)); box.append(b);
+    });
+    $("sndPick").hidden = false; $("hud").hidden = false; genderTexts();
+    clearTimeout(sndNagT); later(500, () => { if (state.mode === "soundpick" && !sndPicking) { say("ttt_pick"); sndNag(); } });
+  }
+  function stopSndFlash() { clearTimeout(sndNagT); sndFlash.forEach(clearTimeout); sndFlash = []; [...$("snds").children].forEach((b) => b.classList.remove("flash")); }
+  function sndNag() {
+    clearTimeout(sndNagT);
+    sndNagT = setTimeout(() => {
+      if (state.mode !== "soundpick" || sndPicking) return;
+      [...$("snds").children].forEach((b, i) => sndFlash.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 500)));
+      sndFlash.push(setTimeout(sndNag, 3000));
+    }, 4500);
+  }
+  function pickSound(k) {
+    if (state.mode !== "soundpick" || sndPicking || paused) return;
+    const l = state.offer[k]; if (!l) return;
+    sndPicking = true; stopSndFlash(); unlockAudio();
+    [...$("snds").children].forEach((b, i) => { b.classList.toggle("chosen", i === k); b.classList.toggle("off", i !== k); });
+    state.kidL = l; state.pcL = pcSoundFor(l); markUsed(l);
+    if (!state.roundSounds.includes(l)) state.roundSounds.push(l);
+    stopVoice(); tone([523, 784], 0.1, "triangle", 0.25);
+    const my = epoch;
+    playIds([clipOfL(l)], () => later(500, () => {
+      if (my !== epoch || state.mode !== "soundpick") return;
+      $("sndPick").hidden = true; sndPicking = false;
+      if (state.first) { state.first = false; countdown(); } else startMatch();
+    }));
+  }
+
+  // ---------- one round = the golden hourglass: match after match ----------
+  const lvlPick = LRN && LRN.cardSlider ? LRN.cardSlider({ values: [1, 2, 3], get: () => curLevel() - 1,
+    show: () => !state.demo && ["intro2", "kid", "pc", "over"].includes(state.mode) && $("settings").hidden,
+    onPick: (i) => { manualLevel = i + 1; restartMatch(); } }) : null;
+  if (lvlPick) {
+    const el = lvlPick.el; el.classList.add("ttt-lv"); el.setAttribute("aria-label", "רָמָה"); el.dataset.tip = "רָמָה";
+    el.insertAdjacentHTML("afterbegin", `<svg class="ttt-ico" viewBox="0 0 60 60" aria-hidden="true"><rect x="4" y="4" width="52" height="52" rx="10" fill="#dcecfb" stroke="#fff" stroke-width="2"/>${[0, 1, 2].map((y) => [0, 1, 2].map((x) => `<rect x="${9 + x * 15.5}" y="${9 + y * 15.5}" width="13" height="13" rx="3" fill="${(x + y) % 4 === 0 ? "#ffc38f" : (x === 2 && y === 0) || (x === 1 && y === 2) ? "#c6b6ff" : "#fff"}"/>`).join("")).join("")}</svg>`);
+  }
+  function startRound() {
+    epoch++; if (HG) HG.start(); startMatch();
+  }
+  let flyPass = false;
+  function endFlyFirst() {
+    const L = window.FL && FL.learner; if (flyPass || !L || !L.endFly) return false;
+    state.mode = "flying"; if (HG) HG.stop();
+    L.endFly({ scene: null, dom: [$("board"), $("chipK"), $("chipC")] }).then((ok) => { if (ok && state.mode === "flying") { flyPass = true; try { endRound(); } finally { flyPass = false; } } });
+    return true;
+  }
+  // the sand is out: the match going on is finished first, then the round ends (finish() checks HG.done())
+  function timeUp() {}
+  function endRound() {
+    if (state.mode === "end" || (state.mode === "flying" && !flyPass)) return;
+    if (endFlyFirst()) return;
+    state.mode = "end"; if (HG) HG.stop();
+    showPlayers(false); $("sndPick").hidden = true;
+    const day = kid() ? LRN.roundEnd({ game: GAME, skillIssue: false }) : null;
+    const sug = day && day.suggest;
+    const note = !sug ? "" : sug === "break" ? gt("זמן להתמתח! קומו רגע, ונמשיך.", "זמן להתמתח! קום רגע, ונמשיך.", "זמן להתמתח! קומי רגע, ונמשיך.") : "שיחקנו יפה היום! אפשר לסיים, ואפשר עוד סיבוב.";
+    if (sug === "break") LRN.breakShown();
+    // the sounds the child played with this round (play, not a test: no "practised" or "known" rows)
+    END.set({ stars: state.starRow.slice(), letters: state.roundSounds.map((l) => ({ l: sylOf(l), kind: "full" })), sounds: false, note });
+    $("hud").hidden = true; $("end").hidden = false; END.fit();
+    say("fb_round_done");
+    if (sug) whenQuiet(() => later(300, () => { if (state.mode === "end") say(sug === "break" ? "day_break" : "day_end"); }));
+  }
+
+  // ---------- settings (the one shared form; no levels: the slider is the level) ----------
+  let form = null, modeBeforeSettings = null;
+  function renderForm() {
+    if (form) return;
+    form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
+      picker: { available: SOUND_L, finals: false, autoList: () => SOUND_L.slice(), onChange: (list, mode) => { settings.letters = list; settings.lettersMode = mode; saveSettings(); } },
+      voice: { get: () => settings.voice, set: (v) => { settings.voice = v; saveSettings(); } } });
+  }
+  function openSettings() {
+    if (!paused) { modeBeforeSettings = "settings"; pauseCore(); }
+    renderForm(); form.refresh(); if (form.closeTech) form.closeTech();
+    $("settings").hidden = false; document.querySelectorAll("#settings .set-body, #settings .panel").forEach((e) => (e.scrollTop = 0));
+  }
+  function closeSettings() {
+    $("settings").hidden = true;
+    if (modeBeforeSettings === "settings") { modeBeforeSettings = null; resumeCore(); }
+    if (!$("start").hidden && !heardIntro) scheduleIntro();
+    if (state.mode === "ready") countdown();
+    relayout();
+  }
+  $("gear").addEventListener("click", openSettings);
+  window.addEventListener("fl:gear", () => openSettings());
+  ["gearStart", "gearPick", "gearSnd", "gearEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); openSettings(); }));
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("xSettings").addEventListener("click", (e) => { e.stopPropagation(); closeSettings(); });
+  let pausedClip = null;
+  function pauseCore() { paused = true; heldLine = null; pausedClip = clipNow && !clipNow.paused && !clipNow.ended ? clipNow : null; if (pausedClip) pausedClip.pause(); }
+  function resumeCore() {
+    paused = false;
+    if (pausedClip) { pausedClip.currentTime = 0; pausedClip.play().catch(() => {}); } else if (heldLine) say(heldLine);
+    pausedClip = null; heldLine = null;
+  }
+
+  // ---------- doors ----------
+  function toHub() {
+    if (!LRN || !LRN.fromHub || !LRN.hubUrl) return false;
+    epoch++; cancelIntro(); stopVoice(); countToken++; paused = true; if (HG) HG.stop();
+    location.href = LRN.hubUrl.split("#")[0] + "#games";
+    return true;
+  }
+  function backToStart() {
+    epoch++; cancelIntro(); stopVoice(); if (HG) HG.stop(); endDemoMarks(); stopSndFlash();
+    if (paused) resumeCore();
+    state.mode = "intro"; countToken++; $("count").innerHTML = ""; showPlayers(false);
+    ["hud", "end", "pick", "sndPick", "settings"].forEach((id) => ($(id).hidden = true));
+    $("start").hidden = false;
+  }
+  const backToPick = () => { backToStart(); $("start").hidden = true; openPick(); };
+  ["doorGame", "doorPick", "doorSnd", "doorEnd"].forEach((id) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!toHub()) backToStart(); }));
+  // "התחל מחדש" under the gear: the round starts again, as after "עוד סיבוב"
+  if (window.FL && FL.screen && FL.screen.restartButton) FL.screen.restartButton(backToPick);
+  $("doorStart").addEventListener("click", (e) => {
+    e.stopPropagation(); cancelIntro(); stopVoice(); if (!LRN || toHub()) return;
+    choosingKid = true;
+    LRN.chooseChild().then(() => { choosingKid = false; loadProg(); manualLevel = null; genderTexts(); if (form) form.refresh(); heardIntro = false; scheduleIntro(); });
+  });
+  function outsideTap(el, inside, close) {
+    let downOut = false;
+    el.addEventListener("pointerdown", (e) => { downOut = !e.target.closest(inside) && !e.target.closest(".round-btn"); });
+    el.addEventListener("click", (e) => { if (downOut && !e.target.closest(inside) && !e.target.closest(".round-btn")) close(); downOut = false; });
+  }
+  outsideTap($("settings"), ".panel", () => closeSettings());
+
+  // ---------- start screen: the name (hub_g_soundttt), then the description (ttt_start); silent until recorded ----------
+  let heardIntro = false, introTok = 0, choosingKid = false;
+  const cancelIntro = () => { introTok++; };
+  function nameFirst(then, auto) {
+    const n = getClip("hub_g_soundttt");
+    if (n._bad) { then(); return Promise.resolve(); }
+    if (clipNow) clipNow.pause(); clipNow = n; n.currentTime = 0;
+    n.addEventListener("ended", () => setTimeout(() => { if (clipNow === n) then(); }, 250), { once: true });
+    const p = n.play(); if (!auto) p.catch(() => { if (clipNow === n) { clipNow = null; then(); } });
+    return p;
+  }
+  function sayIntro() { heardIntro = true; nameFirst(() => say("ttt_start")); }
+  function scheduleIntro() { const t = ++introTok; setTimeout(() => { if (t !== introTok || choosingKid || heardIntro || $("start").hidden || !$("settings").hidden) return; const a = getClip("hub_g_soundttt"), b = getClip(voiceId("ttt_start")); if (a._bad && b._bad) { heardIntro = true; return; } sayIntro(); }, 1500); }
+  const fontReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load(`800 170px "Noto Sans Hebrew"`, "בגד"), new Promise((r) => setTimeout(r, 3000))]).catch(() => {}) : Promise.resolve();
+  fontReady.then(() => { $("go").disabled = false; $("go").textContent = "יוֹצְאִים לַדֶּרֶךְ"; });
+  (LRN ? LRN.chooseChild() : Promise.resolve()).then(() => { loadProg(); genderTexts(); scheduleIntro(); });
+  $("hear").addEventListener("click", (e) => { e.stopPropagation(); unlockAudio(); sayIntro(); });
+  $("go").addEventListener("click", () => {
+    cancelIntro(); stopVoice(); unlockAudio();
+    try { if (document.documentElement.requestFullscreen && matchMedia("(pointer: coarse)").matches) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    if ($("go").classList.contains("pressed")) return;
+    $("go").classList.add("pressed"); tone([523, 784], 0.12, "triangle", 0.35);
+    say("fb_go");
+    setTimeout(() => { $("go").classList.remove("pressed"); $("start").hidden = true; openPick(); }, 1600);
+  });
+
+  // ---------- balloon picker (as in every game) ----------
+  const PICK_STEP = 420;
+  let pickNagT = 0, pickFlashTs = [], picking = false, pickSays = 0;
+  function openPick() {
+    state.mode = "pick";
+    const box = $("balloons"); box.textContent = "";
+    BALLOONS.forEach((d, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "כַּדּוּר " + (i + 1));
+      b.innerHTML = balloonSvg(i); b.addEventListener("click", () => pickBalloon(i)); box.append(b);
+    });
+    $("pick").hidden = false; clearTimeout(pickNagT); pickSays = 0;
+    setTimeout(() => { if (!$("pick").hidden && !picking) { say("ins_balloon"); pickSays = 1; setTimeout(() => whenQuiet(pickNag), 300); } }, 700);
+  }
+  function stopPickFlash() { clearTimeout(pickNagT); pickFlashTs.forEach(clearTimeout); pickFlashTs = []; [...$("balloons").children].forEach((b) => b.classList.remove("flash")); }
+  function pickNag() {
+    clearTimeout(pickNagT);
+    pickNagT = setTimeout(() => {
+      if ($("pick").hidden || picking) return;
+      if (pickSays < 2) { say("ins_balloon"); pickSays++; }
+      const btns = [...$("balloons").children].sort(() => Math.random() - 0.5);
+      btns.forEach((b, i) => pickFlashTs.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * PICK_STEP)));
+      pickFlashTs.push(setTimeout(() => whenQuiet(pickNag), btns.length * PICK_STEP + 1000));
+    }, 4000);
+  }
+  function pickBalloon(k) {
+    if (picking) return; picking = true; stopPickFlash();
+    settings.balloon = k; saveSettings();
+    [...$("balloons").children].forEach((b, i) => { b.setAttribute("aria-pressed", String(i === k)); b.classList.toggle("chosen", i === k); });
+    say(Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");
+    const pickedAt = performance.now();
+    whenQuiet(() => setTimeout(() => {
+      picking = false; if ($("pick").hidden) return; $("pick").hidden = true;
+      // a new round: the stars start again, then the first sound pick, then 3-2-1
+      state.starRow = []; state.roundSounds = []; state.first = true; starCount.reset(); openSoundPick();
+    }, Math.max(250, 1900 - (performance.now() - pickedAt))));
+  }
+
+  // ---------- the demo ("?" card, one example per press, at most 17 s): a hand taps a square, the sound appears and is said,
+  // the computer answers; the shared demo look (FL.demoFrame + FL.demoArrow); the hourglass waits ----------
+  const hand = $("demoHand"); let demoRaf = 0, demoAfter = null, demoBack = null;
+  function hideHand() { cancelAnimationFrame(demoRaf); hand.classList.remove("show"); }
+  function moveHand(from, to, dur, then) {
+    const t0 = performance.now();
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      hand.style.left = from.x + (to.x - from.x) * e + "px"; hand.style.top = from.y + (to.y - from.y) * e + "px";
+      if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
+    hand.classList.add("show"); step();
+  }
+  function endDemoMarks() { if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; demoAfter = null; }
+  function runDemo(done) {
+    epoch++; stopVoice(); state.demo = true; state.mode = "demo";
+    // the match's own sounds, or בַּ and מַ before the first match
+    demoBack = { kidL: state.kidL, pcL: state.pcL };
+    if (!state.kidL) { state.kidL = "ב"; state.pcL = "מ"; }
+    if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { epoch++; stopVoice(); hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null); if (demoAfter) { const f = demoAfter; demoAfter = null; f(); } });
+    demoAfter = () => { hideHand(); const fin = () => { endDemoMarks(); if (demoBack && demoBack.kidL) { state.kidL = demoBack.kidL; state.pcL = demoBack.pcL; } if (done) done(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); };
+    clearBoard(); setChips(); showPlayers(true); setTurn("k");
+    const my = epoch, alive = () => my === epoch && state.demo;
+    const at = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; };
+    const target = rnd([0, 2, 6, 8, 4]), c = cells[target];
+    const finishDemo = () => { if (window.FL && FL.demoArrow) FL.demoArrow(null); playIds(["demo_back"], () => later(500, () => { if (alive() && demoAfter) { const f = demoAfter; demoAfter = null; f(); } })); };
+    later(600, () => {
+      if (!alive()) return; const a = at(c);
+      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
+        if (!alive()) return;
+        tapCell(target, true); if (window.FL && FL.demoArrow) FL.demoArrow(a.x, a.top + 6);
+        later(500, () => { if (!alive()) return; hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null); setTurn("c");
+          pcTurn(() => { setTurn(null); const j = state.board.findIndex((v) => v === "c"); if (j >= 0 && window.FL && FL.demoArrow) { const q = at(cells[j]); FL.demoArrow(q.x, q.top + 6); }
+            later(600, () => whenQuiet(() => later(1200, () => { if (alive()) finishDemo(); }))); }); });
+      }));
+    });
+  }
+  const canDemo = () => !state.demo && ["intro2", "kid", "pc", "over"].includes(state.mode);
+  $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); $("go").click(); });
+  $("helpCard").addEventListener("click", (e) => {
+    e.stopPropagation(); if (!canDemo()) return;
+    unlockAudio(); runDemo(() => startMatch());
+  });
+  $("demoSettings").addEventListener("click", (e) => {
+    e.stopPropagation(); if (!canDemo()) return;
+    closeSettings(); unlockAudio(); runDemo(() => startMatch());
+  });
+
+  // ---------- 3, 2, 1 ----------
+  let countToken = 0;
+  function countdown() {
+    const my = ++countToken;
+    document.documentElement.classList.add("fl-counting");
+    state.mode = "ready"; showPlayers(false);
+    const box = $("count");
+    ["3", "2", "1"].forEach((n, i) => setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready" || paused) return;
+      box.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = n; sp.style.background = "#10b947"; box.append(sp);
+      tone([i === 2 ? 660 : 520], 0.16, "sine", 0.35);
+    }, 700 + i * 1000));
+    setTimeout(() => {
+      if (my !== countToken || state.mode !== "ready" || paused) return;
+      box.innerHTML = ""; tone([880, 1175], 0.14, "triangle", 0.4);
+      startRound();
+    }, 700 + 3 * 1000);
+  }
+
+  // keyboard (for testing on a computer): 1-9 taps a square, the top row first
+  document.addEventListener("keydown", (e) => { const k = parseInt(e.key, 10); if (k >= 1 && k <= 9) tapCell(k - 1); });
+  if (window.FL && FL.screen) FL.screen.onChange(() => relayout());
+  addEventListener("resize", relayout);
+
+  // test hook for automated checks
+  window.__ttt = { state, prog, tapCell, pickSound, aiPick, lineMove, winner, endRound, runDemo, layout, level: () => curLevel(),
+    setLevel: (n) => { prog.level = n; saveProg(); }, setManual: (n) => { manualLevel = n; }, get paused() { return paused; }, get hg() { return HG ? { left: HG.left(), done: HG.done() } : null; } };
+})();
+</script>
+<script src="../shared/tooltip.js"></script>   <!-- one tooltip for every screen (Golan 8.11) -->
+</body>
+</html>

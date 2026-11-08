@@ -185,6 +185,7 @@
     { id: "soundmemory", ac: "#7048e8", name: "זִכָּרוֹן הַצְּלִילִים", path: "games/sound-memory/index.html", bg: "#1f2350", pic: "soundmemory", isle: 1, noSystem: true },   // Golan 30.10: the memory game with sound + picture pairs
     { id: "soundmole", ac: "#a47148", name: "חֲפַרְפֶּרֶת הַצְּלִילִים", path: "games/sound-mole/index.html", bg: "#dff3ff", pic: "soundmole", isle: 1, noSystem: true },   // Golan 30.10: the letter mole with pictures (summaries/sound-mole-spec.md)
     { id: "river", ac: "#2f8fdc", name: "לַחֲצוֹת אֶת הַנָּהָר", path: "games/river/index.html", bg: "#dff3ff", pic: "river", isle: 1, noSystem: true },   // Golan 5.11: plan the bunny's path over the stones whose picture opens with the sound
+    { id: "soundttt", ac: "#f76707", name: "אִיקְס עִיגּוּל שֶׁל צְלִילִים", path: "games/sound-ttt/index.html", bg: "#e6f2ff", pic: "soundttt", isle: 1, noSystem: true },   // Golan 8.11: tic-tac-toe with sounds against the computer
     { id: "stogether", ac: "#ff922b", name: "מְשַׂחֲקִים בְּיַחַד", path: "games/sound-together/index.html", bg: "#fff1df", pic: "tellme", isle: 1, adult: true, noSystem: true },   // Golan 8.11: "משחקים ביחד" = the same card on every island   // Golan 6.11: the sound island's game for a child and an adult (the sound in the middle, 4 balloons with pictures)
   ];
   // a game may sit on more than one island (Golan 8.11: the song on islands 1 and 2): isle can be a list
@@ -228,6 +229,14 @@
       <g transform="translate(82 20) rotate(8 20 22)"><rect width="40" height="44" rx="6" fill="#fff" stroke="#ff8fb3" stroke-width="2.5"/>${pic("ב", 20, 22, 36)}</g>
       <path d="M86 12c-2-3-7-2-7 2 0 3 4 6 7 8 3-2 7-5 7-8 0-4-5-5-7-2z" fill="#ff5a8a"/>
       <path d="M74 8c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/><path d="M98 6c-1-2-4-1-4 1 0 2 2 3 4 4 2-1 4-2 4-4 0-2-3-3-4-1z" fill="#ff8fb3"/></svg>`;
+  }
+  // אִיקְס עִיגּוּל שֶׁל צְלִילִים (Golan 8.11): a plain 3x3 board, the child's בַּ (orange) against the computer's מַ (purple), a glowing row
+  function tttPic() {
+    const cell = (x, y, t, win) => `<rect x="${x}" y="${y}" width="26" height="26" rx="5" fill="${t === "ב" ? "#fff1e3" : t === "מ" ? "#f1ecff" : "#fff"}"${win ? ' stroke="#FFC400" stroke-width="2.6"' : ""}/>` +
+      (t ? `<text x="${x + 13}" y="${y + 12}" font-size="18" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="${t === "ב" ? "#f76707" : "#7048e8"}" font-family="Noto Sans Hebrew, sans-serif">${t === "ב" ? "בַּ" : "מַ"}</text>` : "");
+    const B = [["ב", "", "מ"], ["", "ב", ""], ["מ", "", "ב"]];
+    let g = ""; B.forEach((row, j) => row.forEach((t, i) => { g += cell(37 + i * 29, 5 + j * 29, t, i === j); }));
+    return `<svg viewBox="0 0 160 100"><rect x="33" y="1" width="94" height="94" rx="12" fill="#cfe3f8"/>${g}</svg>`;
   }
   // חפרפרת הצלילים: the mole card's island, the moles hold pictures (בַּיִת, חָתוּל), the sound בַּ on a sign over them
   function stogetherPic() {   // the sound island's "משחקים ביחד" card: a sound in the middle, 4 small balloons carrying picture cards around it
@@ -313,7 +322,7 @@
       const gen = p && (p.gender === "f" || p.gender === "m") ? p.gender : null;
       const name = g.id === "detective" && gen === "f" ? "הַבַּלָּשִׁית בָּעֲנָנִים" : g.id === "sound" && gen === "f" ? "בַּלָּשִׁית הַצְּלִילִים" : g.name;   // a girl: הבלשית (Golan 19.10)
       const clip = g.id === "tellme" || g.id === "stogether" ? "hub_g_together" : g.id === "detective" && gen === "f" ? `hub_g_detective_f" data-fallback="hub_g_detective` : g.id === "sound" && gen === "f" ? `hub_g_sound_f" data-fallback="hub_g_sound` : `hub_g_${g.id}`;
-      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? (window.FL_RIVER_CARD ? FL_RIVER_CARD() : riverPic()) : g.pic === "stogether" ? stogetherPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
+      b.innerHTML = `<span class="pic" style="background:${g.bg}">${g.pic === "sound" ? soundPic() : g.pic === "wheel" ? wheelPic() : g.pic === "soundtrain" ? soundTrainPic() : g.pic === "soundmemory" ? soundMemoryPic() : g.pic === "soundmole" ? soundMolePic() : g.pic === "river" ? (window.FL_RIVER_CARD ? FL_RIVER_CARD() : riverPic()) : g.pic === "stogether" ? stogetherPic() : g.pic === "soundttt" ? tttPic() : ((window.FL_HUB_PICS && FL_HUB_PICS[g.pic]) || PICS[g.pic])}</span><span class="name"><b data-nq="${name}">${name}</b><span class="spk" role="button" tabindex="0" aria-label="הקשבה" data-clip="${clip}">🔊</span></span>`;
       // Golan 20.10: the waking card shows a real sleeping letter from the game (with its face and the moon turned to it)
       const LA = window.LETTERS_ANIMATED, sleeper = g.pic === "waking" && LA && LA.make("ה"); if (sleeper) { const pc = b.querySelector(".pic"); pc.style.position = "relative"; sleeper.style.position = "absolute"; sleeper.style.inset = "4% 0"; sleeper.style.width = "100%"; sleeper.style.height = "92%"; pc.replaceChildren(sleeper);
         // Golan 20.10: on the card it sleeps, wakes up, stays awake a moment, goes back to sleep, and again (silently: no breath, no greeting)
