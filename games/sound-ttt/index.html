@@ -654,6 +654,13 @@
   const relayout = () => layout();
 
   // ---------- one match ----------
+  function drawWin(line) {
+    line.forEach((i) => cells[i].classList.add("win"));
+    const bd = $("board").getBoundingClientRect(), c0 = cells[line[0]].getBoundingClientRect(), c2 = cells[line[2]].getBoundingClientRect();
+    const x1 = c0.left + c0.width / 2 - bd.left, y1 = c0.top + c0.height / 2 - bd.top, x2 = c2.left + c2.width / 2 - bd.left, y2 = c2.top + c2.height / 2 - bd.top;
+    const dx = (x2 - x1) * 0.12, dy = (y2 - y1) * 0.12;
+    $("winLine").innerHTML = `<line x1="${x1 - dx}" y1="${y1 - dy}" x2="${x2 + dx}" y2="${y2 + dy}" stroke-width="${Math.max(6, bd.width * 0.03)}" pathLength="1"/>`;
+  }
   function winner(b) {
     for (const L of LINES3) { const [a, c, d] = L; if (b[a] && b[a] === b[c] && b[a] === b[d]) return { who: b[a], line: L }; }
     return b.every(Boolean) ? { who: null } : null;
@@ -722,13 +729,7 @@
     state.mode = "over"; setTurn(null); $("board").classList.add("over");
     const res = r.who === "k" ? "w" : r.who === "c" ? "l" : "d";
     state.matchNo++; countResult(res);
-    if (r.line) {
-      r.line.forEach((i) => cells[i].classList.add("win"));
-      const bd = $("board").getBoundingClientRect(), c0 = cells[r.line[0]].getBoundingClientRect(), c2 = cells[r.line[2]].getBoundingClientRect();
-      const x1 = c0.left + c0.width / 2 - bd.left, y1 = c0.top + c0.height / 2 - bd.top, x2 = c2.left + c2.width / 2 - bd.left, y2 = c2.top + c2.height / 2 - bd.top;
-      const dx = (x2 - x1) * 0.12, dy = (y2 - y1) * 0.12;
-      $("winLine").innerHTML = `<line x1="${x1 - dx}" y1="${y1 - dy}" x2="${x2 + dx}" y2="${y2 + dy}" stroke-width="${Math.max(6, bd.width * 0.03)}" pathLength="1"/>`;
-    }
+    if (r.line) drawWin(r.line);
     // a star (Golan 8.11): gold for a win, silver for a draw, none for a loss
     const kind = res === "w" ? "gold" : res === "d" ? "silver" : null;
     if (kind) {
@@ -973,19 +974,27 @@
     clearBoard(); setChips(); showPlayers(true); setTurn("k");
     const my = epoch, alive = () => my === epoch && state.demo;
     const at = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; };
-    const target = rnd([0, 2, 6, 8, 4]), c = cells[target];
+    // Golan 8.11: the demo says the goal first (ttt_start: "choose a sound and try to put three in a row"), then plays a whole
+    // match to the child's win: child, computer, child, computer, child = three in a row (a few scripts, a different one each press)
+    const SCRIPTS = [{ k: [0, 1, 2], c: [4, 6] }, { k: [6, 7, 8], c: [4, 0] }, { k: [0, 3, 6], c: [4, 2] }, { k: [2, 5, 8], c: [4, 6] }];
+    const S = SCRIPTS[(demoN++) % SCRIPTS.length];
     const finishDemo = () => { if (window.FL && FL.demoArrow) FL.demoArrow(null); playIds(["demo_back"], () => later(500, () => { if (alive() && demoAfter) { const f = demoAfter; demoAfter = null; f(); } })); };
-    later(600, () => {
-      if (!alive()) return; const a = at(c);
-      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 1100, () => later(300, () => {
+    const kidMove = (n) => {
+      if (!alive()) return; const i = S.k[n], a = at(cells[i]); setTurn("k");
+      moveHand({ x: a.x + 60, y: innerHeight + 40 }, a, 900, () => later(250, () => {
         if (!alive()) return;
-        tapCell(target, true); if (window.FL && FL.demoArrow) FL.demoArrow(a.x, a.top + 6);
-        later(500, () => { if (!alive()) return; hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null); setTurn("c");
-          pcTurn(() => { setTurn(null); const j = state.board.findIndex((v) => v === "c"); if (j >= 0 && window.FL && FL.demoArrow) { const q = at(cells[j]); FL.demoArrow(q.x, q.top + 6); }
-            later(600, () => whenQuiet(() => later(1200, () => { if (alive()) finishDemo(); }))); }); });
+        tapCell(i, true); if (window.FL && FL.demoArrow) FL.demoArrow(a.x, a.top + 6);
+        later(500, () => { if (!alive()) return; hideHand(); if (window.FL && FL.demoArrow) FL.demoArrow(null);
+          if (n === 2) return whenQuiet(() => later(300, () => { if (!alive()) return; setTurn(null); drawWin(S.k); sfx.win();
+            playIds([orElse("ttt_win", "fb_correct")], () => later(1400, () => { if (alive()) finishDemo(); })); }));
+          setTurn("c");
+          whenQuiet(() => later(650, () => { if (!alive()) return; put(S.c[n], "c"); whenQuiet(() => later(500, () => kidMove(n + 1))); }));
+        });
       }));
-    });
+    };
+    later(400, () => { if (!alive()) return; playIds(["ttt_start"], () => later(300, () => kidMove(0))); });
   }
+  let demoN = 0;
   const canDemo = () => !state.demo && ["intro2", "kid", "pc", "over"].includes(state.mode);
   $("demoStart").addEventListener("click", (e) => { e.stopPropagation(); $("go").click(); });
   $("helpCard").addEventListener("click", (e) => {
