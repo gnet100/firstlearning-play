@@ -30,19 +30,23 @@
   // so several islands show, each one farther and smaller
   // Golan 20.10: a standing phone has its own layout: the trail goes straight up the screen with a narrower zigzag
   let tall = innerHeight > innerWidth;
-  const lay = () => (tall ? { gap: 10, dir: { x: 0.1, z: 0.995 }, w: 2.3, lat: { x: -1, z: 0 } } : { gap: 8.5, dir: { x: 0.55, z: 0.835 }, w: 4.0, lat: { x: -0.954, z: 0.299 } });
+  const lay = () => (tall ? { gap: 8, dir: { x: 0.1, z: 0.995 }, w: 2.3, lat: { x: -1, z: 0 } } : { gap: 6.4, dir: { x: 0.55, z: 0.835 }, w: 4.0, lat: { x: -0.954, z: 0.299 } });   // Golan 8.11: islands closer (was gap 10 / 8.5)
   // Golan 20.10: the zigzag goes across the screen (lat = left on screen), so an island is never straight above the one before it
   // Golan 20.10: a winding trail, the islands zigzag left and right of the way ahead so each one shows
   const far0 = (v) => (v <= 1 ? v * 0.65 : v - 0.35);   // Golan 20.10: the second island sits closer to the first
-  const spot = (i) => { const L = lay(), D = L.dir, w = (i % 2 ? -1 : 1) * L.w, d = far0(i);
-    return { x: d * L.gap * D.x + w * L.lat.x, y: i * 0.55, z: d * L.gap * D.z + w * L.lat.z }; };
-  const mid = (v) => { const L = lay(), d = far0(v); return { x: d * L.gap * L.dir.x, z: d * L.gap * L.dir.z }; };   // the middle of the trail
+  // Golan 8.11: the gaps and the side steps differ a little from island to island (not all the same), and every island
+  // stands higher than the one before, so no island hides another
+  const STEP = [1, 0.85, 1.15, 0.9, 1.1, 0.95, 1.2, 0.85, 1.05, 1], SIDE = [1, 1.1, 1.25, 2.3, 1.6, 4.2, 2.4, 5.6, 3.0, 6.6];   // wider farther away, so far islands never line up behind near ones
+  const far1 = (v) => { const n = Math.floor(v), f = v - n; let d = 0; for (let k = 1; k <= n; k++) d += STEP[k] || 1; return d + f * (STEP[n + 1] || 1); };
+  const spot = (i) => { const L = lay(), D = L.dir, w = (i % 2 ? -1 : 1) * L.w * (SIDE[i] || 1), d = far0(far1(i));
+    return { x: d * L.gap * D.x + w * L.lat.x, y: i * 1.1, z: d * L.gap * D.z + w * L.lat.z }; };
+  const mid = (v) => { const L = lay(), d = far0(far1(v)); return { x: d * L.gap * L.dir.x, z: d * L.gap * L.dir.z }; };   // the middle of the trail
   const ISLE = 0.62;   // island size (Golan 20.10: smaller)
   const BAL = { x: 0, y: 1.8, z: 0.2 };
   const BACK = 0.85, BACK_TALL = 0.4, SHIFT = 1.4;   // SHIFT: on a wide screen the view moves right a little, so the balloon's island is not at the edge   // Golan 29.10: the camera stands this much of the way behind the balloon, so the island before shows   // Golan 20.10: the balloon hangs right above the middle of the island it serves
 
   let host = null, opt = null, ui = null, engine = null, scene = null, cam = null, built = false, loading = null, visible = false;
-  let isles = [], balloon = null, s = 0, sTo = 0, tw = null, dragTo = 0, home = 0, focus = -1, focusedAt = 0, dragging = null, zoom = 0, open = 1, seenKey = "";
+  let savedAt = null, atKey = "fl-map-at", isles = [], balloon = null, s = 0, sTo = 0, tw = null, dragTo = 0, home = 0, focus = -1, focusedAt = 0, dragging = null, zoom = 0, open = 1, seenKey = "";
   const prefersStill = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function loadBabylon() {
@@ -106,13 +110,15 @@
     const p = BABYLON.MeshBuilder.CreatePlane("p" + txt, { width: size * w / W, height: size }, scene); p.material = m;
     p.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; return p;
   }
+  const GRASS = ["#8fdc7a", "#6fcf97", "#b5e07a", "#7bd389", "#a5d96a", "#5fc48a", "#c2dd6b", "#86d4a0", "#9be08f", "#a8cf6f"];
+  const EARTH = ["#b98a5e", "#9c6b45", "#c9a074", "#a9774c", "#8f6a4a", "#c49a6c", "#b07a52", "#a67c5b", "#cfa57d", "#94654a"];
   const INK = ["#ff5a4e", "#ff8a3d", "#e6a800", "#2bb673", "#3da5ff", "#7c5cff", "#ff5a8a"];
   function island(i) {
     const P = spot(i), root = new BABYLON.TransformNode("isle" + i, scene); root.position.set(P.x, P.y, P.z); root.scaling.setAll(ISLE);
     const top = BABYLON.MeshBuilder.CreateCylinder("top" + i, { height: 0.5, diameterTop: 4.6, diameterBottom: 4.2, tessellation: 28 }, scene);
-    top.material = mat("g" + i, i % 2 ? "#7bd389" : "#8fdc7a"); top.parent = root;
+    top.material = mat("g" + i, GRASS[i % GRASS.length]); top.parent = root;   // Golan 8.11: every island its own green and earth
     const rock = BABYLON.MeshBuilder.CreateCylinder("rock" + i, { height: 2.6, diameterTop: 4.2, diameterBottom: 0.3, tessellation: 14 }, scene);
-    rock.material = mat("r" + i, "#b98a5e"); rock.position.y = -1.55; rock.parent = root;
+    rock.material = mat("r" + i, EARTH[i % EARTH.length]); rock.position.y = -1.55; rock.parent = root;
     // Golan 20.10: no flags; stones and bushes in a different pattern on every island, kept in the middle (inside the ring
     // of letters) or out at the rim, so they never stand in the letters' way
     let seed = i * 9301 + 49297; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
@@ -308,6 +314,8 @@
       tw.t = Math.min(tw.dur, tw.t + dt); const u = tw.t / tw.dur, m0 = tw.v0 * tw.dur;
       s = tw.from * (2 * u * u * u - 3 * u * u + 1) + m0 * (u * u * u - 2 * u * u + u) + tw.to * (3 * u * u - 2 * u * u * u); }
     vel = dt > 0 ? (s - s0) / dt : 0;
+    // Golan 8.11: remember where the balloon is headed, so a refresh of the page keeps it exactly there
+    if (!dragging && sTo !== savedAt) { savedAt = sTo; try { localStorage.setItem(atKey, String(sTo)); } catch (e) {} }
     const sc = dragging && dragging.moved ? dragging.cam : s, P = along(s), C = along(sc - (tall ? BACK_TALL : BACK)), bob = prefersStill ? 0 : Math.sin(T * 1.6) * 0.15;
     // Golan 20.10: the balloon never hides an island ahead: on screen it slides sideways (left or right, whichever is
     // nearer and stays on the screen) until it no longer covers any of them
@@ -435,7 +443,7 @@
   async function show(o) {
     opt = o; host = o.host || document.body; if (!ui) mount();
     ui.hidden = false; visible = true;
-    const p = o.profile || {}; seenKey = "fl-map-seen-" + (p.id || "x");
+    const p = o.profile || {}; seenKey = "fl-map-seen-" + (p.id || "x"); atKey = "fl-map-at-" + (p.id || "x");
     open = 1 + ((o.known || 0) >= UNLOCK_AT ? 1 : 0);   // islands 3-9: no games measure them yet
     // Golan 5.11: to try island 2 before 15 letters: open the hub once with ?isles=2 (remembered on this device); ?isles=0 closes it again
     try { open = Math.max(open, Math.min(2, +localStorage.getItem("fl-isles-open") || 0)); } catch (e) {}
@@ -450,7 +458,8 @@
       tint(it, it.open ? Math.max(0, it.gone) : 0); });
     dots.forEach((d) => { d.material = d.metadata.seg < open - 1 ? dotOn() : dotOff(); });
     const fresh = open > seen;   // a new island opened since the last visit: start there so the cloud blows away in view
-    s = sTo = fresh ? open - 1 : Math.min(open - 1, o.at != null ? o.at : 0); home = open - 1; tw = null; vel = 0; focus = -1; zoom = 0;
+    let was = null; try { const v = localStorage.getItem(atKey); if (v !== null && v !== "" && !isNaN(+v)) was = +v; } catch (e) {}
+    s = sTo = fresh ? open - 1 : Math.min(open - 1, o.atForce != null ? o.atForce : was != null ? was : o.at != null ? o.at : 0); savedAt = sTo; home = open - 1; tw = null; vel = 0; focus = -1; zoom = 0;
     const P = along(s); cam.position.set(P.x + 1, P.y + 7, P.z - 14); camLook = null;
     try { localStorage.setItem(seenKey, String(open)); } catch (e) {}
     fov(); engine.resize(); engine.runRenderLoop(() => scene.render()); fit();
