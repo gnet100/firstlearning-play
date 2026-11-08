@@ -304,7 +304,7 @@ ${items[item]}</svg>`;
   // again (the next letters come from the new set), and a game that stays on one letter moves on (it checks known()).
   // Golan 8.11 (all islands, permanent): the "משחקים ביחד" games (an adult plays with the child) never feed the child's
   // data: nothing they record counts anywhere (by: "adult", or one of these games)
-  const TOGETHER_GAMES = new Set(["tellme", "soundtogether"]);
+  const TOGETHER_GAMES = new Set(["tellme", "soundtogether"]), MATCH_GAMES = new Set(["memory", "soundmemory"]);
   function record(ev) {
     if (!ev || ev.by === "adult" || TOGETHER_GAMES.has(ev.game)) return false;
     const stateOf = () => { try { return cardsFor(cur())[ev.letter].recognize.state; } catch (e) { return null; } };
@@ -402,6 +402,7 @@ ${items[item]}</svg>`;
     const runRts = {};   // per game: the child's kept right-answer times so far, to judge "quick" at the moment of each answer
     for (const e of p.events) {
       const c = cards[e.l]; if (!c) continue;
+      if (MATCH_GAMES.has(e.g)) continue;   // Golan 8.11 (levels audit, fix 1): a found memory pair is not a letter / sound answer
       const g = runRts[e.g] || (runRts[e.g] = []);
       const lim = quickLimit(g);
       const quick = e.ok && e.m === "recognize" && !e.hz && e.rt != null && lim != null && e.o.length >= 3 && e.rt <= lim;
@@ -538,6 +539,7 @@ ${items[item]}</svg>`;
   function roundEnd({ game, skillIssue } = {}) {
     return mutate(() => {
       const p = cur(); if (!p) return null;
+      if (TOGETHER_GAMES.has(game)) return { pace: p.pace, level: p.level, levelChanged: 0, ...dayInfo(p) };   // Golan 8.11 (fix 5): a together game never moves pace or level
       p.rounds.push({ t: Date.now(), g: game || "", issue: !!skillIssue }); if (p.rounds.length > 50) p.rounds.shift();
       p.roundSeq = (p.roundSeq || 0) + 1;   // never reset (p.rounds is emptied after 5 rounds): the practice set's round key
       const last5 = p.rounds.slice(-5);

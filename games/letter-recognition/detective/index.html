@@ -636,7 +636,7 @@
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
-      const a = new Audio("../../../voice/audio/" + id + ".mp3"); a.preload = "auto";
+      const a = new Audio("audio/" + id + ".mp3"); a.preload = "auto";
       a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
       a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
       clipCache[id] = a;
@@ -1405,7 +1405,7 @@
     // one record per sky, with the first answer's details (shared card)
     const q = state.q, ok = !state.qWrongs, perfect = ok && !state.qHint;
     recordSky(true);
-    if (visit) visit.result(q.letter, { perfect, listen: !!q.listen, count: perfect ? q.nTargets : 1 });   // after record(): a perfect sky = one find per cloud (3 clouds = 3)
+    if (visit) visit.result(q.letter, { perfect, listen: !!q.listen, count: 1 });   // after record(); Golan 8.11 (fix 4): a perfect sky = one find, so the speaker-only check comes after 3 perfect skies, as step() needs
     lastQ = { letter: q.letter, ok };
     sfx.good(); vibrate(40);
     showOk(q.letter, state.starKinds[state.starKinds.length - 1]); say("יש! נכון!", 1);   // said aloud, with the star the last find earned on the letter (Golan 18.10)

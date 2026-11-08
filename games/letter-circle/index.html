@@ -373,7 +373,7 @@
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);   // a random one of a feedback line's recordings (Golan 28.10, shared/learner.js)
   function getClip(id) {
     if (!clipCache[id]) {
-      const a = new Audio("../../voice/audio/" + id + ".mp3"); a.preload = "auto";
+      const a = new Audio("audio/" + id + ".mp3"); a.preload = "auto";
       a.addEventListener("canplaythrough", () => { if (!a._ok) { a._ok = true; clipStatus.ok++; } }, { once: true });
       a.addEventListener("error", () => { a._bad = true; clipStatus.missing++; }, { once: true });
       clipCache[id] = a;
@@ -1166,7 +1166,7 @@
     if (endFlyFirst()) return;
     state.mode = "end"; state.q = null; roundsPlayed++; if (HG) HG.stop();   // the hanging letters stay behind the end popup; a new round clears them
     const s = state.s;
-    if (LRN && s.asked) LRN.setLevelFromDiagnostic();   // the starting level for every game, from how many letters are known
+    // Golan 8.11 (levels audit, fix 2): the circle no longer sets the level at every round end (it undid level changes)
     saveSession(s);
     // the shared end panel (one row of stars, the letters that lit up, one button), drawn once and refreshed each round
     $("end").hidden = false; $("pause").hidden = true;
