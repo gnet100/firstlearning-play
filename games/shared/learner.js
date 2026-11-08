@@ -1005,7 +1005,7 @@ ${items[item]}</svg>`;
     // Golan 24.10: "סוג כתב" for the games that show cursive (כתב יד): automatic mix (a letter known in print sometimes shows
     // in cursive), print only, cursive, or "mixed" (half and half at random, Golan 28.10). Per child and per game is the game's own business (cfg.script.get / set).
     if (cfg.script) { const r = row("סוג כתב"); const d = seg(r, cfg.script.items || [["auto", "החלטת מערכת"], ["print", "דפוס בלבד"], ["cursive", "כתב יד"], ["mixed", "משולב"]], cfg.script.get, cfg.script.set);
-      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: מרמת קושי 2, אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד, ויותר ככל שהוא מכיר אותה בכתב. ברמה 1 רק דפוס. משולב: חצי מהאותיות בדפוס וחצי בכתב יד, באקראי."; r.append(n); api.refreshers.push(d); }
+      const n = document.createElement("div"); n.className = "fl-fnote"; n.textContent = cfg.script.note || "החלטת מערכת: ברמת קושי 1 דפוס בלבד. מרמת קושי 2, אות שהילד מזהה בביטחון בדפוס מופיעה לפעמים גם בכתב יד. משולב: מחצית מהאותיות בדפוס ומחציתן בכתב יד."; r.append(n); api.refreshers.push(d); }
     // 4. speed of everything that moves (the shared slider)
     if (cfg.game) { const r4 = row(null), sp = document.createElement("div"); r4.append(sp); const sr = speedRow(sp, cfg.game, cfg.speed || {}); api.refreshers.push(() => sr.refresh()); }
     // 5. the narrator's voice, 6. graphics quality
