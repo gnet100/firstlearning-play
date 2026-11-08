@@ -1115,6 +1115,7 @@ ${items[item]}</svg>`;
 .fl-pick .fl-cell.fl-sel::after{content:"";position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:var(--fl-mark,#283593);box-shadow:0 0 0 1.5px #fff}   /* Golan 8.11: a blue dot top-right marks a letter picked for practice (was a blue frame) */
 /* Golan 16.10: no ✓; the only mark = a glowing green ring OUTSIDE the tile + white inner ring, so it shows on every colour, green too */
 .fl-pick .fl-cell:disabled{opacity:.3;cursor:default}
+.fl-pick .fl-cell.fl-nc{opacity:.45}.fl-pick .fl-cell.fl-nc.fl-sel{opacity:.8}   /* Golan 8.11: a letter with no content in this game can still be picked */
 .fl-pick .fl-cell.fl-fin{cursor:pointer}
 .fl-pbtns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;margin:10px auto 6px;direction:rtl;width:420px;max-width:100%}
 .fl-pbtn{font:inherit;font-size:15px;font-weight:700;color:#1d3557;background:transparent;border:2px solid #c9d6e3;border-radius:12px;padding:6px 9px;min-height:max(var(--tap-s,44px),44px);cursor:pointer;white-space:nowrap}
@@ -1123,7 +1124,7 @@ ${items[item]}</svg>`;
 .fl-pnote{font-size:14px;color:#4a5a70;text-align:right;direction:rtl;max-width:420px;margin:0 auto}
 .fl-leg{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;direction:rtl;font-size:16px;margin:10px auto;width:420px;max-width:100%}
 .fl-leg span{display:inline-flex;align-items:center;gap:4px}.fl-leg u{display:inline-block;width:14px;height:14px;border-radius:4px}
-.fl-leg u.fl-leg-sel{width:10px;height:10px;border-radius:50%;background:var(--fl-mark,#283593)}.fl-leg u.fl-leg-off{opacity:.3}
+.fl-leg u.fl-leg-sel{width:10px;height:10px;border-radius:50%;background:var(--fl-mark,#283593)}.fl-leg u.fl-leg-off{opacity:.45}
 .fl-lit{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;direction:rtl}
 .fl-lit span{font-size:34px;width:52px;line-height:52px;border-radius:50%;text-align:center;background:#eef1f5;color:#c3cad3}
 .fl-lit span.half{background:#fff4c2;color:#c9a227;box-shadow:0 0 10px #ffe58a}
@@ -1358,10 +1359,11 @@ ${items[item]}</svg>`;
     el.style.minWidth = "0"; el.style.maxWidth = "100%";
     const finals = opt.finals !== false, avail = new Set(opt.available || FL.LETTERS);
     const sel = new Set();
+    const ncAuto = new Set();   // Golan 8.11: letters with no content here, picked in "החלטת מערכת" (shown and noted; the game never gets them)
     // sel holds base letters and (when the game teaches finals) final letters on their own, so "א-ת" can mean no finals.
     // Tapping a base letter still takes its final along; with finals:false a final only mirrors its base.
     const finOf = (b) => FL.FINALS.filter((f) => FL.FINAL_BASE[f] === b);
-    const put = (list) => { sel.clear(); for (const x of list || []) { const b = FL.FINAL_BASE[x] || x; if (!FL.LETTERS.includes(b) || !avail.has(b)) continue;
+    const put = (list) => { sel.clear(); for (const x of list || []) { const b = FL.FINAL_BASE[x] || x; if (!FL.LETTERS.includes(b)) continue;
       if (x === b) { sel.add(b); if (!finals) continue; } else if (finals) sel.add(x); else sel.add(b); } };
     const addBase = (b) => { sel.add(b); if (finals) for (const f of finOf(b)) sel.add(f); };
     // Golan 16.10: "החלטת מערכת" = the system picks the letters every round from the child's card (nextLetter with no
@@ -1375,7 +1377,7 @@ ${items[item]}</svg>`;
     const save = () => { st.sel = [...sel]; st.preset = preset; };
     let preset = st.preset;
     const list = () => [...FL.LETTERS, ...(finals ? FL.FINALS : [])].filter((l) => sel.has(l));
-    const get = () => (mode === "auto" ? [] : list());
+    const get = () => (mode === "auto" ? [] : list().filter((x) => avail.has(FL.FINAL_BASE[x] || x)));   // the game only gets letters it has content for
     const guess = () => !sel.size ? "clear" : [...sel].every((x) => FL.FINALS.includes(x)) ? "fin" : finals && [...sel].some((x) => FL.FINALS.includes(x)) ? "all" : "ab";
     const changed = () => { save(); draw(); opt.onChange && opt.onChange(get(), mode); };
     const draw = () => {
@@ -1389,9 +1391,10 @@ ${items[item]}</svg>`;
         const base = FL.FINAL_BASE[l] || l, k = c && c[l], shown = !k ? "new" : shownState(k.state);
         const b = document.createElement("button"); b.type = "button"; b.className = "fl-cell" + (base !== l ? " fl-fin" : "");
         paint(b, shown); b.textContent = l; b.title = LABELS[shown];
-        b.disabled = !avail.has(base) || (!finals && base !== l);   // Golan 17.10: a game without finals shows them faded, never linked to the base letter
-        const key = l, on = mode === "auto" ? autoSet.has(key) : sel.has(key); b.classList.toggle("fl-sel", on && !b.disabled); b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.disabled = !finals && base !== l; const nc = !avail.has(base); if (nc) { b.classList.add("fl-nc"); b.title = "אין עדיין תוכן לאות הזאת במשחק הזה"; }   // Golan 8.11: every letter can be picked   // Golan 17.10: a game without finals shows them faded, never linked to the base letter
+        const key = l, on = mode === "auto" ? (nc ? ncAuto.has(key) : autoSet.has(key)) : sel.has(key); b.classList.toggle("fl-sel", on && !b.disabled); b.setAttribute("aria-pressed", on ? "true" : "false");
         b.onclick = () => {
+          if (mode === "auto" && nc) { if (ncAuto.has(key)) ncAuto.delete(key); else ncAuto.add(key); return draw(); }
           if (mode === "auto") {   // auto: the letter is forced in / out on top of the system's pick, which keeps adapting
             if (autoSet.has(key)) { autoForce.out.add(key); autoForce.in.delete(key); } else { autoForce.in.add(key); autoForce.out.delete(key); }
             return changed(); }
@@ -1405,12 +1408,12 @@ ${items[item]}</svg>`;
         for (const k of ["known", "almost", "new"]) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch(k)}${LABELS[k]}</span>`);
         // Golan 8.11: the key also tells the blue dot (picked for practice) and the faded letters (not in this game)
         leg.insertAdjacentHTML("beforeend", `<span><u class="fl-leg-sel"></u>נבחרה לתרגול</span>`);
-        if (grid.querySelector(".fl-cell:disabled")) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch("new").replace("<u ", '<u class="fl-leg-off" ')}לא במשחק הזה</span>`);
+        if (grid.querySelector(".fl-nc")) leg.insertAdjacentHTML("beforeend", `<span>${legSwatch("new").replace("<u ", '<u class="fl-leg-off" ')}אין עדיין תוכן במשחק הזה</span>`);
         el.append(leg); }
       if (opt.buttons) {   // the shared row: "החלטת מערכת", "כל האותיות", "ניקוי" + the explanation (plain text, ruling 16.10)
         const row = document.createElement("div"); row.className = "fl-pbtns";
         const mk = (t, on, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "fl-pbtn" + (on ? " on" : ""); b.textContent = t; b.setAttribute("aria-pressed", on ? "true" : "false"); b.onclick = fn; row.append(b); };
-        mk("החלטת מערכת", preset === "auto", () => { preset = "auto"; mode = "auto"; autoForce.in.clear(); autoForce.out.clear(); changed(); });   // pressed again = the system's own pick, hand changes dropped
+        mk("החלטת מערכת", preset === "auto", () => { preset = "auto"; mode = "auto"; autoForce.in.clear(); autoForce.out.clear(); ncAuto.clear(); changed(); });   // pressed again = the system's own pick, hand changes dropped
         const bases = FL.LETTERS.filter((b) => avail.has(b)), fins = finals ? FL.FINALS.filter((f) => avail.has(FL.FINAL_BASE[f])) : [];
         const pre = (p, fill) => () => { preset = p; mode = "manual"; sel.clear(); fill(); changed(); };
         // one button lit at most, the most specific match; without finals "כל האותיות" = "א-ת", so only "א-ת" is shown (Golan 16.10)
@@ -1425,7 +1428,10 @@ ${items[item]}</svg>`;
         note.textContent = mode === "auto"
           ? autoTxt
           : !sel.size ? "אין אותיות מסומנות. סמנו את האותיות לתרגול, או בחרו החלטת מערכת. כל עוד לא סומנה אות, המשחק בוחר לבד."
-          : MANUAL_NOTE;   // Golan 17.10: the same wording in every game (a game's own opt.note is no longer shown)
+          : MANUAL_NOTE;
+        const ncPicked = (mode === "auto" ? [...ncAuto] : [...sel].filter((x) => !avail.has(FL.FINAL_BASE[x] || x)));
+        if (ncPicked.length) note.textContent += ` לאותיות ${ncPicked.join(", ")} עוד אין תוכן במשחק הזה, ולכן המשחק מתרגל את שאר האותיות${mode === "auto" ? "" : " המסומנות (אם אין אחרות, המשחק בוחר לבד)"}.`;   // Golan 8.11
+        // Golan 17.10: the same wording in every game (a game's own opt.note is no longer shown)
         el.append(row, note);
       }
     };
