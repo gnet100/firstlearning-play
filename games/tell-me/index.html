@@ -353,6 +353,12 @@
   html[data-screen~="portrait"] .jbtn { min-width: 0; flex: 0 1 44%; }
   html[data-screen~="portrait"] .toast, html[data-screen~="portrait"] .toast.good { left: 68%; top: 27%; }
   #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
+  /* Golan 8.11: the demo for the adult ("?"), same card as in the sound games */
+  #helpCard { position: fixed; left: var(--edge-l, 12px); bottom: var(--edge-b, 12px); width: max(calc(84 * var(--u, 1px)), 64px); aspect-ratio: 3 / 4; border-radius: 18%;
+    border: 3px solid #7c5cff; background: linear-gradient(#ffffff, #efeaff); box-shadow: 0 4px 0 #5a3fd1, 0 6px 14px #0003; color: #5a3fd1; cursor: pointer; padding: 0;
+    font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
+  #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
+  html.fl-demo-mode .judge { pointer-events: none; }
 </style>
 <canvas id="game" aria-label="משחקים ביחד"></canvas>
 
@@ -372,6 +378,7 @@
     <button class="jbtn yes" id="said" disabled>נכון <svg viewBox="0 0 100 100" aria-hidden="true"><polyline points="10,52 40,80 90,18" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
   <div class="perf" id="perf"></div>
+  <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
   <div class="toast" id="toast"></div>
   <div class="count" id="count"></div>
 </div>
@@ -1858,6 +1865,40 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
 
   // test hook for automated checks
   window.__tell = { boxes: () => flyers.map(screenBox), board, state, judge, settings, get log() { return log; }, rig, openReport, drawCard, cardTex, endPanel, get hg() { return hg; } };
+  // ---------- the demo ----------
+  // Golan 8.11: the demo of "משחקים ביחד" shows the adult what to do: Hila says three short lines (tell_demo1-3) while an arrow
+  // points at the letter, then at "נכון" and "נסו שוב", then at the speaker. One example per press of "?" (up to 17 s); the next
+  // press shows another letter. The game waits meanwhile (hourglass stopped), the door in the frame stops it, then it all flies up.
+  (() => {
+    const VOICE = "../../voice/audio/", LETTERS = ["ב", "מ", "ש", "ד", "ל"];
+    let n = 0, run = null;
+    const at = (id) => { const r = $(id).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top }; };
+    const arrow = (id) => { if (window.FL && FL.demoArrow) { if (!id) return FL.demoArrow(null); const p = at(id); FL.demoArrow(p.x, p.y); } };
+    function stop(fin) {
+      if (!run) return; const r = run; run = null; r.alive = false; if (r.audio) { try { r.audio.pause(); } catch (e) {} }
+      arrow(null); clearTimeout(r.t);
+      const back = () => { $("target").textContent = r.was; if (r.card != null) try { drawCard(r.card, false); } catch (e) {} state.mode = r.mode; };
+      if (fin && window.FL && FL.demoOut) FL.demoOut(back); else { if (window.FL && FL.demoFrame) FL.demoFrame(false); back(); }
+    }
+    function line(id, point, next) {
+      if (!run || !run.alive) return; arrow(point);
+      const a = new Audio(VOICE + id + ".mp3"); run.audio = a; let done = false;
+      const go = () => { if (done) return; done = true; if (run && run.alive) run.t = setTimeout(next, 200); };
+      a.addEventListener("ended", go); a.addEventListener("error", () => { run.t = setTimeout(go, 2500); });
+      a.play().catch(() => { run.t = setTimeout(go, 2500); });
+    }
+    $("helpCard").addEventListener("click", (e) => {
+      e.stopPropagation(); if (run || !(state.mode === "play" || state.mode === "ready")) return;
+      try { hush(); } catch (x) {}
+      const L = LETTERS[n++ % LETTERS.length];
+      run = { alive: true, was: $("target").textContent, card: state.q ? state.q.letter : null, mode: state.mode };
+      state.mode = "paused";
+      if (window.FL && FL.demoFrame) FL.demoFrame(true, () => stop(true));
+      $("target").textContent = L; try { drawCard(L, false); } catch (x) {}
+      setTimeout(() => line("tell_demo1", "target", () => { line("tell_demo2", "said", () => line("tell_demo3", "replay", () => stop(true)));
+        const r = run; setTimeout(() => { if (r.alive && run === r) arrow("notYet"); }, 2800); }), 400);
+    });
+  })();
 })();
 </script>
 
