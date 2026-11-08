@@ -12,16 +12,19 @@
   try { const u = new URLSearchParams(location.search).get("isles"); if (u !== null) localStorage.setItem("fl-isles-open", u); } catch (e) {}   // Golan 5.11: ?isles=2 / ?isles=0, read as soon as the hub loads
   const UNLOCK_AT = 15;   // letters recognised with confidence that open island 2 (Golan 20.10)
   // Golan 20.10: every title says "מִשְׂחֲקֵי ..." (the island holds the games of that topic)
+  // Golan 5.11 17:40 / 8.11: the island order (10 islands). t / d = the name clip and the "what it holds" clip
+  // (the clips keep their old numbers; map_t10 / map_d10 are new for the final-letters island)
   const STOPS = [
-    { name: "מִשְׂחֲקֵי זִיהוּי אוֹתִיּוֹת", show: ["א", "ב", "ג", "ד", "ה", "ו", "ז"] },
-    { name: "מִשְׂחֲקֵי זִיהוּי צְלִילִים", show: ["מ", "ס", "ש", "ר"], rings: true },
-    { name: "מִשְׂחֲקֵי זִיהוּי הֲבָרוֹת", show: ["בָּ", "לִי", "נוּ"] },
-    { name: "מִשְׂחֲקֵי קְרִיאַת הֲבָרוֹת עִם נִקּוּד", show: ["מָ", "לֶ", "כִּי", "דוֹ"] },
-    { name: "מִשְׂחֲקֵי קְרִיאַת מִלִּים", show: ["אַבָּא", "בַּיִת", "סֵפֶר"] },
-    { name: "מִשְׂחֲקֵי כְּתִיבַת אוֹתִיּוֹת וּמִלִּים", show: ["א", "ב"], pencil: true },
-    { name: "מִשְׂחֲקֵי שָׂפָה וְאוֹצַר מִלִּים", show: ["שֶׁמֶשׁ", "יָם", "עֵץ"] },
-    { name: "מִשְׂחֲקֵי הֲבָנַת הַנִּשְׁמָע", show: ["?", "!"], rings: true },
-    { name: "מִשְׂחֲקֵי שֶׁטֶף קְרִיאָה", show: ["קוֹרְאִים", "מַהֵר"] },
+    { name: "מִשְׂחֲקֵי זִיהוּי אוֹתִיּוֹת", show: ["א", "ב", "ג", "ד", "ה", "ו", "ז"], t: "map_t1", d: "map_d1" },
+    { name: "מִשְׂחֲקֵי זִיהוּי צְלִילִים", show: ["מ", "ס", "ש", "ר"], rings: true, t: "map_t2", d: "map_d2" },
+    { name: "מִשְׂחֲקֵי כְּתִיבַת אוֹתִיּוֹת וּמִלִּים", show: ["א", "ב"], pencil: true, t: "map_t6", d: "map_d6" },
+    { name: "מִשְׂחֲקֵי אוֹתִיּוֹת סוֹפִיּוֹת וּצְלִיל סוֹגֵר", show: ["ך", "ם", "ן", "ף", "ץ"], t: "map_t10", d: "map_d10" },
+    { name: "מִשְׂחֲקֵי זִיהוּי הֲבָרוֹת", show: ["בָּ", "לִי", "נוּ"], t: "map_t3", d: "map_d3" },
+    { name: "מִשְׂחֲקֵי קְרִיאַת הֲבָרוֹת עִם נִקּוּד", show: ["מָ", "לֶ", "כִּי", "דוֹ"], t: "map_t4", d: "map_d4" },
+    { name: "מִשְׂחֲקֵי קְרִיאַת מִלִּים", show: ["אַבָּא", "בַּיִת", "סֵפֶר"], t: "map_t5", d: "map_d5" },
+    { name: "מִשְׂחֲקֵי שָׂפָה וְאוֹצַר מִלִּים", show: ["שֶׁמֶשׁ", "יָם", "עֵץ"], t: "map_t7", d: "map_d7" },
+    { name: "מִשְׂחֲקֵי הֲבָנַת הַנִּשְׁמָע", show: ["?", "!"], rings: true, t: "map_t8", d: "map_d8" },
+    { name: "מִשְׂחֲקֵי שֶׁטֶף קְרִיאָה", show: ["קוֹרְאִים", "מַהֵר"], t: "map_t9", d: "map_d9" },
   ];
   // Golan 20.10: the first island at the bottom left, the path going up and to the right and away into the distance,
   // so several islands show, each one farther and smaller
@@ -358,15 +361,15 @@
   }
   function setFocus(i) {
     focus = i; focusedAt = T; title(); if (i < 0) return;
-    if (isles[i].open) opt.say("map_t" + (i + 1));
-    else opt.say("map_t" + (i + 1), null, ["map_d" + (i + 1), "map_locked"]);   // Golan 20.10: its name, what it holds, then "opens later"
+    if (isles[i].open) opt.say(STOPS[i].t);
+    else opt.say(STOPS[i].t, null, [STOPS[i].d, "map_locked"]);   // Golan 20.10: its name, what it holds, then "opens later"
   }
   function title() {
     const pill = ui.querySelector(".pill"), go = ui.querySelector(".go");
     if (focus < 0) { pill.style.opacity = "0"; go.hidden = true; return; }
     const st = STOPS[focus], openNow = isles[focus].open;
     pill.style.opacity = "1"; pill.querySelector("b").dataset.nq = st.name; 
-    pill.querySelector(".spk").dataset.clip = openNow ? "map_t" + (focus + 1) : "map_d" + (focus + 1);
+    pill.querySelector(".spk").dataset.clip = openNow ? st.t : st.d;
     go.hidden = true; fit();   /* Golan 20.10: no round ▶ button; a tap on the island (or the balloon) opens it */
   }
   function fit() {   // Golan 29.10: every word shown in the topics keeps its nikud (was: only at 28px or more)
@@ -375,7 +378,7 @@
   function goTo(i, far) {   // arrows and the wheel: one island at a time; a touch (far) flies to any island ahead or behind (Golan 29.10)
     const c = Math.round(s); if (!far) i = Math.max(c - 1, Math.min(c + 1, i)); sTo = Math.max(0, Math.min(STOPS.length - 1, i)); }
   function enter(i) {
-    if (!isles[i].open) { opt.say("map_t" + (i + 1), null, ["map_d" + (i + 1), "map_locked"]); focusedAt = T; return; }
+    if (!isles[i].open) { opt.say(STOPS[i].t, null, [STOPS[i].d, "map_locked"]); focusedAt = T; return; }
     if (i === 0 || (opt.has && opt.has(i))) { opt.onOpen(i); return; }   // Golan 28.10: island 2 has its first game
     opt.say("map_soon");   // an open topic whose games are still being built
   }
