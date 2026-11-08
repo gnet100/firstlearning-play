@@ -7,8 +7,14 @@
   "use strict";
   if (window.FL_TOOLTIP) return; window.FL_TOOLTIP = true;
   const NIKUD = { "יציאה": "יְצִיאָה", "חזרה": "חֲזָרָה", "סגירה": "סְגִירָה", "הגדרות": "הַגְדָּרוֹת", "עצירה": "עֲצִירָה", "המשך": "הֶמְשֵׁךְ",
-    "שוב": "שׁוּב", "התחלה מחדש": "הַתְחָלָה מֵחָדָשׁ", "השמעה": "הַשְׁמָעָה", "עזרה": "עֶזְרָה", "הדגמה": "הַדְגָּמָה", "מחיקה": "מְחִיקָה" };
-  const nik = (t) => NIKUD[(t || "").trim()] || t;
+    "שוב": "שׁוּב", "התחלה מחדש": "הַתְחָלָה מֵחָדָשׁ", "השמעה": "הַשְׁמָעָה", "עזרה": "עֶזְרָה", "הדגמה": "הַדְגָּמָה", "מחיקה": "מְחִיקָה",
+    // Golan 8.11: every tooltip with nikud
+    "התחל מחדש": "הַתְחֵל מֵחָדָשׁ", "הקשבה": "הַקְשָׁבָה", "הקשבה להוראות": "הַקְשָׁבָה לְהוֹרָאוֹת", "איך משחקים?": "אֵיךְ מְשַׂחֲקִים?",
+    "שמיעה חוזרת": "שְׁמִיעָה חוֹזֶרֶת", "מפת הלמידה": "מַפַּת הַלְּמִידָה", "כניסה": "כְּנִיסָה", "שמאלה": "שְׂמֹאלָה", "ימינה": "יָמִינָה",
+    "מהירות תנועה": "מְהִירוּת תְּנוּעָה", "ילד חדש": "יֶלֶד חָדָשׁ", "התשובה": "הַתְּשׁוּבָה", "הצליל": "הַצְּלִיל", "הדגמה חוזרת": "הַדְגָּמָה חוֹזֶרֶת" };
+  // a label not in the list: if it has no nikud, the shared FL.nikud word list may know it
+  const nikAny = (t) => { const k = (t || "").trim(); if (NIKUD[k]) return NIKUD[k]; if (/[\u05b0-\u05c7]/.test(k)) return k; try { if (window.FL && typeof FL.nikud === "function") return FL.nikud(k); } catch (e) {} return k; };
+  const nik = (t) => nikAny(t);
   const css = document.createElement("style");
   css.textContent = `
   .fl-tip { position: fixed; z-index: 100000; pointer-events: none; opacity: 0; transition: opacity .15s ease;
