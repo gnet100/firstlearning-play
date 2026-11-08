@@ -353,7 +353,8 @@
   function placeCards(grid, cols) {
     const cards = [...grid.children], n = cards.length, rows = Math.ceil(n / cols), first = (rows - 1) * cols, inLast = n - first;
     // a short last row (standing phone, 2 columns): the song and the circle go in the row above it
-    const spots = inLast >= 3 ? { tellme: first, song: first + Math.floor((inLast - 1) / 2), circle: n - 1 } : { tellme: first, song: first - cols, circle: first - 1 };
+    // Golan 8.11: with 8 cards (the sound island) the song still sits in the middle of the bottom row, next to "משחקים ביחד"
+    const spots = inLast >= 3 || (cols >= 3 && inLast >= 2) ? { tellme: first, song: first + Math.max(1, Math.floor((inLast - 1) / 2)), circle: n - 1 } : { tellme: first, song: first - cols, circle: first - 1 };
     const fixed = BOTTOM.filter((id) => cards.some((c) => slotOf(c.dataset.id) === id));
     const taken = new Set(fixed.map((id) => spots[id]));
     let k = 0;
