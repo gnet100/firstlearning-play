@@ -718,8 +718,8 @@
     epoch++; clearBoard(); setChips(); showPlayers(true); setTurn(null);
     state.starter = kidStarts() ? "k" : "c"; state.mode = "intro2";
     const my = epoch;
-    // the computer's sound is said, then who starts (new lines ttt_*: silent until recorded)
-    playIds([300, "ttt_pc_sound", clipOfL(state.pcL), 250, state.starter === "k" ? "ttt_you_first" : "ttt_pc_first"], () => {
+    // Golan 8.11: only who starts; the computer's sound is heard when it places it on the board
+    playIds([300, state.starter === "k" ? "ttt_you_first" : "ttt_pc_first"], () => {
       if (my !== epoch || state.mode !== "intro2") return;
       if (state.starter === "k") { state.mode = "kid"; setTurn("k"); } else { state.mode = "pc"; setTurn("c"); pcTurn(); }
     });
