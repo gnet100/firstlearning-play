@@ -837,7 +837,7 @@
     const sk = Math.max(px("--tap-s", 44) * 0.9, Math.min(bs * 0.34, 64));   // the speaker under each ball
     const sb = Math.max(px("--tap", 60) * 1.1, Math.min(rowH * 0.8, ts * 0.8, 150));
     for (const id of ["balls", "spinRow"]) { const e = $(id); e.style.top = rowTop + "px"; e.style.height = rowH + "px"; e.style.setProperty("--bs", bs + "px"); e.style.setProperty("--sb", sb + "px"); e.style.setProperty("--bg", gap + "px"); e.style.setProperty("--sk", sk + "px"); }
-    { const sr = $("spinRow"); sr.style.top = top2 + wh + Math.max(8, ts * 0.06) + "px"; sr.style.height = sb * 0.62 + 12 + "px"; }   // Golan 30.10 08:35: the spin button closer to the wheel (also in the demo)
+    { const sr = $("spinRow"); sr.style.top = top2 + wh + Math.max(20, ts * 0.15) + "px";   /* Golan 8.11: a little farther from the pictures */ sr.style.height = sb * 0.62 + 12 + "px"; }   // Golan 30.10 08:35: the spin button closer to the wheel (also in the demo)
     $("balls").classList.toggle("tight", bs * 1.08 + sk + 4 > rowH || rowTop + rowH > H - eb + 1);
     drawWheel(); placeStar(); placeOk();
     [...$("balls").children].forEach(drawBall);
