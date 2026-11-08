@@ -1835,9 +1835,8 @@
     // 5.11: its door stops the demo now: it all flies up, and a real train replaces the demo train
     if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { stopSeq(); hideHand(); state.autoDrop = false; if (window.FL && FL.demoArrow) FL.demoArrow(null);
       const fin = () => { endDemo(); replaceTrain(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
-    const arrow = (c) => { if (!(window.FL && FL.demoArrow)) return; const a = signScreen(c, true); FL.demoArrow(a.x, a.y); }, noArrow = () => FL.demoArrow && FL.demoArrow(null);
-    const names = []; for (const c of activeCars().slice().sort((a, b) => a.root.getAbsolutePosition().x - b.root.getAbsolutePosition().x)) names.push(() => { drawCarSign(c, "glow"); arrow(c); }, PICS[c.pic] && PICS[c.pic].clip, () => { drawCarSign(c, "normal"); noArrow(); });
-    playIds([...(state.demoEx ? [] : ["sd_demo"]), ...names, ...qIds(L)], () => {   // two examples (Golan 30.10 16:04); the opening line only before the first
+    // Golan 8.11 (as in the sound detective): the pictures' names are not read; each example opens straight with the question
+    playIds([...qIds(L)], () => {   // two examples (Golan 30.10 16:04)
       if (!state.demo || state.train !== T) return;
       const c = rightCar(); if (!c) return endDemo();
       const at = signScreen(c), r = canvas.getBoundingClientRect();
