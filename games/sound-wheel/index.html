@@ -1024,7 +1024,7 @@
     setTimeout(() => playIds(ids, () => later(ms(1200), () => {
       if (state.q !== q) return;
       $("balls").textContent = "";
-      if (q.demo && demoAfter) { const f = demoAfter; demoAfter = null; return f(); }
+      if (q.demo && demoAfter) { const f = demoAfter; return playIds(["demo_back"], () => { if (demoAfter !== f) return; demoAfter = null; f(); }); }   /* Golan 10.11: "נחזור לשחק" first */
       if (HG && HG.done()) return endRound();
       readySpin();
     })), 700);

@@ -1600,7 +1600,7 @@
       clouds.forEach((c) => { if (c.state === "drop" || c.state === "idle" || c.state === "wrong" || c.state === "empty") { c.state = "out"; c.t = 0; c.flyFrom = { x: c.root.position.x, y: c.root.position.y }; } });
       setTimeout(() => {
         if (state.q !== myQ) return;
-        if (myQ.demo && demoAfter) { const f = demoAfter; demoAfter = null; return f(); }
+        if (myQ.demo && demoAfter) { const f = demoAfter; return playIds(["demo_back"], () => { if (demoAfter !== f) return; demoAfter = null; f(); }); }   /* Golan 10.11: "נחזור לשחק" first */
         if (hg ? hg.done() : state.qIndex >= roundLen()) return endRound();
         askQuestion();
       }, 750);

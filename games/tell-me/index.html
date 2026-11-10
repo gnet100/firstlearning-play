@@ -1895,7 +1895,7 @@ if (!window.FL || !FL.learner) document.write('<script src="letter-pairs.js"><\/
       state.mode = "paused";
       if (window.FL && FL.demoFrame) FL.demoFrame(true, () => stop(true));
       $("target").textContent = L; try { drawCard(L, false); } catch (x) {}
-      setTimeout(() => line("tell_demo1", "target", () => { line("tell_demo2", "said", () => line("tell_demo3", "replay", () => stop(true)));
+      setTimeout(() => line("tell_demo1", "target", () => { line("tell_demo2", "said", () => line("tell_demo3", "replay", () => line("demo_back", null, () => stop(true))));   /* Golan 10.11: "נחזור לשחק" first */
         const r = run; setTimeout(() => { if (r.alive && run === r) arrow("notYet"); }, 2800); }), 400);
     });
   })();
