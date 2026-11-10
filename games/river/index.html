@@ -469,7 +469,7 @@
     yum: () => tone([700, 900, 760, 1040], 0.09, "sine", 0.18), shake: () => softShake() };
   const AUDIO = "../../voice/audio/";
   // hub_g_river (the name) and river_start2 (_m / _f: the description) are new lines of the voice thread: silent until recorded; the demo opens with sd_demo, as the other sound games
-  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2", help: "river_help" };   // river_help (Golan 7.11): "עִזְרוּ לָאַרְנָב לַחֲצוֹת אֶת הַנָּהָר. מִצְאוּ אֶת מַסְלוּל הַתְּמוּנוֹת הַמַּתְחִילוֹת בָּאוֹת..." at the start of a round, then the sound
+  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_river", intro: "river_start2", help: "river_help", demoHow: "river_demo1", spring: "river_demo_spring" };   /* Golan 10.11: river_demo1 "עִזְרוּ לָאַרְנָב לַחֲצוֹת אֶת הַנָּהָר. סַמְּנוּ אֶת מַסְלוּל הַקְּפִיצוֹת...", river_demo_spring "הַקְּפִיץ מְדַלֵּג מֶרְחָק כָּפוּל" (silent until recorded) */   // river_help (Golan 7.11): "עִזְרוּ לָאַרְנָב לַחֲצוֹת אֶת הַנָּהָר. מִצְאוּ אֶת מַסְלוּל הַתְּמוּנוֹת הַמַּתְחִילוֹת בָּאוֹת..." at the start of a round, then the sound
   const CHILD_LINES = ["river_start2"];
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
@@ -727,12 +727,12 @@
     const cuts = shuffle(Array.from({ length: total - 1 }, (_, i) => i + 1)).slice(0, parts - 1).sort((a, b) => a - b);
     const out = []; let prev = 0; for (const c of [...cuts, total]) { out.push(c - prev); prev = c; } return out;
   }
-  function makePath(L, prog) {
+  function makePath(L, prog, spOver) {
     // Golan 6.11 19:49: every round starts at the level's fewest moves, and each new river needs one more move (up to a top)
     // Golan 7.11 18:39: the number of moves stays known; a spring is only ever over water, and the map never lets a spring
     // land on a good stone (or the far bank) unless that spring IS the planned move: no two good stones straight ahead, and
     // no spring over a wrong stone onto a good one. Every river is checked (pathOk) before it is used.
-    const cfg = LV[L], seq = SEQ[L] || SEQ[1], sp = seq[Math.min(seq.length - 1, Math.max(0, prog | 0))];
+    const cfg = LV[L], seq = SEQ[L] || SEQ[1], sp = spOver || seq[Math.min(seq.length - 1, Math.max(0, prog | 0))];
     for (let tries = 0; tries < 20000; tries++) {
       const n = tries < 16000 ? sp.n : Math.max(4, sp.n - 1);   /* the exact length; one less only if no river of that length was found */
       const maxJ = !sp.springs ? 0 : L === 2 ? Math.max(1, Math.round(n / 4)) : Math.max(2, Math.round(n / 3));
@@ -845,8 +845,8 @@
   }
   function newRiver(opt = {}) {
     clearTasks(); dropFinale();
-    const L = opt.demo ? 1 : lvl(), t = opt.letter || pickSound();
-    const P = opt.P || makePath(L, opt.demo ? opt.prog || 0 : state.prog[L]);
+    const L = opt.demo ? opt.L || 1 : lvl(), t = opt.letter || pickSound();
+    const P = opt.P || makePath(L, opt.demo ? opt.prog || 0 : state.prog[L], opt.sp);
     const opts = buildRiver(t, P);
     const q = { id: ++riverN, letter: t, P, level: L, runs: 0, fails: 0, sinkWrong: null, hint: false, demo: !!opt.demo, rec: false, opts, t0: performance.now() };
     state.q = q; resetPlan(); runIdx = -1; badIdx = -1;
@@ -911,12 +911,14 @@
 
   // ---------- simulating a plan on the grid ----------
   function simulate(q, cmds) {
-    let r = -1, c = q.P.c0, d = 0; const out = [];
+    let r = -1, c = q.P.c0, d = 0, fs = 0; const out = [];   /* fs: which way the bunny faces now (0 forward, 1 / -1 a side) */
     for (let i = 0; i < cmds.length; i++) {
       const k = cmds[i];
       // a side arrow: turn to that side, one hop that way, then turn forward again (only when the hop held)
       const side = k === "R" ? 1 : k === "L" ? -1 : 0;
-      if (side) out.push({ i, k: "turn", dd: side, d: side > 0 ? 1 : 3 });
+      /* Golan 10.11: hops in a row to the same side: no turning forward in between */
+      if (side && fs !== side) out.push({ i, k: "turn", dd: side - fs, d: side > 0 ? 1 : 3 });
+      if (side) fs = side;
       const len = k === "J" ? 2 : 1, nr = side ? r : r + DIRS[d][0] * len, nc = side ? c + side : c + DIRS[d][1] * len;
       let res;
       if (nc < 0 || nc >= COLS) res = "off";
@@ -929,7 +931,8 @@
       out.push({ i, k: "hop", len, from: { r, c }, to: { r: nr, c: nc }, res });
       r = nr; c = nc;
       if (res !== "ok" && res !== "home") break;
-      if (side) out.push({ i, k: "turn", dd: -side, d: 0 });
+      const nk = cmds[i + 1], nside = nk === "R" ? 1 : nk === "L" ? -1 : 0;
+      if (side && !nside) { out.push({ i, k: "turn", dd: -side, d: 0 }); fs = 0; }   /* forward again only before a forward step (or at the end) */
     }
     const last = out[out.length - 1];
     const result = last && last.k === "hop" && !["ok", "home"].includes(last.res) ? last.res : "short";
@@ -975,7 +978,18 @@
   function hopRest() { bunny.hop.position.y = 0; bunny.hop.scaling.setAll(1); bunny.feet.forEach((f) => (f.rotation.x = 0)); bunny.ears.forEach((e) => (e.pivot.rotation.x = 0)); armPose(0); }
   // the front paws follow the hind feet: folded up while the hind feet kick back (in the air), reaching down and forward to land first
   function armPose(foot) { const a = foot < 0 ? -foot * ARM_TUCK : foot * ARM_REACH; bunny.arms.forEach((s) => (s.rotation.x = a)); }
+  // Golan 10.11: a picture island rocks a little when the bunny lands on it, the bunny with it; 3 strengths, one at random
+  // each landing. It does not hold up the run: the next hop takes the bunny off and its tilt goes back to straight.
+  const ROCK = [0.035, 0.065, 0.1];
+  function rockStone(r, c) {
+    const cell = grid[r] && grid[r][c], st = cell && cell.stone; if (!st || st.sunk) return;
+    const on = () => bunny.hopN === n0 && bunny.r === r && bunny.c === c, n0 = bunny.hopN, a = ROCK[Math.floor(Math.random() * ROCK.length)], ang = Math.random() * Math.PI * 2, ax = Math.cos(ang), az = Math.sin(ang);
+    tween(0.9, (k) => { const w = Math.sin(k * Math.PI * 5) * a * (1 - k); st.root.rotation.x = w * ax; st.root.rotation.z = w * az;
+      if (on()) { bunny.hop.rotation.z = w * az; bunny.root.position.x = colX(c) - w * az * 0.5; }
+      if (k >= 1) { st.root.rotation.x = 0; st.root.rotation.z = 0; if (on()) { bunny.hop.rotation.z = 0; bunny.root.position.x = colX(c); } } });
+  }
   async function hopTo(p1, len, into) {
+    bunny.hopN = (bunny.hopN || 0) + 1; bunny.hop.rotation.z = 0;   /* leaving a rocking island: it lets go of the bunny */
     const p0 = bunny.root.position.clone(), big = len === 2, H = big ? 1.25 : 0.6, dur = big ? 0.72 : 0.46, P = big ? 0.55 : 0.42;
     const pose = (sx, sy, pitch, foot, ear) => { bunny.hop.scaling.set(sx, sy, sx); bunny.hop.rotation.x = pitch; bunny.feet.forEach((f) => (f.rotation.x = foot)); bunny.ears.forEach((e) => (e.pivot.rotation.x = ear)); armPose(foot); };
     await tween(0.2, (k) => { const e = ease(k); pose(1 + 0.3 * e, 1 - 0.45 * e, -0.2 * e, 0.4 * e, 0.6 * e); });   // the crouch (Golan 6.11 19:24: big, so it is seen)
@@ -1184,7 +1198,7 @@
       if (s.k === "turn") await turnBy(s.dd, s.d);
       else { const into = !["ok", "home", "bank"].includes(s.res) || (s.res === "sink");
         await hopTo(s.res === "sink" ? new BABYLON.Vector3(colX(s.to.c), grid[s.to.r][s.to.c].stone.top + 0.06, rowZ(s.to.r)) : s.res === "over" ? new BABYLON.Vector3(colX(s.to.c), -0.45, rowZ(Math.min(s.to.r, q.P.R - 1)) + SP * 0.45) : spotOf(s.to.r, s.to.c), s.len, into && s.res !== "sink");
-        bunny.r = s.to.r; bunny.c = s.to.c; }
+        bunny.r = s.to.r; bunny.c = s.to.c; if (s.res === "ok") rockStone(s.to.r, s.to.c); }
       if (!alive()) return;
     }
     if (sim.result === "bank") { runIdx = -1; renderPlan(); return success(q, alive); }
@@ -1622,7 +1636,8 @@
     };
     const example = (n) => {
       if (!alive()) return;
-      const q = newRiver({ demo: true, prog: n, silent: true }); state.mode = "plan"; renderPlan(); setTimeout(onScreen, 30);
+      /* Golan 10.11: the demo explains the game, and its river has a change of direction and a spring (5 moves) */
+      const q = newRiver({ demo: true, L: 2, sp: { n: 5, turns: 1, springs: 1 }, silent: true }); state.mode = "plan"; renderPlan(); setTimeout(onScreen, 30);
       const cmds = q.P.cmds.slice(); let i = 0;   // Golan 8.11: the hand taps every arrow (no fixed first arrow)
       const tapNext = () => {
         if (!alive() || state.q !== q) return;
@@ -1631,14 +1646,16 @@
         moveHand(last || { x: p.x - 80, y: innerHeight + 40 }, p, last ? 520 : 1000, () => setTimeout(() => {
           if (!alive() || state.q !== q) return;
           last = p; btn.classList.add("tap"); setTimeout(() => btn.classList.remove("tap"), 180);
-          if (i < cmds.length) { addStep(cmds[i], true); i++; setTimeout(tapNext, 260); return; }
+          if (i < cmds.length) { const k = cmds[i]; addStep(k, true); i++;
+            if (k === "J" && !q.springSaid) { q.springSaid = true; return playSeq([LINES.spring], 1, () => setTimeout(tapNext, 200)); }   /* "הקפיץ מדלג מרחק כפול" */
+            setTimeout(tapNext, 260); return; }
           if (window.FL && FL.demoArrow) FL.demoArrow(null);
           setTimeout(hideHand, 400); last = null;
           demoCont = () => { if (!alive()) return; setTimeout(finish, 500); /* Golan 8.11: one example per press */ };
           go(true);
         }, 220));
       };
-      playSeq([SOUNDS[q.letter].s], 1, () => setTimeout(tapNext, 300));
+      playSeq([500, LINES.demoHow, 200, SOUNDS[q.letter].s], 1, () => setTimeout(tapNext, 300));   /* half a second, how to play, then the sound */
     };
     playSeq([], 1, () => { if (!alive()) return; example(0); });
   }
