@@ -1579,25 +1579,55 @@ ${items[item]}</svg>`;
   function lastRoundScore(g) {   // share of first-try answers in this game's last round (answers of the last 10 minutes)
     const p = cur(); if (!p || !g) return null; const since = Date.now() - 10 * 60 * 1000, ev = p.events.filter((e) => e.g === g && e.t >= since);
     return ev.length >= 3 ? ev.filter((e) => e.ok).length / ev.length : null; }
+  // Golan 10.11: the next island. At 50% known on an island, "המשחק הבא" alternates: from this island to one of the 3 easiest games
+  // of the next island, and from there back here. Over 75% known it moves on to the next island and no longer comes back.
+  const NEXT_UP = 0.5, NO_BACK = 0.75;
+  function nextIsle(p, gi) {   // { isle, easy }: where the next game comes from
+    if (!p || !gi) return { isle: gi, easy: false };
+    const nxt = RANK["isle" + (gi + 1)] ? gi + 1 : 0, prev = RANK["isle" + (gi - 1)] ? gi - 1 : 0, sh = isleShare(p, gi);
+    if (nxt && sh >= NO_BACK) return { isle: nxt, easy: false };
+    if (nxt && sh >= NEXT_UP) return { isle: nxt, easy: true };
+    if (prev) { const ps = isleShare(p, prev); if (ps >= NEXT_UP && ps < NO_BACK) return { isle: prev, easy: false }; }
+    return { isle: gi, easy: false };
+  }
   function nextGame(justPlayed) {
     const now = justPlayed === undefined ? gameCfg.game : justPlayed;
     let last = ""; try { last = localStorage.getItem("fl-map-last") || ""; } catch (e) {}
     const gi = now && (RANK.isle2.includes(now) || ISLE_GAMES[2].includes(now)) ? 2 : now && (RANK.isle1.includes(now) || ISLE_GAMES[1].includes(now)) ? 1 : 0;   /* Golan 8.11 (audit 6): stay on the island just played (three in a row and the together games too) */
-    const isle = gi ? "isle" + gi : confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
-    const w0 = isle === "isle2" ? (n <= 2 ? 0 : n <= 5 ? 1 : 2) : Math.min(rank.length - 3, Math.floor(n / 3)), win = rank.slice(w0, w0 + 3);
-    const sc = lastRoundScore(now), step = sc == null ? 0 : sc >= 0.8 ? 1 : sc <= 0.5 ? -1 : 0;
-    const at = rank.indexOf(now), base = at >= w0 && at < w0 + 3 ? at - w0 : 1, want = Math.max(0, Math.min(2, base + step));
+    const go = nextIsle(cur(), gi), cross = !!gi && go.isle !== gi;
+    const isle = go.isle ? "isle" + go.isle : confidentCount() >= 15 ? "isle2" : "isle1", rank = RANK[isle], n = isle === "isle2" ? soundsKnown() : confidentCount();
+    const w0 = go.easy ? 0 : isle === "isle2" ? (n <= 2 ? 0 : n <= 5 ? 1 : 2) : Math.min(rank.length - 3, Math.floor(n / 3)), win = rank.slice(w0, w0 + 3);
+    const sc = cross ? null : lastRoundScore(now), step = sc == null ? 0 : sc >= 0.8 ? 1 : sc <= 0.5 ? -1 : 0;
+    const at = rank.indexOf(now), base = at >= w0 && at < w0 + 3 ? at - w0 : cross && go.easy ? 0 : 1, want = Math.max(0, Math.min(2, base + step));
     const recent = recentGames(2), byId = (g) => NEXT_GAMES.find((x) => x.g === g), ok = (g) => g !== now && !recent.includes(g) && byId(g) && byId(g).id !== last;
     // the wanted place first, then the nearest ones (upwards first after a good round, downwards first after a hard one)
     const order = [0, 1, -1, 2, -2].map((d) => want + (step < 0 ? -d : d)).filter((k, i, a) => k >= 0 && k < 3 && a.indexOf(k) === i).map((k) => win[k]);
-    let g = order.find(ok) || rank.find(ok) || win.find((x) => x !== now) || rank.find((x) => x !== now);
+    let g = order.find(ok) || (go.easy ? win.find((x) => x !== now) : null) || rank.find(ok) || win.find((x) => x !== now) || rank.find((x) => x !== now);
     const pick = byId(g) || NEXT_GAMES[0];
     try { localStorage.setItem("fl-map-last", pick.id); } catch (e) {}
     return pick;
   }
-
+  // Golan 10.11: the first time "המשחק הבא" leads to a new island, a window says so (once per child per island)
+  const ISLE_NAME = { 2: "אִי הַצְּלִילִים" };
+  function isleOpenWindow(isle, then) {
+    const p = cur(); if (!p || !ISLE_NAME[isle] || (p.isleOpened || {})[isle]) return then();
+    p.isleOpened = { ...(p.isleOpened || {}), [isle]: Date.now() }; save();
+    const f = p.gender === "f", txt = f ? `לָמַדְתְּ הַמּוֹן! ${ISLE_NAME[isle]} נִפְתַּח עֲבוּרֵךְ, תּוּכְלִי לְשַׂחֵק גַּם בּוֹ.` : `לָמַדְתָּ הַמּוֹן! ${ISLE_NAME[isle]} נִפְתַּח עֲבוּרְךָ, תּוּכַל לְשַׂחֵק גַּם בּוֹ.`;
+    const bg = document.createElement("div"); bg.className = "fl-isle-open"; bg.setAttribute("role", "dialog");
+    bg.style.cssText = "position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(20,40,70,.45);direction:rtl";
+    const card = document.createElement("div"); card.style.cssText = "background:#fff;border-radius:26px;padding:26px 30px;max-width:min(520px,88vw);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:inherit";
+    const star = document.createElement("div"); star.style.cssText = "font-size:54px;line-height:1"; star.textContent = "🎉";
+    const t = document.createElement("p"); t.style.cssText = "font-size:clamp(20px,3.4vw,30px);font-weight:800;color:#1d2a3a;margin:12px 0 20px;line-height:1.4"; t.textContent = txt;
+    const b = document.createElement("button"); b.type = "button"; b.textContent = "יוֹפִי, מַמְשִׁיכִים!";
+    b.style.cssText = "font:inherit;font-size:clamp(18px,3vw,26px);font-weight:800;color:#fff;background:#34b36b;border:0;border-bottom:5px solid #1f8048;border-radius:18px;padding:12px 30px;cursor:pointer";
+    b.onclick = () => { try { if (clipNow) clipNow.pause(); } catch (e) {} bg.remove(); then(); };
+    card.append(star, t, b); bg.append(card); document.body.append(bg);
+    sayClip("isle_open_" + isle + (f ? "_f" : "_m"));   // silent until the clip exists
+  }
   function nextGameUrl(g) { if (!HUB_URL || !g) return null; try { return new URL(g.path, HUB_URL).href + "?hub=" + encodeURIComponent(HUB_URL); } catch (e) { return null; } }
-  function goNextGame() { const u = nextGameUrl(nextGame()); if (u) location.href = u; }
+  function goNextGame() { const pick = nextGame(), u = nextGameUrl(pick); if (!u) return;
+    const to = isleOfGame(pick.g), from = gameCfg.game ? isleOfGame(gameCfg.game) : to;
+    if (to > from) isleOpenWindow(to, () => { location.href = u; }); else location.href = u; }
   let endShownAt = Date.now(), lastPractice = {}, lastSounds = {};
   function practicedThisRound() {
     const p = cur(); if (!p) return {};
