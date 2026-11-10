@@ -680,7 +680,7 @@
   const AUDIO = "../../voice/audio/";
   // hub_g_together = the name (as the letters island's card); stog_start2 (+_m / _f) = the start-window description, a new line
   // of the voice thread (silent until recorded). sd_q1 "אֵיזוֹ תְּמוּנָה מַתְחִילָה בַּצְּלִיל..." asks the first question of a round.
-  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_together", intro: "stog_start2", q: "sd_q1", right: "fb_correct" };
+  const LINES = { go: "fb_go", done: "fb_round_done", demo: "sd_demo", back: "demo_back", name: "hub_g_together", intro: "stog_start2", q: "sd_q1", right: "fb_correct", demoQ: "stog_demo_q" };   /* Golan 10.11: stog_demo_q "יֵשׁ לִמְצֹא אֶת הַתְּמוּנָה הַמַּתְחִילָה בַּצְּלִיל" (silent until recorded) */
   const CHILD_LINES = ["stog_start2", "ins_balloon4"];
   const clipCache = {}; let clipNow = null; const clipStatus = { ok: 0, missing: 0 };
   const vary = (x) => (window.FL && FL.vary ? FL.vary(x) : x);
@@ -1065,7 +1065,7 @@
     const kind = q.mistakes ? "silver" : "gold";
     if (!demo) { recordQ(q, true); state.starKinds.push(kind); state.stars = state.starKinds.length; if (starCount) starCount.add(kind); }
     // Golan 7.11: the card lights up with confetti stars while Hila says the sound and the picture's word; only then do the balloons fly up
-    cheer(b); wakeUp(b);   // Golan 7.11: its frame lights up, confetti stars fly from it, and its own picture comes alive (no second card)
+    cheer(b);   /* Golan 10.11: no moving card over the picture any more (was wakeUp) */   // Golan 7.11: its frame lights up, confetti stars fly from it, and its own picture comes alive (no second card)
     playSeq([SOUNDS[q.letter].s, 200, wordOf(b.pic)], 1, () => {
       if (state.q !== q) return;
       sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
@@ -1093,7 +1093,7 @@
   // 3 mistakes: the right picture lights up, Hila says the sound and the picture's name, the others fly away; no star
   function autoSolve(q) {
     if (q.done) return; q.done = true; q.hint = true; setJudge(false);
-    const b = rightBalloon(); b.glow = true; drawCard(b); cheer(b); wakeUp(b);
+    const b = rightBalloon(); b.glow = true; drawCard(b); cheer(b);   /* Golan 10.11: no moving card */
     if (!q.demo) recordQ(q, false);
     sfx.away(); balloons.filter((x) => x !== b && x.state !== "off").forEach((x, k) => flyAway(x, 0.1 * k));
     playSeq([500, SOUNDS[q.letter].s, 300, wordOf(b.pic)], 1, () => { if (state.q !== q) return; later(() => { if (state.q === q) flyAway(b).then(() => afterQuestion(q)); }, 500); });
@@ -1451,7 +1451,7 @@
       state.mode = "play";
       newQuestion({ demo: true, after: (q) => {
         if (!alive() || state.q !== q) return;
-        playSeq([SOUNDS[q.letter].s], 1, () => setTimeout(() => {
+        playSeq([LINES.demoQ, 100, SOUNDS[q.letter].s], 1, () => setTimeout(() => {
           if (!alive() || state.q !== q) return;
           const b = rightBalloon(), r = cardRect(b), p = n === 0 ? { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2, top: r.y0 } : center($("said"));
           const cr = canvas.getBoundingClientRect(), k = cr.width / (canvas.clientWidth || cr.width); if (n === 0) { p.x = cr.left + p.x * k; p.y = cr.top + p.y * k; p.top = cr.top + p.top * k; }
