@@ -593,7 +593,7 @@
     "צ": "צָדִי", "ק": "קוֹף", "ר": "רֵישׁ", "ש": "שִׁין", "ת": "תָּו" };
   const SAY_TEXT = { "יש לבחור כדור פורח": "יֵשׁ לִבְחוֹר כַּדּוּר פּוֹרֵחַ" };
   // Lines that speak to the child get boy/girl versions (<id>_m / <id>_f) from the child's profile, once recorded (none yet)
-  const GENDER_LINES = ["ins_balloon", "ask_letters", "sd_q2"];   // _m/_f clips by the child (Golan 16.10); st_start is neutral
+  const GENDER_LINES = ["ins_balloon", "ask_letters", "sd_q2", "st_demo_how"];   // _m/_f clips by the child (Golan 16.10); st_start is neutral
   // the first recorded one of <id>_m/_f and <id> (as the sound detective)
   function genderedId(id) {
     if (!id || !GENDER_LINES.includes(id) || !(window.FL && FL.learner)) return id;
@@ -673,6 +673,7 @@
       if (i >= ids.length) { seqOn = false; seqThen = null; return then && then(); }
       const item = ids[i++];
       if (typeof item === "function") { item(); return next(); }
+      if (typeof item === "number") return setTimeout(next, item);   /* a pause in ms */
       const a = item && settings.voice === "on" ? getClip(genderedId(vary(item))) : null;
       if (!a || a._bad) return setTimeout(next, settings.voice === "on" ? 0 : 500);
       try { if (clipNow && clipNow !== a) clipNow.pause(); } catch (e) {}
@@ -1842,7 +1843,8 @@
     if (window.FL && FL.demoFrame) FL.demoFrame(true, () => { stopSeq(); hideHand(); state.autoDrop = false; if (window.FL && FL.demoArrow) FL.demoArrow(null);
       const fin = () => { endDemo(); replaceTrain(); }; if (window.FL && FL.demoOut) FL.demoOut(fin); else fin(); });
     // Golan 8.11 (as in the sound detective): the pictures' names are not read; each example opens straight with the question
-    playIds([...qIds(L)], () => {   // two examples (Golan 30.10 16:04)
+    // Golan 10.11: half a second of quiet first; after the question, how to play: throw the cube over the car or drag it there
+    playIds([500, ...qIds(L), 300, "st_demo_how"], () => {   // two examples (Golan 30.10 16:04)
       if (!state.demo || state.train !== T) return;
       const c = rightCar(); if (!c) return endDemo();
       const at = signScreen(c), r = canvas.getBoundingClientRect();
