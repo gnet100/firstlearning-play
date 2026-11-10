@@ -1038,6 +1038,8 @@ ${items[item]}</svg>`;
         const p = cur(), eff = effLevel(p, cfg.game);   // Golan 8.11: no level number for the parent; one pick for the whole island, until the game is closed
         ul.innerHTML = ""; if (cfg.levelsText) { const li = document.createElement("li"); li.textContent = cfg.levelsText; ul.append(li); } else cfg.levels.forEach((t, i) => { const li = document.createElement("li"); li.textContent = "רמה " + (i + 1) + ": " + t; if (i + 1 === eff) li.className = "on"; ul.append(li); });
         if (drawSeg) drawSeg();
+        /* Golan 10.11: the level the system chose shows in brackets inside "החלטת מערכת" */
+        const ab = r3.querySelector('.fl-fseg button[data-v="auto"]'); if (ab) ab.textContent = FL.nikud("החלטת מערכת") + (gameLevelOf(p, cfg.game) ? "" : " (" + eff + ")");
       };
       drawSeg = seg(r3, [["auto", "החלטת מערכת"], [1, "1"], [2, "2"], [3, "3"]], () => gameLevelOf(cur(), cfg.game) || "auto",
         (v) => { const was = effLevel(cur(), cfg.game); setGameLevel(v === "auto" ? null : +v, cfg.game); draw(); const now = effLevel(cur(), cfg.game); if (now !== was && cfg.onLevel) cfg.onLevel(now); });
@@ -1158,7 +1160,7 @@ ${items[item]}</svg>`;
 .fl-pick .fl-cell.fl-nc{opacity:.45}.fl-pick .fl-cell.fl-nc.fl-sel{opacity:.8}   /* Golan 8.11: a letter with no content in this game can still be picked */
 .fl-pick .fl-cell.fl-fin{cursor:pointer}
 .fl-pbtns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;margin:10px auto 6px;direction:rtl;width:420px;max-width:100%}
-.fl-pbtn{font:inherit;font-size:15px;font-weight:700;color:#1d3557;background:transparent;border:2px solid #c9d6e3;border-radius:12px;padding:6px 9px;min-height:max(var(--tap-s,44px),44px);cursor:pointer;white-space:nowrap}
+.fl-pbtn{font:inherit;font-size:18px;font-weight:700;color:#1d3557;background:transparent;border:2px solid #c9d6e3;border-radius:12px;padding:6px 9px;min-height:max(var(--tap-s,44px),44px);cursor:pointer;white-space:nowrap}
 .fl-pbtn.on{border-color:var(--fl-mark,#283593);box-shadow:inset 0 0 0 2px var(--fl-mark,#283593);background:var(--fl-mark-bg,#e8eaf6);color:#1d3557}
 .fl-ptitle{font-size:18px;font-weight:700;text-align:right;direction:rtl;width:420px;max-width:100%;margin:0 auto 6px}
 .fl-pnote{font-size:14px;color:#4a5a70;text-align:right;direction:rtl;max-width:420px;margin:0 auto}
