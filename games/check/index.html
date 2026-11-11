@@ -260,7 +260,7 @@
     const rt = performance.now() - askEnd;   // negative (tapped while the question was still heard) = quick
     stopVoice();
     const right = l === cur, st = !right ? "new" : rt <= QUICK_MS ? "known" : "almost";
-    (right ? sfx.right : sfx.wrong)();
+    (st === "known" ? sfx.right : sfx.wrong)();   // Golan 11.11: right but after 2.5 s sounds like a mistake (it still counts as "מוכרת")
     el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 160);
     run.done[cur] = st; save();
     if (LRN && LRN.checkSave) LRN.checkSave(cur, KIND, st);
