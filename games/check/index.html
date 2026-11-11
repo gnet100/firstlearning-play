@@ -38,9 +38,9 @@
      the speaker and the circle keep their size */
   .spk .ico { display: block; width: 1.5em; height: 1.5em; }
   .spk .ico .arc { transform-box: fill-box; transform-origin: 0% 50%; }
-  .spk.talk .ico .a1 { animation: arcBuzz .22s ease-in-out infinite alternate; }
-  .spk.talk .ico .a2 { animation: arcBuzz .22s ease-in-out .11s infinite alternate; }
-  @keyframes arcBuzz { from { transform: translateX(0) scale(1); opacity: 1; } to { transform: translateX(1.5px) scale(1.12); opacity: .7; } }
+  .spk.talk .ico .a1 { animation: arcBuzz .5s ease-in-out infinite alternate; }
+  .spk.talk .ico .a2 { animation: arcBuzz .5s ease-in-out .25s infinite alternate; }
+  @keyframes arcBuzz { from { transform: translateX(0) scale(1); opacity: 1; } to { transform: translateX(.6px) scale(1.05); opacity: .8; } }   /* Golan 11.11 15:07: gentler */
   @media (prefers-reduced-motion: reduce) { .spk.talk .ico .arc { animation: none; } }
   #ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); font-size: calc(var(--R2) * .09); background: #fff8d6; }
   /* the sound check: 3 pictures in a row */
