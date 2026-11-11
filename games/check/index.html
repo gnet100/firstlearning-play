@@ -241,11 +241,17 @@
     });
   }
   function drawPics(l) {
-    const others = shuffle(SOUND_L.filter((x) => x !== l && !alike(x, l)));
+    // other sounds that still have a fresh picture to spare (a sound not asked yet keeps one fresh picture for its own question)
+    const used0 = run.used || [], freshN = (x) => PICS_OF[x].filter((k) => PICS[k] && !used0.includes(k)).length;
+    const spare = (x) => freshN(x) - (run.done[x] || x === l ? 0 : 1);
+    const others = shuffle(SOUND_L.filter((x) => x !== l && !alike(x, l))).sort((a, b) => (spare(b) > 0) - (spare(a) > 0));
     const two = []; for (const x of others) if (two.length < 2 && !two.some((y) => alike(x, y))) two.push(x);
     const host = $("pics"); host.innerHTML = "";
     for (const s of shuffle([l, ...two])) {
-      const ks = PICS_OF[s].filter((k) => PICS[k]), k = ks[Math.floor(Math.random() * ks.length)], P = PICS[k];
+      // Golan 11.11: a picture shown once in this check never comes back (the child already knows what it starts with)
+      const used = run.used || (run.used = []), all = PICS_OF[s].filter((k) => PICS[k]), fresh = all.filter((k) => !used.includes(k));
+      const ks = fresh.length ? fresh : all, k = ks[Math.floor(Math.random() * ks.length)], P = PICS[k];
+      if (!used.includes(k)) used.push(k);
       const b = document.createElement("button"); b.className = "pic"; b.dataset.l = s; b.setAttribute("aria-label", P.plain || P.word || "");
       b.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${P.svg}</svg><span class="spk" role="button" aria-label="הַקְשָׁבָה">🔊</span>`;
       const spk = b.querySelector(".spk");
