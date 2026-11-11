@@ -763,11 +763,11 @@
       if (cmds.filter((x) => x === "R" || x === "L").length < Math.min(sp.turns, 1)) continue;
       const path = cells.filter((x) => x.r < R);
       if (overs.some((o) => o.r < 0 || o.r >= R)) continue;
-      const P = { c0, R, cmds, path, overs, water: !!cfg.water, noJ: !maxJ };
+      const P = { c0, R, cEnd: c, cmds, path, overs, water: !!cfg.water, noJ: !maxJ };   // cEnd: the column where the path reaches the far bank (the gap in its hedge)
       if (!pathOk(P)) continue;
       return P;
     }
-    return { c0: 2, R: 2, cmds: ["F", "R", "F"], path: [{ r: 0, c: 2 }, { r: 0, c: 3 }], overs: [], water: false, noJ: true };
+    return { c0: 2, R: 1, cEnd: 3, cmds: ["F", "R", "F"], path: [{ r: 0, c: 2 }, { r: 0, c: 3 }], overs: [], water: false, noJ: true };
   }
   // the self-check of a river (Golan 7.11): no repeated cell, no spring over a cell of the path, and from every place the
   // bunny stands (the start and each stone of the path) a spring lands on a good stone or the far bank only when the plan's
@@ -782,7 +782,7 @@
       const x = stands[i], next = P.cmds[i]; if (next === "J") continue;
       if (good.has(key(x.r + 2, x.c))) return false;   // a good stone two ahead: no two good stones straight ahead, no spring onto one
       // the far bank two ahead: a spring over water or a wrong stone would reach it early (over a good stone it falls, 6.11)
-      if (x.r + 2 === P.R && !good.has(key(x.r + 1, x.c))) return false;
+      if (x.r + 2 === P.R && x.c === P.cEnd && !good.has(key(x.r + 1, x.c))) return false;   // Golan 11.11: elsewhere the hedge stops it
     }
     return true;
   }
@@ -830,10 +830,33 @@
       }
     }
     farBank.position.z = rowZ(P.R) - SP * 0.42 + 4.5;
+    buildHedges(P);
     // the water only between the banks (and a little under them), so it flies away with the rest at the end of the round
     { const z0 = BANK_EDGE - 2, z1 = rowZ(P.R) - SP * 0.42 + 2; water.scaling.set(60 / 90, 1, (z1 - z0) / 140); water.position.z = (z0 + z1) / 2; }
     // sound letters of the pictures, for the record
     return [...new Set([t, ...stones.map((s) => s.letter).filter(Boolean)])];
+  }
+  // Golan 11.11: a low hedge of bushes along both banks' edges, with one gap each: on the start bank at the start mark, on the
+  // far bank where the path arrives. A hop or a spring onto the far bank anywhere else bumps into the bushes and falls in.
+  let hedgeParts = [];
+  function buildHedges(P) {
+    hedgeParts = [];
+    const ms = [mat("#4fa842", 0.14), mat("#5fb54a", 0.14), mat("#3f9a3a", 0.14)], x0 = colX(0) - SP * 1.6, x1 = colX(COLS - 1) + SP * 1.6;
+    for (const [z, gap, h, name] of [[BANK_EDGE - 0.35, P.c0, 0.5, "hedgeA"], [rowZ(P.R) - SP * 0.42 + 0.4, P.cEnd, 0.8, "hedgeB"]]) {
+      const gx = colX(gap), half = SP * 0.42, parts = {};
+      let k = 0;
+      for (let x = x0; x <= x1; x += 0.5, k++) {
+        if (Math.abs(x - gx) < half) continue;
+        const d = h * (1.15 + ((k * 37) % 7) * 0.05), b = BABYLON.MeshBuilder.CreateSphere(name, { diameter: d, segments: 8 }, scene);
+        b.material = ms[k % 3]; b.isPickable = false; b.position.set(x, BANK_Y + d * 0.3, z + ((k * 13) % 5 - 2) * 0.04); b.scaling.y = 0.85;
+        const c = Math.round(x / SP + (COLS - 1) / 2); (parts[c] = parts[c] || []).push(b);
+      }
+      for (const [c, list] of Object.entries(parts)) { const m = BABYLON.Mesh.MergeMeshes(list, true, true); if (!m) continue; m.parent = world; m.isPickable = false; if (name === "hedgeB") hedgeParts.push({ c: +c, m, z: m.position.z }); }
+    }
+  }
+  function shakeHedge(c) {   // the bushes the bunny bumped into give way a little and spring back
+    const near = hedgeParts.filter((h) => Math.abs(h.c - c) <= 1);
+    tween(0.6, (k) => near.forEach((h) => { const w = h.c === c ? 1 : 0.35; h.m.position.z = h.z + Math.sin(k * Math.PI) * 0.16 * w; h.m.position.y = Math.sin(k * Math.PI * 5) * 0.03 * (1 - k) * w; }));
   }
   // a stone's picture letter: PICS[k].sound for the new pictures; the letter pictures are keyed by their letter
   for (const l of SOUND_L) for (const k of picsOf(l)) if (PICS[k] && !PICS[k].sound) PICS[k].sound = l;
@@ -922,7 +945,7 @@
       const len = k === "J" ? 2 : 1, nr = side ? r : r + DIRS[d][0] * len, nc = side ? c + side : c + DIRS[d][1] * len;
       let res;
       if (nc < 0 || nc >= COLS) res = "off";
-      else if (nr >= q.P.R) res = "bank";
+      else if (nr >= q.P.R) res = nc === q.P.cEnd ? "bank" : "hedge";   // Golan 11.11: the far bank has a hedge; only its gap lets the bunny through
       else if (nr < 0) res = "home";
       else { const cell = grid[nr][nc]; res = cell.type === "good" ? "ok" : cell.type; }
       // Golan 6.11 19:50: the spring is only for jumping over a stone that does not hold. Over a good stone it is a short cut:
@@ -1059,6 +1082,8 @@
       tween(1.1, (k) => { st.root.position.y = -1.2 * k; });
       await tween(0.45, (k) => { bunny.root.position.y = y0 - 0.3 * k; });
       await splashDown(true);
+    } else if (sim.result === "hedge") {   // bumps into the hedge, the bushes shake, and it drops into the water
+      shakeHedge(last.to.c); await splashDown(true);
     } else if (sim.result === "water" || sim.result === "off" || sim.result === "over") {
       await splashDown(true);
     } else if (sim.result === "short") {
@@ -1197,7 +1222,7 @@
       runIdx = s.i; renderPlan();
       if (s.k === "turn") await turnBy(s.dd, s.d);
       else { const into = !["ok", "home", "bank"].includes(s.res) || (s.res === "sink");
-        await hopTo(s.res === "sink" ? new BABYLON.Vector3(colX(s.to.c), grid[s.to.r][s.to.c].stone.top + 0.06, rowZ(s.to.r)) : s.res === "over" ? new BABYLON.Vector3(colX(s.to.c), -0.45, rowZ(Math.min(s.to.r, q.P.R - 1)) + SP * 0.45) : spotOf(s.to.r, s.to.c), s.len, into && s.res !== "sink");
+        await hopTo(s.res === "sink" ? new BABYLON.Vector3(colX(s.to.c), grid[s.to.r][s.to.c].stone.top + 0.06, rowZ(s.to.r)) : s.res === "over" || s.res === "hedge" ? new BABYLON.Vector3(colX(s.to.c), -0.45, rowZ(Math.min(s.to.r, q.P.R - 1)) + SP * 0.45) : spotOf(s.to.r, s.to.c), s.len, into && s.res !== "sink");
         bunny.r = s.to.r; bunny.c = s.to.c; if (s.res === "ok") rockStone(s.to.r, s.to.c); }
       if (!alive()) return;
     }
