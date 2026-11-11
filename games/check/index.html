@@ -169,6 +169,15 @@
   // Golan 11.11: a letter and its final form (כ ך, מ ם, נ ן, פ ף, צ ץ) are never in the same circle
   const FIN_PAIR = { "ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ" };
   const clash = (o) => SIZES.some((n, i) => { const part = o.slice(STARTS[i], STARTS[i] + n); return part.some((l) => FIN_PAIR[l] && part.includes(FIN_PAIR[l])); });
+  // a check saved before the final-form rule (or any order that breaks it): the answered letters stay first, in their order,
+  // and the rest are shuffled again until no circle holds a letter and its final form
+  function repair(r) {
+    if (SOUND || !clash(r.order)) return r;
+    const done = r.order.filter((l) => r.done[l]), rest = r.order.filter((l) => !r.done[l]);
+    let o = done.concat(shuffle(rest.slice()));
+    for (let k = 0; k < 500 && clash(o); k++) o = done.concat(shuffle(rest.slice()));
+    return { order: o, done: r.done };
+  }
   function freshRun() { let o = shuffle(ITEMS.slice()); for (let k = 0; k < 500 && !SOUND && clash(o); k++) o = shuffle(o); run = { order: o, done: {} }; save(); }
   const doneCount = () => run.order.filter((l) => run.done[l]).length;
   const parts = () => SIZES.length;
@@ -192,7 +201,7 @@
     const b1 = document.createElement("button"); b1.className = "go";
     if (ok && n > 0 && n < ITEMS.length) {
       $("resumeTxt").textContent = `נבדקו ${n} מתוך ${ITEMS.length}. אפשר להמשיך מאותו מקום.`;
-      b1.textContent = "מַמְשִׁיכִים"; b1.onclick = () => { run = old; begin(); };
+      b1.textContent = "מַמְשִׁיכִים"; b1.onclick = () => { run = repair(old); save(); begin(); };
       const b2 = document.createElement("button"); b2.className = "go alt"; b2.textContent = "מַתְחִילִים מֵחָדָשׁ"; b2.onclick = () => { freshRun(); begin(); };
       box.append(b1, b2);
     } else { $("resumeTxt").textContent = ""; b1.textContent = "מַתְחִילִים"; b1.onclick = () => { freshRun(); begin(); }; box.append(b1); }
