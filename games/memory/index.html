@@ -985,9 +985,9 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     $("levelAsk").hidden = true; $("board").hidden = true;   // no flash of the old board before the new one (Golan 22.10)
     if (manualRung != null) { manualWins = 0; if (up) manualRung = Math.min(RUNGS.length - 1, manualRung + 1); }   // a hand pick moves up by itself; the system's choice stays (Golan 30.10)
     else { progress.wins = 0; saveProgress(); if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); } }
-    say(up ? "fb_bravo" : Math.random() < 0.5 ? "fb_choice1" : "fb_choice2");   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
+    stopVoice();   // Golan 11.11 21:41: no "בחירה מעולה" or other line after the answer; straight on to the next board   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
     // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
-    later(800, () => { if (HG && HG.done()) endRound(); else whenQuiet(() => later(150, newBoard)); });
+    later(300, () => { if (HG && HG.done()) endRound(); else newBoard(); });
   }
 
   // ---------- one round = the golden hourglass (spec 10): board after board ----------
