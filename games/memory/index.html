@@ -761,6 +761,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
 
   function newBoard() {
     epoch++;
+    if (HG) HG.start();   // Golan 11.11: every new deal of cards starts the hourglass again
     const n = RUNGS[manualRung ?? rung()], B = BOARDS[n], pairs = B.letters / 2;
     state.n = n; state.open = []; state.busy = false; state.mistakes = 0; state.pairMistakes = 0; state.boardSilver = false; state.missed = new Set(); state.pairsLeft = pairs; state.flips = 0;
     const letters = boardLetters(pairs); state.letters = letters;
@@ -942,8 +943,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     later(ms(1200), () => {
       // the offer of a bigger board comes first, even when the hourglass ran out; the end window after it (Golan 22.10)
       if (win && (manualRung == null ? progress.wins : manualWins) >= WINS_TO_ASK && curRung() < RUNGS.length - 1) return askLevel();   // also after a hand pick (Golan 30.10 15:25)
-      if (HG ? HG.done() : state.boards >= 3) return endRound();   // the board that started is finished before the end window (spec 10)
-      newBoard();
+      endRound();   // Golan 11.11: one board = one round; after every board the end window asks for another round, even with time left
     });
   }
   // spec 12/13: after 2 wins on a rung, Hila asks; the child touches the small board (stay) or the bigger board (the next rung)
@@ -987,7 +987,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     else { progress.wins = 0; saveProgress(); if (up) { progress.rung = Math.min(RUNGS.length - 1, rung() + 1); saveProgress(); } }
     stopVoice();   // Golan 11.11 21:41: no "בחירה מעולה" or other line after the answer; straight on to the next board   // more cards: "כׇּל הַכָּבוֹד!" (Golan 23.10)
     // the cards are dealt after Hila finished speaking, so the deal sound is heard (Golan 22.10)
-    later(300, () => { if (HG && HG.done()) endRound(); else newBoard(); });
+    later(300, () => endRound());   // Golan 11.11: after the answer, the end window ("עוד סיבוב" deals the chosen board)
   }
 
   // ---------- one round = the golden hourglass (spec 10): board after board ----------
@@ -1005,7 +1005,6 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function startRound() {
     epoch++;
     state.starRow = []; state.boards = 0; state.roundWins = 0; starCount.reset();
-    if (HG) HG.start();
     newBoard();
   }
   // the end of a round: everything flies up for 5 s first, then the end window (Golan 29.10, shared/learner.js endFly)
