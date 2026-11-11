@@ -58,6 +58,7 @@
 <div id="stage" hidden><div id="partTag"></div><div id="ring"><button class="spk" id="ask" aria-label="שׁוּב">🔊</button></div><div id="pics" hidden></div><button class="spk round-btn" id="askS" aria-label="שׁוּב" hidden>🔊</button></div>
 <div class="panel" id="start"><div class="box"><h1 id="title"></h1><p id="explain"></p><div class="prog" id="resumeTxt"></div><div class="btns" id="startBtns"></div></div></div>
 <div class="panel" id="pause" hidden><div class="box"><h1 id="pauseH"></h1><p>הַתְּשׁוּבוֹת עַד כָּאן נִשְׁמְרוּ. אֶפְשָׁר לְהַמְשִׁיךְ עַכְשָׁו אוֹ בַּפַּעַם הַבָּאָה, מֵאוֹתוֹ מָקוֹם.</p><div class="btns"><button class="go" id="goOn">מַמְשִׁיכִים</button><button class="go alt" id="stopNow">מְסַיְּמִים לְעַכְשָׁו</button></div></div></div>
+<div class="panel" id="idle" hidden><div class="box"><h1>לְהַמְשִׁיךְ בַּבְּדִיקָה?</h1><p id="idleP"></p><div class="btns"><button class="go" id="idleOn">מַמְשִׁיכִים</button><button class="go alt" id="idleOut">יְצִיאָה</button></div></div></div>
 <div class="panel" id="end" hidden><div class="box"><h1 id="endH"></h1><p id="endP"></p><div class="grid" id="endGrid"></div>
   <div class="leg"><span><i style="border-color:#2bb673;background:#e3f7ec"></i>מְזַהֶה בְּבִטָּחוֹן</span><span><i style="border-color:#ffb020;background:#fff4dc"></i>מוּכֶּרֶת</span><span><i style="border-color:#d5dde6;background:#fff"></i>חֲדָשָׁה</span></div>
   <div class="btns"><button class="go" id="endBack">סִיּוּם</button></div></div></div>
@@ -250,13 +251,26 @@
     if (SOUND) drawPics(cur);
     const ids = SOUND ? soundAsk(cur) : letterAsk(cur, firstQ); firstQ = false;
     curIds = ids;
-    playIds(ids, () => { if (askEnd === Infinity) askEnd = performance.now(); });
+    playIds(ids, () => { if (askEnd === Infinity) askEnd = performance.now(); armIdle(); });
   }
+  // Golan 11.11: 10 s with no tap after the question -> "להמשיך בבדיקה?"; no answer there for 5 s -> back to the settings.
+  // The letter is not counted; it stays to be asked (now, or when the check is continued).
+  const IDLE_MS = 10000, IDLE_OUT_S = 5; let idleT = 0, outT = 0;
+  function armIdle() { clearTimeout(idleT); idleT = setTimeout(idleAsk, IDLE_MS); }
+  function idleAsk() {
+    if (!cur || busy) return; stopVoice(); busy = true;
+    let left = IDLE_OUT_S; const tick = () => { $("idleP").textContent = `אם לא תהיה תגובה, הבדיקה תיסגר בעוד ${left} שניות. מה שנבדק עד עכשיו נשמר.`;
+      if (left-- <= 0) { $("idle").hidden = true; return leave(true); } outT = setTimeout(tick, 1000); };
+    $("idle").hidden = false; tick();
+  }
+  $("idleOn").onclick = () => { clearTimeout(outT); $("idle").hidden = true; busy = false; askEnd = Infinity;
+    playIds(curIds, () => { if (askEnd === Infinity) askEnd = performance.now(); armIdle(); }); };   /* the same letter again; its time starts anew */
+  $("idleOut").onclick = () => { clearTimeout(outT); leave(true); };
   let curIds = [];
-  const again = () => { if (cur && !busy) playIds(curIds); };   /* hearing it again does not restart the 2.5 s */
+  const again = () => { if (cur && !busy) { clearTimeout(idleT); playIds(curIds, armIdle); } };   /* hearing it again does not restart the 3 s */
   $("ask").onclick = again; $("askS").onclick = again;
   function answer(l, el) {
-    if (!cur || busy) return; busy = true;
+    if (!cur || busy) return; busy = true; clearTimeout(idleT);
     const rt = performance.now() - askEnd;   // negative (tapped while the question was still heard) = quick
     stopVoice();
     const right = l === cur, st = !right ? "new" : rt <= QUICK_MS ? "known" : "almost";
@@ -287,10 +301,10 @@
     for (const l of list) { const s = document.createElement("span"); s.textContent = SOUND ? SYL[l] || l : l; s.className = done[l] || "new"; grid.append(s); }
     $("end").hidden = false;
   }
-  function leave() {
-    stopVoice();
+  function leave(toSettings) {
+    stopVoice(); clearTimeout(idleT); clearTimeout(outT);
     const hub = (LRN && LRN.hubUrl) || "../../index.html";
-    location.href = hub.split("#")[0] + "#games";
+    location.href = hub.split("#")[0] + (toSettings === true ? "#settings" : "#games");
   }
   $("endBack").onclick = leave;
   $("door").onclick = leave;

@@ -630,7 +630,8 @@
   window.addEventListener("pageshow", () => { opening = false; document.querySelectorAll(".game.go").forEach((x) => x.classList.remove("go")); });
   // A new session (the browser or the app was closed and opened again, learner.js): always "מי משחק?" first.
   const again = LRN && LRN.profile() && !(LRN.freshSession && LRN.freshSession());
-  if (location.hash === "#games" && again) showGames(); else if (location.hash === "#map" && again) showMap(); else whoPlays(false);
+  if (location.hash === "#settings" && again) { showGames(); openSettings("games"); }   // Golan 11.11: back from the check round when nobody answered
+  else if (location.hash === "#games" && again) showGames(); else if (location.hash === "#map" && again) showMap(); else whoPlays(false);
 
   // ---------- the sky: the 9 shared balloons drifting up (same set as the games, from the detective game) ----------
   const BALLOONS = [
