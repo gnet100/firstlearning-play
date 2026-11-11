@@ -474,8 +474,9 @@
     document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
     o.querySelector(".set-x").onclick = back;
     o.addEventListener("click", (e) => { if (e.target === o) back(); });
+    { const sec = document.createElement("section"); sec.className = "set-chk set-isl"; o.querySelector(".set-chk").after(sec); drawIsles(); }
     drawKids(); if (LRN) LRN.renderParentTable(o.querySelector(".set-table"));
-    drawSummary(); o.querySelectorAll(".set-chk .go").forEach((b) => { b.onclick = () => startCheck(b.dataset.kind); });
+    drawSummary(); o.querySelectorAll(".set-chk .go[data-kind]").forEach((b) => { b.onclick = () => startCheck(b.dataset.kind); });
     // Golan 29.10: the progress of all the children goes to another device as a file, and merges there
     if (LRN && LRN.transferRow) { const sec = document.createElement("section"); o.querySelector(".set-body").append(sec);
       LRN.transferRow(sec, { onDone: () => { drawKids(); LRN.renderParentTable(o.querySelector(".set-table")); drawSummary(); refreshWho(); } }); }
@@ -515,6 +516,18 @@
     box.querySelector(".note").textContent = "בקרת זיהוי מוצלח מתוך המשחק \"משחקים ביחד\"" + (d ? `, מתאריך ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : "");
     host.append(cap, box);
   }
+  // Golan 11.11: an adult can open all the islands of the map on this device, behind the times-table lock; closing needs no lock
+  const islesAll = () => { try { return +localStorage.getItem("fl-isles-open") >= 10; } catch (e) { return false; } };
+  function drawIsles() {
+    const sec = document.querySelector("#settings .set-isl"); if (!sec) return; const on = islesAll();
+    sec.innerHTML = `<div class="hd"><h3>פְּתִיחַת כָּל הָאִיִּים</h3><span class="slot"><button type="button" class="go">${on ? "סְגִירָה" : "פְּתִיחָה"}</button></span></div>
+      <p class="set-ex">${on ? "כל האיים במפה פתוחים עכשיו במכשיר הזה. סגירה מחזירה את המפה למצב הרגיל, לפי ההתקדמות של הילד." : "להורה או למורה: כל האיים במפה נפתחים במכשיר הזה, גם לפני שהילד הגיע אליהם."}</p>`;
+    const b = sec.querySelector(".go");
+    b.onclick = () => {
+      if (on) { try { localStorage.removeItem("fl-isles-open"); } catch (e) {} drawIsles(); return; }
+      gateAt(b, () => { try { localStorage.setItem("fl-isles-open", "10"); } catch (e) {} drawIsles(); }, drawIsles);
+    };
+  }
   // Golan 11.11: the check round of each island (games/check): letters island = print / cursive, sounds island = sounds
   function startCheck(kind) {
     hush();
@@ -541,19 +554,23 @@
   function timesQ() { const all = []; for (let a = 2; a <= 9; a++) for (let b = 2; b <= 9; b++) if (a * b > 20 && a * b < 50) all.push([a, b]); return all[Math.floor(Math.random() * all.length)]; }
   function askGate(row) {
     const g = row.querySelector(".gate"); if (!g) return;
+    gateAt(g, () => { kidsOpen = true; drawKids(); }, drawKids);
+  }
+  // the same lock for any button (Golan 11.11: also "פתיחת כל האיים"): g is replaced by the question; onOk after a right answer
+  function gateAt(g, onOk, onAway) {
     const f = document.createElement("form"); f.className = "set-gate"; f.dir = "ltr";   // written like a sum: 4 × 8 = [ ]; no ✓ button (Golan 20.10)
     const ask = () => { const [a, b] = timesQ(); f.dataset.ans = a * b; f.querySelector(".q").textContent = `${a} × ${b} =`; f.querySelector("input").value = ""; f.querySelector("input").focus(); };
     f.innerHTML = `<span class="q"></span><input type="text" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="התשובה">`;
     g.replaceWith(f); ask();
     // a tap anywhere else while the question waits: the row goes back to its first state (Golan 19.10)
     const away = (e) => { if (!f.isConnected) return document.removeEventListener("pointerdown", away, true);
-      if (!f.contains(e.target)) { document.removeEventListener("pointerdown", away, true); drawKids(); } };
+      if (!f.contains(e.target)) { document.removeEventListener("pointerdown", away, true); onAway(); } };
     document.addEventListener("pointerdown", away, true);
     // checked while typing: the right answer flashes the box green and opens edit; a wrong one as long as the answer shakes it
     // and asks a new question. Enter checks what is there.
     const inp = f.querySelector("input");
     const check = (full) => { const v = inp.value.replace(/\D/g, ""); if (inp.value !== v) inp.value = v;
-      if (v && +v === +f.dataset.ans) { inp.readOnly = true; f.classList.remove("no"); f.classList.add("ok"); setTimeout(() => { if (f.isConnected) { kidsOpen = true; drawKids(); } }, 550); return; }
+      if (v && +v === +f.dataset.ans) { inp.readOnly = true; f.classList.remove("no"); f.classList.add("ok"); setTimeout(() => { if (f.isConnected) onOk(); }, 550); return; }
       if (v && (full || v.length >= String(f.dataset.ans).length)) { f.classList.remove("no"); void f.offsetWidth; f.classList.add("no"); ask(); } };
     inp.addEventListener("input", () => check(false));
     f.onsubmit = (e) => { e.preventDefault(); if (!inp.readOnly) check(true); };

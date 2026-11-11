@@ -446,7 +446,7 @@
     const p = o.profile || {}; seenKey = "fl-map-seen-" + (p.id || "x"); atKey = "fl-map-at-" + (p.id || "x");
     open = 1 + ((o.known || 0) >= UNLOCK_AT ? 1 : 0);   // islands 3-9: no games measure them yet
     // Golan 5.11: to try island 2 before 15 letters: open the hub once with ?isles=2 (remembered on this device); ?isles=0 closes it again
-    try { open = Math.max(open, Math.min(2, +localStorage.getItem("fl-isles-open") || 0)); } catch (e) {}
+    try { open = Math.max(open, Math.min(STOPS.length, +localStorage.getItem("fl-isles-open") || 0)); } catch (e) {}   // Golan 11.11: "פתיחת כל האיים" in settings stores 10
     try { await loadBabylon(); if (document.fonts) await Promise.race([document.fonts.load('800 40px "Noto Sans Hebrew"'), new Promise((r) => setTimeout(r, 1500))]); }
     catch (e) { if (o.onFail) o.onFail(); return; }
     if (!visible) return;
