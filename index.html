@@ -121,6 +121,7 @@
   .set-sum .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
   .set-chk .hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }   /* title and button in one line (Golan 20.10) */
   .set-chk h3 { margin: 4px 0; font-size: 20px; }
+  .set-chk .chk2 { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 10px 20px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 48px; }
   .set-form, .set-confirm { background: #f5f9ff; border-radius: 16px; padding: 10px; margin-bottom: 6px; text-align: center; }
   .set-form .prev svg { display: block; margin: 0 auto; }
@@ -464,13 +465,15 @@
       <section><div class="set-kids"></div></section>   <!-- no heading and no explanation line (Golan 19.10) -->
       <section><div class="set-table"></div></section>
       <!-- "סיכום להורה" removed (Golan 8.11): the parent sees one picture, "התקדמות למידה וידע" -->
-      <section class="set-chk"><div class="hd"><h3>סבב בדיקת אותיות</h3><button type="button" class="go">בדיקה</button></div>
-        <p class="set-ex">כמו המבדק בתחילת כיתה א': 22 האותיות, כל אות פעם אחת, בלי סופיות. הסבב נפתח במשחק "משחקים ביחד": הילד אומר את שם האות, ואתם מקישים נכון או נסו שוב. התוצאה נשמרת בסיכום להורה.</p></section></div></div>`;
+      ${isleNow === 1 ? `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת צְלִילִים</h3><button type="button" class="go" data-kind="sound">בְּדִיקַת צְלִילִים</button></div>
+        <p class="set-ex">בדיקה של הורה או מורה: בכל פעם צליל אחד ו-3 תמונות, והילד בוחר את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.</p></section>`
+      : `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת אוֹתִיּוֹת</h3><span class="chk2"><button type="button" class="go" data-kind="print">בְּדִיקַת דְּפוּס</button><button type="button" class="go" data-kind="cursive">בְּדִיקַת כְּתַב יָד</button></span></div>
+        <p class="set-ex">בדיקה של הורה או מורה: המערכת אומרת שם של אות, והילד לוחץ עליה. 27 האותיות עם הסופיות, ב-3 חלקים של 9, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.</p></section>`}</div></div>`;
     document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
     o.querySelector(".set-x").onclick = back;
     o.addEventListener("click", (e) => { if (e.target === o) back(); });
     drawKids(); if (LRN) LRN.renderParentTable(o.querySelector(".set-table"));
-    drawSummary(); o.querySelector(".set-chk .go").onclick = startCheck;
+    drawSummary(); o.querySelectorAll(".set-chk .go").forEach((b) => { b.onclick = () => startCheck(b.dataset.kind); });
     // Golan 29.10: the progress of all the children goes to another device as a file, and merges there
     if (LRN && LRN.transferRow) { const sec = document.createElement("section"); o.querySelector(".set-body").append(sec);
       LRN.transferRow(sec, { onDone: () => { drawKids(); LRN.renderParentTable(o.querySelector(".set-table")); drawSummary(); refreshWho(); } }); }
@@ -510,10 +513,11 @@
     box.querySelector(".note").textContent = "בקרת זיהוי מוצלח מתוך המשחק \"משחקים ביחד\"" + (d ? `, מתאריך ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : "");
     host.append(cap, box);
   }
-  function startCheck() {
+  // Golan 11.11: the check round of each island (games/check): letters island = print / cursive, sounds island = sounds
+  function startCheck(kind) {
     hush();
-    if (PREVIEW) { toast("כאן נפתח סבב הבדיקה במשחק משחקים ביחד"); return; }
-    location.href = "games/tell-me/index.html?check=1&hub=" + encodeURIComponent(location.href.split(/[?#]/)[0]);
+    if (PREVIEW) { toast("כאן נפתח סבב הבדיקה"); return; }
+    location.href = "games/check/index.html?kind=" + (kind || "print") + "&hub=" + encodeURIComponent(location.href.split(/[?#]/)[0]);
   }
   function drawKids() {
     const box = document.querySelector("#settings .set-kids"); if (!box || !LRN) return; box.innerHTML = "";

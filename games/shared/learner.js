@@ -396,11 +396,17 @@ ${items[item]}</svg>`;
   }
   function cardsFor(p) {
     if (!p) return {};
-    if (cache && cache.id === p.id && cache.n === p.events.length) return cache.cards;
+    const ckey = p.events.length + "/" + (p.checks ? p.checks.length : 0);   // a check result (p.checks) changes the cards too
+    if (cache && cache.id === p.id && cache.n === ckey) return cache.cards;
     const cards = {}, all = [...FL.LETTERS, ...FL.FINALS];
     for (const l of all) cards[l] = { letter: l, recognize: blank(), name: blank(), cursive: blank(), sound: blank(), pairs: {} };
     const runRts = {};   // per game: the child's kept right-answer times so far, to judge "quick" at the moment of each answer
+    // Golan 11.11 (placement check): an adult's check REPLACES the letter's state on that track, also downwards; answers after
+    // it go on from there. Kept apart from the events (p.checks) so no game statistic counts it.
+    const chk = (p.checks || []).slice().sort((a, b) => a.t - b.t); let ci = 0;
+    const applyChecks = (upTo) => { while (ci < chk.length && chk[ci].t <= upTo) { const x = chk[ci++], c = cards[x.l]; if (c && c[x.m]) c[x.m] = checkCard(x); } };
     for (const e of p.events) {
+      applyChecks(e.t);
       const c = cards[e.l]; if (!c) continue;
       if (MATCH_GAMES.has(e.g)) continue;   // Golan 8.11 (levels audit, fix 1): a found memory pair is not a letter / sound answer
       const g = runRts[e.g] || (runRts[e.g] = []);
@@ -419,6 +425,7 @@ ${items[item]}</svg>`;
         c.pairs[e.p] = (c.pairs[e.p] || 0) + 1; cards[e.p].pairs[e.l] = (cards[e.p].pairs[e.l] || 0) + 1;
       }
     }
+    applyChecks(Infinity);
     const gameMedian = {};
     for (const [g, a] of Object.entries(runRts)) gameMedian[g] = median(a.slice(-TYPICAL_LAST));
     for (const l of all) {
@@ -432,8 +439,16 @@ ${items[item]}</svg>`;
       c.fluent = c.recognize.fluent;
     }
     const lastG = p.events.length ? p.events[p.events.length - 1].g : null;
-    cache = { id: p.id, n: p.events.length, cards, gameMedian, lastG };
+    cache = { id: p.id, n: ckey, cards, gameMedian, lastG };
     return cards;
+  }
+  // the card a check result leaves: known = "מזהה בביטחון"; almost = "מוכרת" (a later success in another session makes it known);
+  // new = "חדשה", as if never asked
+  function checkCard(x) {
+    const k = blank(); k.lastAsked = x.t;
+    if (x.st === "known") Object.assign(k, { n: 2, okStreak: [{ s: -1, q: false }, { s: -2, q: false }], known: true, knownAt: x.t });
+    else if (x.st === "almost") Object.assign(k, { n: 2, okStreak: [{ s: -1, q: false }, { s: -1, q: false }] });
+    return k;
   }
   function blank() { return { n: 0, okStreak: [], errStreak: 0, known: false, knownAt: 0, hard: false, lastAsked: 0, reviews: 0, rts: [] }; }
   function step(k, e, quick, rel) {
@@ -584,6 +599,31 @@ ${items[item]}</svg>`;
       p.isleLevels[isle] = lv; if (isle === 1) p.level = lv;   // p.level kept = island 1, for older readers
       return { pace: p.pace, level: effLevel(p, game), levelChanged: changed, ...dayInfo(p) };
     });
+  }
+
+  // ---------- the adult's check round (Golan 11.11, games/check): results replace the letters' states ----------
+  // kind: "print" | "cursive" | "sound"; the track each one sets, and its island
+  const CHECK_TRACK = { print: "recognize", cursive: "cursive", sound: "sound" }, CHECK_ISLE = { print: 1, cursive: 1, sound: 2 };
+  function checkSave(letter, kind, st) {
+    const m = CHECK_TRACK[kind]; if (!m || !["known", "almost", "new"].includes(st)) return;
+    mutate(() => { const p = cur(); if (!p) return; const q = p.checks || (p.checks = []);
+      q.push({ t: Date.now(), l: letter, m, st }); if (q.length > 600) q.splice(0, q.length - 600); });
+    for (const k of Object.keys(listCache)) delete listCache[k];
+  }
+  // after a check: the island's level from its share known with confidence (25% -> 2, 50% -> 3), also downwards
+  function checkLevel(kind) {
+    const isle = CHECK_ISLE[kind] || 1;
+    return mutate(() => { const p = cur(); if (!p) return 1; cache = null;
+      const lv = levelForShare(isleShare(p, isle));
+      p.isleLevels = p.isleLevels || {}; p.isleChanged = p.isleChanged || {};
+      p.isleLevels[isle] = lv; p.isleChanged[isle] = p.session; if (isle === 1) p.level = lv;
+      try { sessionStorage.removeItem(manKey(p, isle)); } catch (e) {}
+      return lv; });
+  }
+  // where a check stopped (between parts): { order: [...], done: { letter: state } } per kind, per child
+  function checkRun(kind, val) {
+    if (val === undefined) { const p = cur(); return p && p.checkRun ? p.checkRun[kind] || null : null; }
+    mutate(() => { const p = cur(); if (!p) return; p.checkRun = p.checkRun || {}; if (val) p.checkRun[kind] = val; else delete p.checkRun[kind]; });
   }
 
   // ---------- how long to play (16.10, research in learner-model.md sec 12) ----------
@@ -2078,7 +2118,7 @@ ${items[item]}</svg>`;
         const rs = new Set(), rounds = [...(lp.rounds || []), ...(ip.rounds || [])].filter((r) => { const k = r.t + "|" + r.g; return rs.has(k) ? false : (rs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-50);
         const keep = { id: lp.id, name: lp.name, color: lp.color, item: lp.item, created: Math.min(lp.created || Infinity, ip.created || Infinity) };
         Object.assign(lp, newer === lp ? {} : ip, keep, {
-          events: evs.slice(-MAX_EVENTS), rounds, session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1, isleLevels: Object.assign({}, (newer === lp ? ip : lp).isleLevels || {}, newer.isleLevels || {}), isleChanged: {},
+          events: evs.slice(-MAX_EVENTS), rounds, checks: (() => { const cs = new Set(); return [...(lp.checks || []), ...(ip.checks || [])].filter((x) => { const k = x.t + "|" + x.l + "|" + x.m; return cs.has(k) ? false : (cs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-600); })(), session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1, isleLevels: Object.assign({}, (newer === lp ? ip : lp).isleLevels || {}, newer.isleLevels || {}), isleChanged: {},
           motor: [...(lp.motor || []), ...(ip.motor || [])].slice(-12), gameLevels: Object.assign({}, (newer === lp ? ip : lp).gameLevels || {}, newer.gameLevels || {}),
           gender: lp.gender || ip.gender || null, birthYear: lp.birthYear || ip.birthYear || null });
       }
@@ -2126,7 +2166,7 @@ ${items[item]}</svg>`;
     host.append(box); return box;
   }
   FL.learner = {
-    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, isleGames: () => ISLE_GAMES, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
+    cursiveReady, cursiveShare, soundsKnown, SOUND_SYL, SOUND_SKILL, nextGame, isleGames: () => ISLE_GAMES, checkSave, checkLevel, checkRun, nextGameUrl, goNextGame, nextTier, NEXT_GAMES,
     confirmToAll, discardSince, nameAnswersSince, mathGate,
     chooseChild, companionSvg, COMP_COLORS, COMP_ITEMS, profile: () => (load(), cur()), profiles: () => (load(), Object.values(db.profiles)), newProfile, updateProfile, removeProfile, setCurrent,
     record, cards: () => cardsFor(cur()), card: (l) => cardsFor(cur())[l], reportablePairs, recommended,

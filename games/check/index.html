@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>סבב בדיקה</title>
+<link rel="stylesheet" href="../shared/fonts/fonts.css">
+<style>
+  /* Golan 11.11: the adult's check round, opened from each island's settings (summaries + memory placement-check).
+     Letters (print / cursive): 27 letters in 3 parts of 9 on a circle of cards; sounds: one sound at a time, 3 pictures. */
+  :root { --sky: #bfe6ff; --ink: #1d2a3a; --card: #ffffffee; --good: #34b36b; --good-d: #1f8048; --muted: #5b6b7f; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: "Noto Sans Hebrew", system-ui, sans-serif; color: var(--ink); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  body { background: radial-gradient(ellipse at 50% 110%, #d8f3c8 0 30%, transparent 31%), linear-gradient(#a9dcff, #dff3ff); }
+  .round-btn { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: var(--card); box-shadow: 0 4px 16px #0002; font-size: 38px; }
+  .door-ico { width: 1em; height: 1em; display: block; }
+  .door-btn { top: max(12px, env(safe-area-inset-top)); left: 16px; z-index: 30; }
+  .door-btn::after { content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); background: #1c7ed6; color: #fff; font-size: 17px; font-weight: 700; padding: 6px 12px; border-radius: 10px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  @media (hover: hover) { .door-btn:hover::after { opacity: 1; } }
+  .panel { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; z-index: 20; }
+  .panel[hidden] { display: none; }
+  .box { background: #fff; border-radius: 26px; box-shadow: 0 10px 40px #0003; padding: 26px 28px; width: min(560px, 100%); max-height: calc(100% - 20px); overflow: auto; text-align: center; }
+  .box h1 { margin: 0 0 8px; font-size: 30px; }
+  .box p { margin: 8px 0; font-size: 18px; line-height: 1.5; color: var(--muted); }
+  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .go { border: 0; border-radius: 999px; background: linear-gradient(var(--good), var(--good-d)); color: #fff; font: inherit; font-size: 22px; font-weight: 800; padding: 12px 30px; min-height: 56px; cursor: pointer; box-shadow: 0 3px 0 #145c33; }
+  .go.alt { background: #fff; color: var(--ink); box-shadow: 0 0 0 2px #cfd8e3 inset; }
+  .prog { font-size: 17px; color: var(--muted); margin-top: 6px; }
+  /* the circle of 9 cards */
+  #stage { position: fixed; inset: 0; }
+  #ring { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: var(--R2); height: var(--R2); --R2: min(86vh, 86vw, 640px); }
+  .card { position: absolute; width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); transform: translate(-50%, -50%); border: 0; border-radius: 22%; background: #fff; box-shadow: 0 5px 0 #c9d6e3, 0 8px 18px #0002; font: inherit; font-weight: 800; color: var(--ink); font-size: calc(var(--R2) * .13); line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .cursive .card { font-family: "FL Cursive", cursive; font-weight: 400; font-size: calc(var(--R2) * .14); }
+  .card.hit { transform: translate(-50%, -50%) scale(.94); }
+  .spk { border: 0; background: #fff; border-radius: 50%; box-shadow: 0 3px 10px #0002; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  #ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); font-size: calc(var(--R2) * .09); background: #fff8d6; }
+  /* the sound check: 3 pictures in a row */
+  #pics { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); display: flex; gap: min(4vw, 32px); }
+  .pic { position: relative; width: min(26vw, 46vh, 260px); aspect-ratio: 1; border: 0; border-radius: 24px; background: #fff; box-shadow: 0 5px 0 #c9d6e3, 0 8px 18px #0002; cursor: pointer; padding: 6%; }
+  .pic svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .pic .spk { position: absolute; left: 8px; bottom: 8px; width: 40px; height: 40px; font-size: 20px; }
+  #askS { position: absolute; left: 50%; top: max(16px, 7vh); transform: translateX(-50%); width: 76px; height: 76px; font-size: 36px; background: #fff8d6; }
+  #partTag { position: absolute; right: 18px; top: max(14px, env(safe-area-inset-top)); background: #fff; border-radius: 999px; padding: 6px 16px; font-size: 18px; font-weight: 700; box-shadow: 0 2px 8px #0002; }
+  /* the end summary */
+  .grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin: 14px 0 8px; direction: rtl; }
+  .grid span { aspect-ratio: 1; display: grid; place-items: center; border-radius: 10px; border: 2px solid #d5dde6; background: #fff; font-size: 22px; font-weight: 800; }
+  .grid.sounds { grid-template-columns: repeat(6, 1fr); }
+  .grid.cursive span { font-family: "FL Cursive", cursive; font-weight: 400; }
+  .grid .known { background: #e3f7ec; border-color: #2bb673; }
+  .grid .almost { background: #fff4dc; border-color: #ffb020; }
+  .leg { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 16px; color: var(--muted); }
+  .leg i { display: inline-block; width: 16px; height: 16px; border-radius: 5px; border: 2px solid; vertical-align: -3px; margin-inline-end: 5px; }
+</style>
+</head>
+<body>
+<button class="round-btn door-btn" id="door" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+<div id="stage" hidden><div id="partTag"></div><div id="ring"><button class="spk" id="ask" aria-label="שׁוּב">🔊</button></div><div id="pics" hidden></div><button class="spk round-btn" id="askS" aria-label="שׁוּב" hidden>🔊</button></div>
+<div class="panel" id="start"><div class="box"><h1 id="title"></h1><p id="explain"></p><div class="prog" id="resumeTxt"></div><div class="btns" id="startBtns"></div></div></div>
+<div class="panel" id="pause" hidden><div class="box"><h1 id="pauseH"></h1><p>הַתְּשׁוּבוֹת עַד כָּאן נִשְׁמְרוּ. אֶפְשָׁר לְהַמְשִׁיךְ עַכְשָׁו אוֹ בַּפַּעַם הַבָּאָה, מֵאוֹתוֹ מָקוֹם.</p><div class="btns"><button class="go" id="goOn">מַמְשִׁיכִים</button><button class="go alt" id="stopNow">מְסַיְּמִים לְעַכְשָׁו</button></div></div></div>
+<div class="panel" id="end" hidden><div class="box"><h1 id="endH"></h1><p id="endP"></p><div class="grid" id="endGrid"></div>
+  <div class="leg"><span><i style="border-color:#2bb673;background:#e3f7ec"></i>מְזַהֶה בְּבִטָּחוֹן</span><span><i style="border-color:#ffb020;background:#fff4dc"></i>מוּכֶּרֶת</span><span><i style="border-color:#d5dde6;background:#fff"></i>חֲדָשָׁה</span></div>
+  <div class="btns"><button class="go" id="endBack">סִיּוּם</button></div></div></div>
+
+<script src="../waking-letter/pictures.js"></script>
+<script src="../sound-detective/sound-pictures.js"></script>
+<script src="../sound-wheel/wheel-pictures.js"></script>
+<script>if (window.PICTURES && window.WHEEL_PICTURES) for (const k in WHEEL_PICTURES.pics) if (!PICTURES[k]) PICTURES[k] = WHEEL_PICTURES.pics[k];</script>
+<script src="../shared/letter-pairs.js"></script>
+<script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const FL = window.FL || {}, LRN = FL.learner || null;
+  const KIND = (() => { const k = new URLSearchParams(location.search).get("kind"); return ["print", "cursive", "sound"].includes(k) ? k : "print"; })();
+  const SOUND = KIND === "sound";
+  const QUICK_MS = 2500;   // Golan 11.11: right within 2.5 s from the END of the question = known with confidence; slower = "מוכרת"
+  const PART = SOUND ? 6 : 9;
+  const prof = LRN && LRN.profile ? LRN.profile() : null;
+  const G = (m, f) => (prof && prof.gender === "f" ? f : m);
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // ---------- items ----------
+  const LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ", "ק", "ר", "ש", "ת", "ך", "ם", "ן", "ף", "ץ"];
+  const CLIP_OF_LETTER = { "א": "name_alef", "ב": "name_bet", "ג": "name_gimel", "ד": "name_dalet", "ה": "name_he", "ו": "name_vav", "ז": "name_zayin",
+    "ח": "name_het", "ט": "name_tet", "י": "name_yod", "כ": "name_kaf", "ל": "name_lamed", "מ": "name_mem", "נ": "name_nun", "ס": "name_samekh",
+    "ע": "name_ayin", "פ": "name_pe", "צ": "name_tsadi", "ק": "name_qof", "ר": "name_resh", "ש": "name_shin", "ת": "name_tav",
+    "ך": "fin_kaf", "ם": "fin_mem", "ן": "fin_nun", "ף": "fin_pe", "ץ": "fin_tsadi" };
+  // the sounds and their 5 pictures, as in בלש הצלילים (games/sound-detective, PICS_OF)
+  const SOUNDS = { "ב": "syl_ba", "ג": "syl_ga", "נ": "syl_na", "ט": "syl_ta_tet", "י": "syl_ya", "כ": "syl_ka", "א": "syl_a", "ח": "syl_cha", "צ": "syl_tsa", "ר": "syl_ra", "ת": "syl_ta", "מ": "syl_ma" };
+  const PICS_OF = { "ב": ["ב", "ן", "banana", "bottle", "duck"], "ג": ["camel", "socks", "gnome", "wheel", "fence"], "נ": ["נ", "shoe", "tiger", "swing", "stream"], "ט": ["ט", "ring", "chef", "pilot", "windmill"],
+    "י": ["י", "ם", "hand", "girl", "diamond"], "כ": ["כ", "teaspoon", "firefighter", "ticket", "buttons"], "א": ["א", "rabbit", "watermelon", "ambulance", "pear"], "ח": ["ח", "donkey", "window", "spaceship", "trumpet"],
+    "צ": ["צ", "plate", "painter", "parachutist", "scarf"], "ר": ["ר", "rattle", "trafficLight", "drone", "dancer"], "ת": ["ת", "rooster", "crocodile", "oven", "orange"],
+    "מ": ["plane", "helicopter", "truck", "slide", "mask"] };
+  const PICS = window.PICTURES || {};
+  const ALIKE = [["ט", "ת"], ["כ", "ק"], ["א", "ע", "ה"], ["ח", "כ"], ["ס", "ש"], ["ב", "ו"]];   // never on one screen
+  const alike = (a, b) => ALIKE.some((g) => g.includes(a) && g.includes(b));
+  const SOUND_L = Object.keys(SOUNDS).filter((l) => PICS_OF[l].some((k) => PICS[k]));
+  const ITEMS = SOUND ? SOUND_L : LETTERS;
+
+  // ---------- voice ----------
+  const AUDIO = "../../voice/audio/";
+  const clipCache = {}; let clipNow = null;
+  function getClip(id) {
+    if (!clipCache[id]) {
+      const a = new Audio(AUDIO + id + ".mp3"); a.preload = "auto";
+      if (/^syl_/.test(id)) { a.defaultPlaybackRate = a.playbackRate = 0.85; a.preservesPitch = true; }
+      a.addEventListener("canplaythrough", () => { a._ok = true; }, { once: true });
+      a.addEventListener("error", () => { a._bad = true; }, { once: true });
+      clipCache[id] = a;
+    }
+    return clipCache[id];
+  }
+  const gIds = (id) => (LRN && LRN.lineIds ? LRN.lineIds(id) : [id]);
+  // the first recorded of a few ids (boy/girl form first)
+  const pick = (...ids) => { for (const id of ids.flatMap(gIds)) { const a = getClip(id); if (a._ok) return id; } for (const id of ids.flatMap(gIds)) if (!getClip(id)._bad) return id; return null; };
+  let seqTok = 0;
+  function playIds(ids, then) {
+    const my = ++seqTok; let i = 0;
+    const next = () => {
+      if (my !== seqTok) return;
+      if (i >= ids.length) return then && then();
+      const item = ids[i++];
+      if (typeof item === "number") return setTimeout(next, item);
+      const a = item ? getClip(item) : null;
+      if (!a || a._bad) return setTimeout(next, 0);
+      try { if (clipNow && clipNow !== a) clipNow.pause(); } catch (e) {}
+      let done = false; const fin = () => { if (done) return; done = true; setTimeout(next, 60); };
+      a.currentTime = 0; a.playbackRate = a.defaultPlaybackRate; clipNow = a;
+      a.addEventListener("ended", fin, { once: true });
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => { if (!a._ok) a._bad = true; fin(); });
+      setTimeout(() => { if (!done && (a.paused || a._bad)) fin(); }, 6000);
+    };
+    next();
+  }
+  function stopVoice() { seqTok++; try { if (clipNow) clipNow.pause(); } catch (e) {} }
+  // Golan 11.11: 4 questions, one at random each time; "נבחר אות אחרת" never on the first question of a part.
+  // Every one keeps "הָאוֹת" before the name (the letter circle's rule: a bare name can sound like a word; ז is never joined
+  // from parts, it has whole clips). Until the new clips are recorded: "אֵיפֹה הָאוֹת X?" (lc_name_* / lc_fin_*).
+  const PHRASES = ["chk_p1", "chk_p2", "chk_p3", "chk_p4"];
+  function letterAsk(l, first) {
+    const nm = CLIP_OF_LETTER[l], opts = first ? PHRASES.slice(1) : PHRASES, ph = opts[Math.floor(Math.random() * opts.length)];
+    if (l === "ז") { const whole = pick(ph + "_zayin"); if (whole && getClip(whole)._ok) return [whole]; return ["lc_name_zayin"]; }
+    const pre = pick(ph); if (pre && getClip(pre)._ok) return [pre, nm];
+    return ["lc_" + nm];
+  }
+  const soundAsk = (l) => ["sd_q1", 150, SOUNDS[l]];
+  // preload
+  (SOUND ? ["sd_q1", ...Object.values(SOUNDS)] : [...Object.values(CLIP_OF_LETTER), ...Object.values(CLIP_OF_LETTER).map((x) => "lc_" + x), ...PHRASES.flatMap(gIds), ...PHRASES.flatMap((p) => gIds(p + "_zayin"))]).forEach(getClip);
+  if (SOUND) for (const l of SOUND_L) PICS_OF[l].forEach((k) => PICS[k] && PICS[k].clip && getClip(PICS[k].clip));
+
+  // ---------- tones: two pleasant sounds, different for right and wrong; no stars (Golan 11.11) ----------
+  let actx = null;
+  function bell(freqs, gap, dur, vol) {
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume();
+      let t = actx.currentTime + 0.01;
+      for (const f of freqs) { const o = actx.createOscillator(), g = actx.createGain(); o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.05); t += gap; }
+    } catch (e) {}
+  }
+  const sfx = { right: () => bell([784, 1175], 0.09, 0.35, 0.3), wrong: () => bell([440, 392], 0.13, 0.32, 0.22) };
+
+  // ---------- the run: order + answers, saved per child after every answer ----------
+  let run = null;
+  const save = () => { if (LRN && LRN.checkRun) LRN.checkRun(KIND, run); };
+  function freshRun() { run = { order: shuffle(ITEMS.slice()), done: {} }; save(); }
+  const doneCount = () => run.order.filter((l) => run.done[l]).length;
+  const parts = () => Math.ceil(run.order.length / PART);
+
+  // ---------- screens ----------
+  const TITLES = { print: "בְּדִיקַת אוֹתִיּוֹת דְּפוּס", cursive: "בְּדִיקַת אוֹתִיּוֹת כְּתַב יָד", sound: "בְּדִיקַת צְלִילִים" };
+  document.title = TITLES[KIND].replace(/[֑-ׇ]/g, "");
+  $("title").textContent = TITLES[KIND];
+  const who = prof ? prof.name : G("הַיֶּלֶד", "הַיַּלְדָּה");
+  $("explain").textContent = SOUND
+    ? `בדיקה של הורה או מורה. בכל פעם נשמע צליל אחד, ו${who} ${G("בוחר", "בוחרת")} מתוך 3 תמונות את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.`
+    : `בדיקה של הורה או מורה. המערכת אומרת שם של אות, ו${who} ${G("לוחץ", "לוחצת")} עליה. 27 אותיות עם הסופיות, ב-3 חלקים של 9, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.`;
+  if (KIND === "cursive") document.body.classList.add("cursive");
+  function showStart() {
+    const old = LRN && LRN.checkRun ? LRN.checkRun(KIND) : null;
+    const ok = old && Array.isArray(old.order) && old.order.length === ITEMS.length && old.order.every((l) => ITEMS.includes(l));
+    const n = ok ? old.order.filter((l) => old.done && old.done[l]).length : 0;
+    const box = $("startBtns"); box.innerHTML = "";
+    if (!prof) { $("resumeTxt").textContent = "יש לבחור קודם ילד במסך \"מי משחק?\"."; return; }
+    const b1 = document.createElement("button"); b1.className = "go";
+    if (ok && n > 0 && n < ITEMS.length) {
+      $("resumeTxt").textContent = `נבדקו ${n} מתוך ${ITEMS.length}. אפשר להמשיך מאותו מקום.`;
+      b1.textContent = "מַמְשִׁיכִים"; b1.onclick = () => { run = old; begin(); };
+      const b2 = document.createElement("button"); b2.className = "go alt"; b2.textContent = "מַתְחִילִים מֵחָדָשׁ"; b2.onclick = () => { freshRun(); begin(); };
+      box.append(b1, b2);
+    } else { $("resumeTxt").textContent = ""; b1.textContent = "מַתְחִילִים"; b1.onclick = () => { freshRun(); begin(); }; box.append(b1); }
+  }
+  let partNow = -1, queue = [], cur = null, askEnd = 0, busy = false, firstQ = true;
+  function begin() { $("start").hidden = true; bell([1], 0, 0.01, 0.0001); nextPart(); }
+  function nextPart() {
+    const n = doneCount(); if (n >= run.order.length) return finish();
+    partNow = Math.floor(n / PART);
+    const items = run.order.slice(partNow * PART, partNow * PART + PART);
+    queue = shuffle(items.filter((l) => !run.done[l]));
+    $("stage").hidden = false; $("partTag").textContent = `חֵלֶק ${partNow + 1} מִתּוֹךְ ${parts()}`;
+    firstQ = true;
+    if (SOUND) { $("ring").hidden = true; $("pics").hidden = false; $("askS").hidden = false; }
+    else { $("pics").hidden = true; $("askS").hidden = true; $("ring").hidden = false; drawRing(shuffle(items.slice())); }
+    setTimeout(ask, 500);
+  }
+  // 9 cards on a circle, in a random order (not by the alef-bet)
+  function drawRing(items) {
+    const ring = $("ring"); ring.querySelectorAll(".card").forEach((c) => c.parentNode.removeChild(c));
+    items.forEach((l, i) => {
+      const a = -Math.PI / 2 + (i * 2 * Math.PI) / items.length, b = document.createElement("button");
+      b.className = "card"; b.textContent = l; b.dataset.l = l; b.setAttribute("aria-label", l);
+      b.style.left = 50 + 39 * Math.cos(a) + "%"; b.style.top = 50 + 39 * Math.sin(a) + "%";
+      b.addEventListener("pointerdown", (e) => { e.preventDefault(); answer(l, b); });
+      ring.append(b);
+    });
+  }
+  function drawPics(l) {
+    const others = shuffle(SOUND_L.filter((x) => x !== l && !alike(x, l)));
+    const two = []; for (const x of others) if (two.length < 2 && !two.some((y) => alike(x, y))) two.push(x);
+    const host = $("pics"); host.innerHTML = "";
+    for (const s of shuffle([l, ...two])) {
+      const ks = PICS_OF[s].filter((k) => PICS[k]), k = ks[Math.floor(Math.random() * ks.length)], P = PICS[k];
+      const b = document.createElement("button"); b.className = "pic"; b.dataset.l = s; b.setAttribute("aria-label", P.plain || P.word || "");
+      b.innerHTML = `<svg viewBox="0 0 1000 1000" aria-hidden="true">${P.svg}</svg><span class="spk" role="button" aria-label="הַקְשָׁבָה">🔊</span>`;
+      const spk = b.querySelector(".spk");
+      spk.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (P.clip) playIds([P.clip]); });   /* the picture's name: not an answer */
+      b.addEventListener("pointerdown", (e) => { if (e.target === spk) return; e.preventDefault(); answer(s, b); });
+      host.append(b);
+    }
+  }
+  function ask() {
+    if (!queue.length) return partDone();
+    cur = queue.shift(); busy = false; askEnd = Infinity;
+    if (SOUND) drawPics(cur);
+    const ids = SOUND ? soundAsk(cur) : letterAsk(cur, firstQ); firstQ = false;
+    curIds = ids;
+    playIds(ids, () => { if (askEnd === Infinity) askEnd = performance.now(); });
+  }
+  let curIds = [];
+  const again = () => { if (cur && !busy) playIds(curIds); };   /* hearing it again does not restart the 2.5 s */
+  $("ask").onclick = again; $("askS").onclick = again;
+  function answer(l, el) {
+    if (!cur || busy) return; busy = true;
+    const rt = performance.now() - askEnd;   // negative (tapped while the question was still heard) = quick
+    stopVoice();
+    const right = l === cur, st = !right ? "new" : rt <= QUICK_MS ? "known" : "almost";
+    (right ? sfx.right : sfx.wrong)();
+    el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 160);
+    run.done[cur] = st; save();
+    if (LRN && LRN.checkSave) LRN.checkSave(cur, KIND, st);
+    cur = null;
+    setTimeout(ask, 700);
+  }
+  function partDone() {
+    if (doneCount() >= run.order.length) return finish();
+    $("pauseH").textContent = `חֵלֶק ${partNow + 1} מִתּוֹךְ ${parts()} הִסְתַּיֵּם`;
+    $("pause").hidden = false;
+  }
+  $("goOn").onclick = () => { $("pause").hidden = true; nextPart(); };
+  $("stopNow").onclick = () => { $("pause").hidden = true; leave(); };
+  function finish() {
+    stopVoice(); $("stage").hidden = true;
+    if (LRN && LRN.checkLevel) LRN.checkLevel(KIND);
+    const done = run.done, list = SOUND ? ITEMS : LETTERS;
+    if (LRN && LRN.checkRun) LRN.checkRun(KIND, null);
+    const k = list.filter((l) => done[l] === "known").length, a = list.filter((l) => done[l] === "almost").length;
+    $("endH").textContent = "הַבְּדִיקָה הִסְתַּיְּמָה";
+    $("endP").textContent = `${SOUND ? "צלילים" : "אותיות"}: ${k} מזוהות בביטחון, ${a} מוכרות, ${list.length - k - a} חדשות. התוצאות נשמרו, ומעכשיו המשחקים מותאמים אליהן.`;
+    const grid = $("endGrid"); grid.innerHTML = ""; grid.classList.toggle("sounds", SOUND); grid.classList.toggle("cursive", KIND === "cursive");
+    const SYL = (LRN && LRN.SOUND_SYL) || {};
+    for (const l of list) { const s = document.createElement("span"); s.textContent = SOUND ? SYL[l] || l : l; s.className = done[l] || "new"; grid.append(s); }
+    $("end").hidden = false;
+  }
+  function leave() {
+    stopVoice();
+    const hub = (LRN && LRN.hubUrl) || "../../index.html";
+    location.href = hub.split("#")[0] + "#games";
+  }
+  $("endBack").onclick = leave;
+  $("door").onclick = leave;
+  window.__chk = { get run() { return run; }, get cur() { return cur; }, answer: (l) => { const el = document.querySelector(`[data-l="${l}"]`); if (el) answer(l, el); }, KIND, QUICK_MS };
+  showStart();
+})();
+</script>
+</body>
+</html>
