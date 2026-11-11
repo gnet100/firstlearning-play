@@ -467,9 +467,9 @@
       <section><div class="set-kids"></div></section>   <!-- no heading and no explanation line (Golan 19.10) -->
       <section><div class="set-table"></div></section>
       <!-- "סיכום להורה" removed (Golan 8.11): the parent sees one picture, "התקדמות למידה וידע" -->
-      ${isleNow === 1 ? `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת צְלִילִים</h3><button type="button" class="go" data-kind="sound">בְּדִיקַת צְלִילִים</button></div>
+      ${isleNow === 1 ? `<section class="set-chk"><div class="hd col"><h3>מִבְדָּק רָמַת לְמִידָה וָיֶדַע</h3><span class="chk2"><button type="button" class="go" data-kind="sound">בְּדִיקַת צְלִילִים</button></span></div>
         <p class="set-ex">בדיקה של הורה או מורה: בכל פעם צליל אחד ו-3 תמונות, והילד בוחר את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.</p></section>`
-      : `<section class="set-chk"><div class="hd col"><h3>סְבַב בְּדִיקַת אוֹתִיּוֹת</h3><span class="chk2"><button type="button" class="go" data-kind="print">אוֹתִיּוֹת דְּפוּס</button><button type="button" class="go" data-kind="cursive">אוֹתִיּוֹת כְּתַב יָד</button></span></div>
+      : `<section class="set-chk"><div class="hd col"><h3>מִבְדָּק רָמַת לְמִידָה וָיֶדַע</h3><span class="chk2"><button type="button" class="go" data-kind="print">אוֹתִיּוֹת דְּפוּס</button><button type="button" class="go" data-kind="cursive">אוֹתִיּוֹת כְּתַב יָד</button></span></div>
         <p class="set-ex">בדיקה של הורה או מורה: המערכת אומרת שם של אות, והילד לוחץ עליה. 27 האותיות (כולל סופיות), ב-5 מעגלים של 5 עד 6 אותיות, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.</p></section>`}</div></div>`;
     document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
     o.querySelector(".set-x").onclick = back;
