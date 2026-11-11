@@ -34,6 +34,12 @@
   .cursive .card { font-family: "FL Cursive", cursive; font-weight: 400; font-size: calc(var(--R2) * .14); }
   .card.hit { transform: translate(-50%, -50%) scale(.94); }
   .spk { border: 0; background: #fff; border-radius: 50%; box-shadow: 0 3px 10px #0002; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  /* Golan 11.11: the speaker breathes gently while the system talks */
+  .spk.talk { animation: spkTalk 1s ease-in-out infinite; }
+  @keyframes spkTalk { 0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 3px 10px #0002, 0 0 0 0 #ffd43b80; } 50% { transform: translate(-50%, -50%) scale(1.07); box-shadow: 0 3px 10px #0002, 0 0 0 12px #ffd43b00; } }
+  #askS.talk { animation-name: spkTalkS; }
+  @keyframes spkTalkS { 0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 3px 10px #0002, 0 0 0 0 #ffd43b80; } 50% { transform: translateX(-50%) scale(1.07); box-shadow: 0 3px 10px #0002, 0 0 0 12px #ffd43b00; } }
+  @media (prefers-reduced-motion: reduce) { .spk.talk { animation: none; } }
   #ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); font-size: calc(var(--R2) * .09); background: #fff8d6; }
   /* the sound check: 3 pictures in a row */
   #pics { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); display: flex; gap: min(4vw, 32px); }
@@ -118,11 +124,12 @@
   // the first recorded of a few ids (boy/girl form first)
   const pick = (...ids) => { for (const id of ids.flatMap(gIds)) { const a = getClip(id); if (a._ok) return id; } for (const id of ids.flatMap(gIds)) if (!getClip(id)._bad) return id; return null; };
   let seqTok = 0;
+  const talk = (on) => { for (const id of ["ask", "askS"]) { const e = $(id); if (e) e.classList.toggle("talk", on); } };
   function playIds(ids, then) {
-    const my = ++seqTok; let i = 0;
+    const my = ++seqTok; let i = 0; talk(true);
     const next = () => {
       if (my !== seqTok) return;
-      if (i >= ids.length) return then && then();
+      if (i >= ids.length) { talk(false); return then && then(); }
       const item = ids[i++];
       if (typeof item === "number") return setTimeout(next, item);
       const a = item ? getClip(item) : null;
@@ -136,7 +143,7 @@
     };
     next();
   }
-  function stopVoice() { seqTok++; try { if (clipNow) clipNow.pause(); } catch (e) {} }
+  function stopVoice() { seqTok++; talk(false); try { if (clipNow) clipNow.pause(); } catch (e) {} }
   // Golan 11.11: 4 questions, one at random each time; "נבחר אות אחרת" never on the first question of a part.
   // Every one keeps "הָאוֹת" before the name (the letter circle's rule: a bare name can sound like a word; ז is never joined
   // from parts, it has whole clips). Until the new clips are recorded: "אֵיפֹה הָאוֹת X?" (lc_name_* / lc_fin_*).
