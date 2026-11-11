@@ -30,17 +30,18 @@
   // so several islands show, each one farther and smaller
   // Golan 20.10: a standing phone has its own layout: the trail goes straight up the screen with a narrower zigzag
   let tall = innerHeight > innerWidth;
-  const lay = () => (tall ? { gap: 8, dir: { x: 0.1, z: 0.995 }, w: 2.3, lat: { x: -1, z: 0 } } : { gap: 6.4, dir: { x: 0.55, z: 0.835 }, w: 4.0, lat: { x: -0.954, z: 0.299 } });   // Golan 8.11: islands closer (was gap 10 / 8.5)
+  const lay = () => (tall ? { gap: 8, dir: { x: 0.1, z: 0.995 }, w: 2.3, lat: { x: -1, z: 0 } } : { gap: 6.4, dir: { x: 0.55, z: 0.835 }, w: 2.4, lat: { x: -0.954, z: 0.299 } });   // Golan 8.11: islands closer (was gap 10 / 8.5)
   // Golan 20.10: the zigzag goes across the screen (lat = left on screen), so an island is never straight above the one before it
   // Golan 20.10: a winding trail, the islands zigzag left and right of the way ahead so each one shows
   const far0 = (v) => (v <= 1 ? v * 0.65 : v - 0.35);   // Golan 20.10: the second island sits closer to the first
   // Golan 8.11: the gaps and the side steps differ a little from island to island (not all the same), and every island
   // stands higher than the one before, so no island hides another
-  const STEP = [1, 0.85, 1.15, 0.9, 1.1, 0.95, 1.2, 0.85, 1.05, 1], SIDE = [1, 1.1, 1.25, 2.3, 1.6, 4.2, 2.4, 5.6, 3.0, 6.6];   // wider farther away, so far islands never line up behind near ones
+  const STEP = [1, 0.85, 1.15, 0.9, 1.1, 0.95, 1.2, 0.85, 1.05, 1], SIDE = [1, 1, 0.6, 0.55, 1.3, 1.3, 0.7, 0.7, 1.4, 1.4];   // Golan 11.11: a narrow zigzag (was up to 6.6), so the islands keep to the middle of the screen   // wider farther away, so far islands never line up behind near ones
   const far1 = (v) => { const n = Math.floor(v), f = v - n; let d = 0; for (let k = 1; k <= n; k++) d += STEP[k] || 1; return d + f * (STEP[n + 1] || 1); };
   const spot = (i) => { const L = lay(), D = L.dir, w = (i % 2 ? -1 : 1) * L.w * (SIDE[i] || 1), d = far0(far1(i));
-    return { x: d * L.gap * D.x + w * L.lat.x, y: i * 1.1, z: d * L.gap * D.z + w * L.lat.z }; };
+    return { x: d * L.gap * D.x + w * L.lat.x, y: i * YSTEP, z: d * L.gap * D.z + w * L.lat.z }; };
   const mid = (v) => { const L = lay(), d = far0(far1(v)); return { x: d * L.gap * L.dir.x, z: d * L.gap * L.dir.z }; };   // the middle of the trail
+  const YSTEP = 1.5;   // Golan 11.11: each island stands this much higher than the one before, so islands on the same side never cover each other
   const ISLE = 0.62;   // island size (Golan 20.10: smaller)
   const BAL = { x: 0, y: 1.8, z: 0.2 };
   const BACK = 0.85, BACK_TALL = 0.4, SHIFT = 1.4;   // SHIFT: on a wide screen the view moves right a little, so the balloon's island is not at the edge   // Golan 29.10: the camera stands this much of the way behind the balloon, so the island before shows   // Golan 20.10: the balloon hangs right above the middle of the island it serves
@@ -278,6 +279,33 @@
     else if (room === Infinity) btnOff[ax] = Math.max(0, btnOff[ax] - btnOff[ax] * Math.min(1, dt * 2));
     btnOff[tall ? "x" : "y"] = 0; btnOff[ax] = Math.min(btnOff[ax], 6);
   }
+  // Golan 11.11: keep the islands in view inside 20%..80% of the screen's width: the view slides sideways (isleFit.x, world
+  // units along the screen's right) and, when they do not fit, steps back (isleFit.back), so they look smaller. Islands
+  // low enough to meet the start button keep to its right. The view eases back only while there is room to spare.
+  const isleFit = { x: 0, back: 0 }, FIT_LO = 0.2, FIT_HI = 0.8;
+  function fitIsles(dt) {
+    const cv = engine.getRenderingCanvas(), k = cv.clientWidth / engine.getRenderWidth(), vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
+    const M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly, R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize();
+    const W = cv.clientWidth, b = ui && ui.querySelector(".sys"), c0 = cv.getBoundingClientRect();
+    const br = b && b.offsetWidth ? b.getBoundingClientRect() : null, bx1 = br ? br.right - c0.left + 16 : 0, by0 = br ? br.top - c0.top - 20 : Infinity;
+    let needR = -Infinity, needL = -Infinity, needT = -Infinity, ppuR = 1, ppuL = 1, n = 0; const top = cv.clientHeight * 0.1;   // and under the island name at the top
+    for (const it of isles) { if (!it.root.isEnabled() || it.vis < 0.3) continue;
+      const c = it.root.position, q = BABYLON.Vector3.Project(c, I, M, vp); if (q.z < 0 || q.z > 1) continue;
+      const kk = it.root.scaling.x / ISLE, ppu = Math.abs(BABYLON.Vector3.Project(c.add(R), I, M, vp).x - q.x) * k; if (ppu < 1e-3) continue;
+      const r = ppu * 2.9 * ISLE * kk, x = q.x * k, y = q.y * k, bottom = y + r * 0.9;
+      const lim = bottom > by0 ? Math.max(FIT_LO * W, bx1) : FIT_LO * W, nr = lim - (x - r), nl = x + r - FIT_HI * W; n++;
+      needT = Math.max(needT, (top - (y - r * 0.3)) / ppu); if (nr > needR) { needR = nr; ppuR = ppu; } if (nl > needL) { needL = nl; ppuL = ppu; } }
+    if (!n) return;
+    const g = Math.min(1, dt * 3);
+    if (needT > 0 && !(needR + needL > 0)) isleFit.back = Math.min(40, isleFit.back + g * needT * 1.5);
+    if (needR + needL > 0) {   // wider than the band: step back, and centre
+      isleFit.back = Math.min(40, isleFit.back + g * 0.5 * (needR + needL) / Math.min(ppuR, ppuL));
+      isleFit.x += g * (needL / ppuL - needR / ppuR) / 2;
+    } else if (needR > 0) isleFit.x -= g * needR / ppuR;   // islands too far left: the view moves left
+    else if (needL > 0) isleFit.x += g * needL / ppuL;
+    else if (needT <= -0.3) { const room = -(needR + needL) / 2;   // room on both sides: come closer again, slowly
+      if (isleFit.back > 0 && room > 12) isleFit.back = Math.max(0, isleFit.back - g * 0.25 * room / Math.max(ppuR, ppuL)); }
+  }
   function clearSide(P) {   // how far (world units, along the screen's right) the balloon must slide to leave every island ahead visible
     const vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()), M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly;
     const scr = (v) => BABYLON.Vector3.Project(v, I, M, vp), R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize();
@@ -342,8 +370,9 @@
       want = new BABYLON.Vector3(C.x + lerp(1.0, 0.4, zoom) + SHIFT, C.y + lerp(5.2, 3.5, zoom), C.z - lerp(9.5, 7.3, zoom));
       look = new BABYLON.Vector3(C.x + lerp(6.8, 3.8, zoom) + SHIFT, C.y + lerp(0.7, 0.2, zoom), C.z + lerp(9, 4.5, zoom));
     }
-    { const R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize(); keepClear(dt);   // Golan 20.10: islands make room for the start button (it never moves)
-      const off = R.scale(-btnOff.x).add(new BABYLON.Vector3(0, -btnOff.y, 0)); want.addInPlace(off); look.addInPlace(off); }
+    { const R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize(); fitIsles(dt);   // Golan 11.11: every island in view stays between 20% and 80% of the screen's width (and clear of the start button)
+      const off = R.scale(isleFit.x); want.addInPlace(off); look.addInPlace(off);
+      if (isleFit.back > 0) { const away = want.subtract(look).normalize(); want.addInPlace(away.scale(isleFit.back)); } }
     cam.position = BABYLON.Vector3.Lerp(cam.position, want, Math.min(1, dt * 4)); camLook = BABYLON.Vector3.Lerp(camLook || look, look, Math.min(1, dt * 4)); cam.setTarget(camLook);
     // Golan 20.10: only the balloon's island and the next 4 show; moving on brings one more in and lets the first go
     const cur = Math.max(0, Math.min(STOPS.length - 1, Math.round(s)));
@@ -475,7 +504,7 @@
     const cv = engine.getRenderingCanvas(), k = cv.clientWidth / engine.getRenderWidth(), vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
     const M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly, R = cam.getDirection(BABYLON.Axis.X);
     const b = ui.querySelector(".sys").getBoundingClientRect(), c0 = cv.getBoundingClientRect();
-    return { W: cv.clientWidth, H: cv.clientHeight, s, btn: { x: b.left - c0.left, y: b.top - c0.top, w: b.width, h: b.height },
+    return { W: cv.clientWidth, H: cv.clientHeight, s, fit: isleFit, btn: { x: b.left - c0.left, y: b.top - c0.top, w: b.width, h: b.height },
       isles: isles.map((it, i) => { const c = it.root.position, q = BABYLON.Vector3.Project(c, I, M, vp), e = BABYLON.Vector3.Project(c.add(R.scale(2.9 * ISLE)), I, M, vp);
         return { i, on: it.root.isEnabled() && it.vis > 0.5, x: q.x * k, y: q.y * k, r: Math.abs(e.x - q.x) * k }; }),
       clouds: far.map((g, i) => { const q = BABYLON.Vector3.Project(g.position.add(new BABYLON.Vector3(1.3, 0, 0)), I, M, vp); return { i, x: q.x * k, y: q.y * k, z: q.z }; }) };
