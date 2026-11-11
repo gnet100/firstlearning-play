@@ -166,7 +166,10 @@
   // ---------- the run: order + answers, saved per child after every answer ----------
   let run = null;
   const save = () => { if (LRN && LRN.checkRun) LRN.checkRun(KIND, run); };
-  function freshRun() { run = { order: shuffle(ITEMS.slice()), done: {} }; save(); }
+  // Golan 11.11: a letter and its final form (כ ך, מ ם, נ ן, פ ף, צ ץ) are never in the same circle
+  const FIN_PAIR = { "ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ" };
+  const clash = (o) => SIZES.some((n, i) => { const part = o.slice(STARTS[i], STARTS[i] + n); return part.some((l) => FIN_PAIR[l] && part.includes(FIN_PAIR[l])); });
+  function freshRun() { let o = shuffle(ITEMS.slice()); for (let k = 0; k < 500 && !SOUND && clash(o); k++) o = shuffle(o); run = { order: o, done: {} }; save(); }
   const doneCount = () => run.order.filter((l) => run.done[l]).length;
   const parts = () => SIZES.length;
 
