@@ -124,6 +124,7 @@
   .set-chk .hd.col { flex-direction: column; align-items: stretch; }   /* Golan 11.11: the title on one line, the two buttons under it, same size */
   .set-chk .hd.col h3 { white-space: nowrap; }
   .set-chk .chk2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .set-chk .chk2 > :only-child { grid-column: 2; }   /* Golan 11.11: a single button sits at the left end of the line */
   .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 5px 18px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 38px; }   /* Golan 11.11: lower buttons */
   .set-form, .set-confirm { background: #f5f9ff; border-radius: 16px; padding: 10px; margin-bottom: 6px; text-align: center; }
   .set-form .prev svg { display: block; margin: 0 auto; }
