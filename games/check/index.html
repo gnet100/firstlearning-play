@@ -34,11 +34,14 @@
   .cursive .card { font-family: "FL Cursive", cursive; font-weight: 400; font-size: calc(var(--R2) * .14); }
   .card.hit { transform: translate(-50%, -50%) scale(.94); }
   .spk { border: 0; background: #fff; border-radius: 50%; box-shadow: 0 3px 10px #0002; cursor: pointer; display: grid; place-items: center; padding: 0; }
-  /* Golan 11.11: while the system talks only the speaker icon and its arcs grow gently; the circle keeps its size */
-  .spk .ico { display: inline-block; line-height: 1; }
-  .spk.talk .ico { animation: icoTalk .9s ease-in-out infinite; }
-  @keyframes icoTalk { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
-  @media (prefers-reduced-motion: reduce) { .spk.talk .ico { animation: none; } }
+  /* Golan 11.11: a drawn speaker (a touch darker than the emoji); while the system talks only its blue arcs vibrate,
+     the speaker and the circle keep their size */
+  .spk .ico { display: block; width: 1.5em; height: 1.5em; }
+  .spk .ico .arc { transform-box: fill-box; transform-origin: 0% 50%; }
+  .spk.talk .ico .a1 { animation: arcBuzz .22s ease-in-out infinite alternate; }
+  .spk.talk .ico .a2 { animation: arcBuzz .22s ease-in-out .11s infinite alternate; }
+  @keyframes arcBuzz { from { transform: translateX(0) scale(1); opacity: 1; } to { transform: translateX(1.5px) scale(1.12); opacity: .7; } }
+  @media (prefers-reduced-motion: reduce) { .spk.talk .ico .arc { animation: none; } }
   #ask { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); font-size: calc(var(--R2) * .09); background: #fff8d6; }
   /* the sound check: 3 pictures in a row */
   #pics { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); display: flex; gap: min(4vw, 32px); }
@@ -60,7 +63,7 @@
 </head>
 <body>
 <button class="round-btn door-btn" id="door" aria-label="יְצִיאָה" data-tip="יְצִיאָה"><svg class="door-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="12" height="19" rx="1" fill="#3b2a20" stroke="#8a6a55" stroke-width="1"/><path d="M9 2.5 L2.6 0.9 L2.6 23.1 L9 21.5 Z" fill="#e8894a" stroke="#b9612a" stroke-width="1" stroke-linejoin="round"/><circle cx="4.3" cy="12.3" r="1.05" fill="#ffd38a" stroke="#9a4f22" stroke-width=".5"/><path d="M1.5 21.6 H22.5" stroke="#8a6a55" stroke-width="1.4" stroke-linecap="round"/></svg></button>
-<div id="stage" hidden><div id="partTag"></div><div id="ring"><button class="spk" id="ask" aria-label="שׁוּב"><span class="ico">🔊</span></button></div><div id="pics" hidden></div><button class="spk round-btn" id="askS" aria-label="שׁוּב" hidden><span class="ico">🔊</span></button></div>
+<div id="stage" hidden><div id="partTag"></div><div id="ring"><button class="spk" id="ask" aria-label="שׁוּב"><svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="spkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9ccd4"/><stop offset="1" stop-color="#9ea3ad"/></linearGradient></defs><path d="M7 18.5h7.5L25 10v28l-10.5-8.5H7z" fill="url(#spkG)" stroke="#878c96" stroke-width="1.4" stroke-linejoin="round"/><path class="arc a1" d="M30 18.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="#2f8fe8" stroke-width="3.4" stroke-linecap="round"/><path class="arc a2" d="M34.5 13.5a14 14 0 0 1 0 21" fill="none" stroke="#2f8fe8" stroke-width="3.4" stroke-linecap="round"/></svg></button></div><div id="pics" hidden></div><button class="spk round-btn" id="askS" aria-label="שׁוּב" hidden><svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="spkG2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9ccd4"/><stop offset="1" stop-color="#9ea3ad"/></linearGradient></defs><path d="M7 18.5h7.5L25 10v28l-10.5-8.5H7z" fill="url(#spkG2)" stroke="#878c96" stroke-width="1.4" stroke-linejoin="round"/><path class="arc a1" d="M30 18.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="#2f8fe8" stroke-width="3.4" stroke-linecap="round"/><path class="arc a2" d="M34.5 13.5a14 14 0 0 1 0 21" fill="none" stroke="#2f8fe8" stroke-width="3.4" stroke-linecap="round"/></svg></button></div>
 <div class="panel" id="start"><div class="box"><h1 id="title"></h1><p id="explain"></p><div class="prog" id="resumeTxt"></div><div class="btns" id="startBtns"></div></div></div>
 <div class="panel" id="pause" hidden><div class="box"><h1 id="pauseH"></h1><p>הַתְּשׁוּבוֹת עַד כָּאן נִשְׁמְרוּ. אֶפְשָׁר לְהַמְשִׁיךְ עַכְשָׁו אוֹ בַּפַּעַם הַבָּאָה, מֵאוֹתוֹ מָקוֹם.</p><div class="btns"><button class="go" id="goOn">מַמְשִׁיכִים</button><button class="go alt" id="stopNow">מְסַיְּמִים לְעַכְשָׁו</button></div></div></div>
 <div class="panel" id="idle" hidden><div class="box"><h1>לְהַמְשִׁיךְ בַּבְּדִיקָה?</h1><p id="idleP"></p><div class="btns"><button class="go" id="idleOn">מַמְשִׁיכִים</button><button class="go alt" id="idleOut">יְצִיאָה</button></div></div></div>
