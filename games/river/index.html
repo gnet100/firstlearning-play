@@ -1241,8 +1241,7 @@
     if (q.fails >= 3 && !q.hint) { q.hint = true; for (const st of stones) if (st.type === "good") st.plate.material = picMat(st.pic, true); }
     resetPlan(); badIdx = -1;   // Golan 7.11: after a mistake the arrows are cleared, a fresh path from the start
     state.mode = "plan"; renderPlan();
-    if (q.demo) return;
-    if (HG && HG.done()) return finale();
+    if (q.demo) return;   // Golan 11.11 21:47: time up never ends a river in the middle; the child finishes it
     if (!q.fails || q.fails % 2) whenQuiet(() => { if (state.q === q && state.mode === "plan") playSeq([SOUNDS[q.letter].s]); });
   }
   async function success(q, alive) {
@@ -1253,11 +1252,12 @@
     { const x0 = bunny.root.position.x, lo = colX(0) - 0.6, hi = colX(COLS - 1) + 0.6; let dir = x0 > 0.3 ? 1 : x0 < -0.3 ? -1 : (Math.random() < 0.5 ? 1 : -1);
       if ((dir > 0 ? hi - x0 : x0 - lo) < 1.4) dir = -dir;
       const x1 = Math.max(lo, Math.min(hi, x0 + dir * 1.9)), dx = x1 - x0;
+      const z0 = bunny.root.position.z, z1 = z0 + 0.9;   // Golan 11.11 21:45: up the bank, away from the hedge, so the whole dance shows
       const ya = bunny.yaw.rotation.y, yt = yawOfDir(dx > 0 ? 1 : 3); let dy = ((yt - ya) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
       await tween(0.2, (k) => (bunny.yaw.rotation.y = ya + dy * k)); if (!alive()) return;
       const n = Math.max(2, Math.round(Math.abs(dx) / 0.55));
       await tween(0.42 * n, (k) => { const ph = (k * n) % 1, c = Math.floor(k * n), m = ph < 0.2 ? 0 : ph < 0.75 ? (ph - 0.2) / 0.55 : 1;
-        bunny.root.position.x = lerp(x0, x1, Math.min(1, (c + m) / n)); hopPose(k >= 1 ? 0 : ph, 0.22); });
+        bunny.root.position.x = lerp(x0, x1, Math.min(1, (c + m) / n)); bunny.root.position.z = lerp(z0, z1, Math.min(1, (c + m) / n)); hopPose(k >= 1 ? 0 : ph, 0.22); });
       hopRest(); if (!alive()) return;
       const yb = bunny.yaw.rotation.y, yc = yawOfDir(2); dy = ((yc - yb) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;   // turns to the child
       await tween(0.22, (k) => (bunny.yaw.rotation.y = yb + dy * k)); if (!alive()) return; bunny.yawV = bunny.yaw.rotation.y; }
@@ -1280,7 +1280,8 @@
     playSeq([SOUNDS[q.letter].s]);
     await wait(0.6); if (!alive()) return;
     if (q.demo) { if (demoCont) { const f = demoCont; demoCont = null; f(); } return; }
-    if (HG && HG.done()) return finale();
+    if (HG && HG.done()) return finale();   // the time ran out during this river: the round ends now that it is crossed
+    if (HG) HG.start();   // Golan 11.11 21:47: every new river starts with a full hourglass
     whenQuiet(() => { if (state.q === q && state.mode === "between") newRiver(); });
   }
 
@@ -1330,7 +1331,7 @@
   const starCount = LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null;
   let bgHold = false;
   const HG = LRN && LRN.hourglass ? LRN.hourglass({ paused: () => state.mode === "paused" || !$("settings").hidden || bgHold || state.demo,
-    onEnd: () => { if (state.mode === "plan" && !state.demo && !$("hud").hidden) finale(); } }) : null;
+    onEnd: () => {} }) : null;   // Golan 11.11 21:47: the river being crossed is finished first (success() ends the round)
   let form = null;
   // one record per river, at its end (the shared "sound" skill): a sinking stone stepped on is the sound mistake
   function recordQ(q, solved) {
@@ -1414,7 +1415,6 @@
     if (pausedFrom !== null) return;
     if (state.mode === "ready") { heldSeq = null; countdown(); return; }
     if (heldSeq) { const h = heldSeq; heldSeq = null; playSeq(...h); return; }
-    if (state.mode === "plan" && HG && HG.done() && !state.demo) { finale(); return; }
     if (!$("start").hidden && !heardIntro) later(autoIntro, 600);
   }
   $("gear").addEventListener("click", openSettings);
