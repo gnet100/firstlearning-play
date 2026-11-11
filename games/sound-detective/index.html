@@ -472,11 +472,11 @@
 <!-- one fit for every screen (games/shared/screen.js, owned by the screens thread; standard: screens/screens-standard.md) -->
 <script src="../shared/letter-pairs.js"></script>
 <script src="../shared/love-balloon.js"></script>
-<script src="../waking-letter/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" (spec sec 6) -->
-<script src="sound-pictures.js"></script>
-<script src="../sound-wheel/wheel-pictures.js"></script>   <!-- Golan 8.11: the sound מַ uses the wheel's pictures (plane, helicopter, truck, slide, mask) -->
+<script src="../shared/pictures/pictures.js"></script>   <!-- the pictures of "האות שמתעוררת" (spec sec 6) -->
+<script src="../shared/pictures/sound-pictures.js"></script>
+<script src="../shared/pictures/wheel-pictures.js"></script>   <!-- Golan 8.11: the sound מַ uses the wheel's pictures (plane, helicopter, truck, slide, mask) -->
 <script>if (window.PICTURES && window.WHEEL_PICTURES) for (const k in WHEEL_PICTURES.pics) if (!PICTURES[k]) PICTURES[k] = WHEEL_PICTURES.pics[k];</script>
-<script src="../waking-letter/pictures-animated/pictures-animated.js"></script>   <!-- the found picture comes alive and leaves its tag (Golan 7.11, as in sound mole) -->
+<script src="../shared/pictures/pictures-animated/pictures-animated.js"></script>   <!-- the found picture comes alive and leaves its tag (Golan 7.11, as in sound mole) -->
 <script src="../shared/pic-exit.js"></script>   <!-- the new pictures of this game (Golan 29.10) -->
 <script src="../shared/learner.js" data-fl-hub="../../index.html"></script>
 <script>if (!(window.FL && window.FL.learner)) document.write('<script src="letter-pairs.js"><\/script><script src="learner.js" data-fl-hub="../../index.html"><\/script>');</script>
