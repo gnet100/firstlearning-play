@@ -121,7 +121,9 @@
   .set-sum .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
   .set-chk .hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }   /* title and button in one line (Golan 20.10) */
   .set-chk h3 { margin: 4px 0; font-size: 20px; }
-  .set-chk .chk2 { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .set-chk .hd.col { flex-direction: column; align-items: stretch; }   /* Golan 11.11: the title on one line, the two buttons under it, same size */
+  .set-chk .hd.col h3 { white-space: nowrap; }
+  .set-chk .chk2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 10px 20px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 48px; }
   .set-form, .set-confirm { background: #f5f9ff; border-radius: 16px; padding: 10px; margin-bottom: 6px; text-align: center; }
   .set-form .prev svg { display: block; margin: 0 auto; }
@@ -467,7 +469,7 @@
       <!-- "סיכום להורה" removed (Golan 8.11): the parent sees one picture, "התקדמות למידה וידע" -->
       ${isleNow === 1 ? `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת צְלִילִים</h3><button type="button" class="go" data-kind="sound">בְּדִיקַת צְלִילִים</button></div>
         <p class="set-ex">בדיקה של הורה או מורה: בכל פעם צליל אחד ו-3 תמונות, והילד בוחר את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.</p></section>`
-      : `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת אוֹתִיּוֹת</h3><span class="chk2"><button type="button" class="go" data-kind="print">בְּדִיקַת דְּפוּס</button><button type="button" class="go" data-kind="cursive">בְּדִיקַת כְּתַב יָד</button></span></div>
+      : `<section class="set-chk"><div class="hd col"><h3>סְבַב בְּדִיקַת אוֹתִיּוֹת</h3><span class="chk2"><button type="button" class="go" data-kind="print">בְּדִיקַת דְּפוּס</button><button type="button" class="go" data-kind="cursive">בְּדִיקַת כְּתַב יָד</button></span></div>
         <p class="set-ex">בדיקה של הורה או מורה: המערכת אומרת שם של אות, והילד לוחץ עליה. 27 האותיות עם הסופיות, ב-3 חלקים של 9, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.</p></section>`}</div></div>`;
     document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
     o.querySelector(".set-x").onclick = back;
