@@ -27,10 +27,10 @@
   .go { border: 0; border-radius: 999px; background: linear-gradient(var(--good), var(--good-d)); color: #fff; font: inherit; font-size: 22px; font-weight: 800; padding: 12px 30px; min-height: 56px; cursor: pointer; box-shadow: 0 3px 0 #145c33; }
   .go.alt { background: #fff; color: var(--ink); box-shadow: 0 0 0 2px #cfd8e3 inset; }
   .prog { font-size: 17px; color: var(--muted); margin-top: 6px; }
-  /* the circle of 9 cards */
+  /* the circle of 5-6 cards */
   #stage { position: fixed; inset: 0; }
   #ring { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: var(--R2); height: var(--R2); --R2: min(86vh, 86vw, 640px); }
-  .card { position: absolute; width: calc(var(--R2) * .2); height: calc(var(--R2) * .2); transform: translate(-50%, -50%); border: 0; border-radius: 22%; background: #fff; box-shadow: 0 5px 0 #c9d6e3, 0 8px 18px #0002; font: inherit; font-weight: 800; color: var(--ink); font-size: calc(var(--R2) * .13); line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .card { position: absolute; width: calc(var(--R2) * .23); height: calc(var(--R2) * .23); transform: translate(-50%, -50%); border: 0; border-radius: 22%; background: #fff; box-shadow: 0 5px 0 #c9d6e3, 0 8px 18px #0002; font: inherit; font-weight: 800; color: var(--ink); font-size: calc(var(--R2) * .13); line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
   .cursive .card { font-family: "FL Cursive", cursive; font-weight: 400; font-size: calc(var(--R2) * .14); }
   .card.hit { transform: translate(-50%, -50%) scale(.94); }
   .spk { border: 0; background: #fff; border-radius: 50%; box-shadow: 0 3px 10px #0002; cursor: pointer; display: grid; place-items: center; padding: 0; }
@@ -75,7 +75,9 @@
   const KIND = (() => { const k = new URLSearchParams(location.search).get("kind"); return ["print", "cursive", "sound"].includes(k) ? k : "print"; })();
   const SOUND = KIND === "sound";
   const QUICK_MS = 2500;   // Golan 11.11: right within 2.5 s from the END of the question = known with confidence; slower = "מוכרת"
-  const PART = SOUND ? 6 : 9;
+  // Golan 11.11: letters in 5 circles of 5, 5, 5, 6, 6 (was 3 of 9); sounds in 2 parts of 6
+  const SIZES = SOUND ? [6, 6] : [5, 5, 5, 6, 6], STARTS = SIZES.map((_, i) => SIZES.slice(0, i).reduce((a, b) => a + b, 0));
+  const partIndex = (n) => { let i = 0; while (i < SIZES.length - 1 && n >= STARTS[i + 1]) i++; return i; };
   const prof = LRN && LRN.profile ? LRN.profile() : null;
   const G = (m, f) => (prof && prof.gender === "f" ? f : m);
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -166,7 +168,7 @@
   const save = () => { if (LRN && LRN.checkRun) LRN.checkRun(KIND, run); };
   function freshRun() { run = { order: shuffle(ITEMS.slice()), done: {} }; save(); }
   const doneCount = () => run.order.filter((l) => run.done[l]).length;
-  const parts = () => Math.ceil(run.order.length / PART);
+  const parts = () => SIZES.length;
 
   // ---------- screens ----------
   const TITLES = { print: "בְּדִיקַת אוֹתִיּוֹת דְּפוּס", cursive: "בְּדִיקַת אוֹתִיּוֹת כְּתַב יָד", sound: "בְּדִיקַת צְלִילִים" };
@@ -175,7 +177,7 @@
   const who = prof ? prof.name : G("הַיֶּלֶד", "הַיַּלְדָּה");
   $("explain").textContent = SOUND
     ? `בדיקה של הורה או מורה. בכל פעם נשמע צליל אחד, ו${who} ${G("בוחר", "בוחרת")} מתוך 3 תמונות את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.`
-    : `בדיקה של הורה או מורה. המערכת אומרת שם של אות, ו${who} ${G("לוחץ", "לוחצת")} עליה. 27 אותיות עם הסופיות, ב-3 חלקים של 9, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.`;
+    : `בדיקה של הורה או מורה. המערכת אומרת שם של אות, ו${who} ${G("לוחץ", "לוחצת")} עליה. 27 אותיות עם הסופיות, ב-5 מעגלים של 5 עד 6 אותיות, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.`;
   if (KIND === "cursive") document.body.classList.add("cursive");
   function showStart() {
     const old = LRN && LRN.checkRun ? LRN.checkRun(KIND) : null;
@@ -195,8 +197,8 @@
   function begin() { $("start").hidden = true; bell([1], 0, 0.01, 0.0001); nextPart(); }
   function nextPart() {
     const n = doneCount(); if (n >= run.order.length) return finish();
-    partNow = Math.floor(n / PART);
-    const items = run.order.slice(partNow * PART, partNow * PART + PART);
+    partNow = partIndex(n);
+    const items = run.order.slice(STARTS[partNow], STARTS[partNow] + SIZES[partNow]);
     queue = shuffle(items.filter((l) => !run.done[l]));
     $("stage").hidden = false; $("partTag").textContent = `חֵלֶק ${partNow + 1} מִתּוֹךְ ${parts()}`;
     firstQ = true;
@@ -204,7 +206,7 @@
     else { $("pics").hidden = true; $("askS").hidden = true; $("ring").hidden = false; drawRing(shuffle(items.slice())); }
     setTimeout(ask, 500);
   }
-  // 9 cards on a circle, in a random order (not by the alef-bet)
+  // 5-6 cards on a circle, in a random order (not by the alef-bet)
   function drawRing(items) {
     const ring = $("ring"); ring.querySelectorAll(".card").forEach((c) => c.parentNode.removeChild(c));
     items.forEach((l, i) => {
