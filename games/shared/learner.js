@@ -209,7 +209,32 @@
 
   // ---------- storage ----------
   let db = { v: 1, current: null, profiles: {} };
-  function load() { try { const x = JSON.parse(localStorage.getItem(KEY) || "null"); if (x && x.v === 1) db = x; } catch (e) {} }
+  // Golan 11.11 (family sync, step 1): every device has its own fixed id. Each answer carries it (d) and the device's own
+  // session number (ds), so merging two devices (a file or, later, the family code) never renumbers or doubles anything:
+  // a session is a device's session, ranked by when it began (e.s). The device id never leaves this device.
+  const DEV_KEY = "fl-device-id";
+  const DEV = (() => { let v = null; try { v = localStorage.getItem(DEV_KEY); if (!v) { v = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem(DEV_KEY, v); } } catch (e) { v = v || "d0"; } return v; })();
+  // Golan 11.11 (family sync): every "fl-" setting remembers when it was last written on this device (fl-keytimes), so a
+  // merge takes the newer of two values, the same way on both devices (no endless back and forth)
+  const KEYT = "fl-keytimes", NO_STAMP = new Set([KEY, KEYT, "fl-alive", "fl-device-id", "fl-hub-url", "fl-hourglass-ms", "fl-sync", "fl-sync-url"]);
+  let rawWrite = false;
+  const keyTimes = () => { try { return JSON.parse(localStorage.getItem(KEYT) || "{}") || {}; } catch (e) { return {}; } };
+  try { const S = root.Storage && root.Storage.prototype, orig = S && S.setItem;
+    if (orig && !S.setItem.flStamped) { S.setItem = function (k, v) { orig.call(this, k, v);
+        if (!rawWrite && this === root.localStorage && typeof k === "string" && k.startsWith("fl-") && !NO_STAMP.has(k)) { const t = keyTimes(); t[k] = Date.now(); orig.call(this, KEYT, JSON.stringify(t)); } };
+      S.setItem.flStamped = true; } } catch (e) {}
+  const devOf = (p) => { p.dev = p.dev || {}; return (p.dev[DEV] = p.dev[DEV] || { ds: 0, lastAt: 0 }); };
+  const maxS = (p) => { let m = p.session || 0; for (const e of p.events || []) if (e.s > m) m = e.s; return m; };
+  // the session the next answer will belong to (this device's session goes on, or a new one after SESSION_GAP)
+  const nextS = (p) => { const dv = (p.dev || {})[DEV]; const last = dv ? dv.lastAt : p.dev ? 0 : p.lastAt; return !last || Date.now() - last > SESSION_GAP || (p.lastAt || 0) < last ? maxS(p) + 1 : p.session; };
+  function migrate(x) {   // older stores: what this device has counts as this device's (once)
+    let ch = false; x.deleted = x.deleted || {};
+    for (const p of Object.values(x.profiles || {})) { if (p.dev) continue; ch = true;
+      p.dev = { [DEV]: { ds: p.session || 0, lastAt: p.lastAt || 0 } }; p.editedAt = p.editedAt || p.created || 0;
+      for (const e of p.events || []) if (!e.d) { e.d = DEV; e.ds = e.s; } }
+    return ch;
+  }
+  function load() { try { const x = JSON.parse(localStorage.getItem(KEY) || "null"); if (x && x.v === 1) { db = x; if (migrate(db)) save(); } } catch (e) {} }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
   load();
   // Another game (tab) may have written meanwhile: reload before every change.
@@ -273,7 +298,7 @@ ${items[item]}</svg>`;
       db.profiles[id] = { id, name: cleanName(name) || "ילד", color: color == null ? null : color, item: item == null ? null : item,
         gender: gender === "f" ? "f" : gender === "m" ? "m" : null, created: Date.now(),
         level: 1, levelLock: false, levelChangedSession: -1, pace: 1, rounds: [], events: [], session: 0, lastAt: 0,
-        birthYear: age ? new Date().getFullYear() - age : null, motor: [] };
+        birthYear: age ? new Date().getFullYear() - age : null, motor: [], editedAt: Date.now(), dev: { [DEV]: { ds: 0, lastAt: 0 } } };
       const q = db.profiles[id];
       // Golan 8.11 (levels Q1): every island starts at level 1, whatever the age (the age no longer sets a level)
       if (q.color == null || q.item == null || taken(id).includes(q.color + ":" + q.item)) Object.assign(q, freeCombo(id));
@@ -281,7 +306,7 @@ ${items[item]}</svg>`;
     });
   }
   function updateProfile(id, patch) {
-    return mutate(() => { const p = db.profiles[id]; if (!p) return null;
+    return mutate(() => { const p = db.profiles[id]; if (!p) return null; p.editedAt = Date.now();   // the newer edit wins in a merge
       for (const k of ["name", "gender", "level", "levelLock", "dayMinutes"]) if (k in patch) p[k] = patch[k];
       if ("name" in patch) p.name = cleanName(patch.name) || p.name;
       if ("age" in patch) { const first = p.birthYear == null; p.birthYear = patch.age ? new Date().getFullYear() - patch.age : null;
@@ -292,7 +317,8 @@ ${items[item]}</svg>`;
       if ("level" in patch) p.level = Math.max(1, Math.min(3, patch.level | 0));
       return p; });
   }
-  function removeProfile(id) { mutate(() => { delete db.profiles[id]; if (db.current === id) db.current = Object.keys(db.profiles)[0] || null; }); }
+  function removeProfile(id) { mutate(() => { delete db.profiles[id]; (db.deleted = db.deleted || {})[id] = Date.now();   // the tombstone keeps a merge from bringing the child back
+    if (db.current === id) db.current = Object.keys(db.profiles)[0] || null; }); }
   function setCurrent(id) { mutate(() => { if (db.profiles[id]) db.current = id; }); try { refreshSpeed(); } catch (e) {} }   // the speed slider shows this child's value
 
   // ---------- recording ----------
@@ -369,9 +395,10 @@ ${items[item]}</svg>`;
     return mutate(() => {
       const p = cur(); if (!p || !ev || !ev.letter) return null;
       const now = Date.now();
-      if (!p.lastAt || now - p.lastAt > SESSION_GAP) p.session++;
-      p.lastAt = now;
-      const e = { t: now, s: p.session, g: ev.game || "", l: ev.letter, p: ev.picked || null,
+      const dv = devOf(p);
+      if (!dv.lastAt || now - dv.lastAt > SESSION_GAP || (p.lastAt || 0) < dv.lastAt) { dv.ds++; p.session = maxS(p) + 1; }   // a new session on this device (an emptied lastAt also starts one, as before)
+      dv.lastAt = now; p.lastAt = Math.max(p.lastAt || 0, now);
+      const e = { t: now, s: p.session, d: DEV, ds: dv.ds, g: ev.game || "", l: ev.letter, p: ev.picked || null,
         ok: !!ev.firstTry, hz: !!(ev.firstTry && slow), sol: ev.solved !== false, o: (ev.opts || []).slice(0, 8), rt: ev.rtMs == null ? null : Math.round(ev.rtMs),
         ch: !!ev.changed, h: ev.hint || 0, ao: !!ev.audioOnly, pf: !!(ev.audioOnly && ev.perfect), m: ev.mode === "name" ? "name" : ev.mode === "cursive" ? "cursive" : ev.mode === "sound" ? "sound" : "recognize", by: ev.by || "child", pc: ev.pace || null };
       // the letter circle asks by sound only (the letter is not shown): a right, first-try, not slow answer there is the
@@ -694,7 +721,7 @@ ${items[item]}</svg>`;
   const LIST_SHUFFLE = false;
   const listCache = {};
   function sharedList(p, c) {
-    const S = !p.lastAt || Date.now() - p.lastAt > SESSION_GAP ? p.session + 1 : p.session;   // the session the next answer will belong to
+    const S = nextS(p);   // the session the next answer will belong to
     const key = [p.id, S, LIST_SHUFFLE ? p.roundSeq || 0 : 0].join("|");
     if (listCache[key]) return listCache[key].slice();
     const age = ageOf(p), stOf = (l) => stateIn(c[l], "recognize").state;
@@ -746,7 +773,7 @@ ${items[item]}</svg>`;
   // This game's letters in "החלטת מערכת": the first N of the shared list (finals only at this game's level 3, and only
   // letters the game can show, gameCfg.order); one letter less after a weak last session in this game.
   function practiceSet(p, c, mode, N) {
-    const game = gameCfg.game || "", S = !p.lastAt || Date.now() - p.lastAt > SESSION_GAP ? p.session + 1 : p.session;
+    const game = gameCfg.game || "", S = nextS(p);
     const bySess = {}; for (const e of p.events) if (e.g === game && e.s !== S && !e.fast) (bySess[e.s] = bySess[e.s] || []).push(e.ok);
     const last = Object.keys(bySess).map(Number).sort((a, b) => b - a).map((k) => bySess[k]).find((a) => a.length >= 5);
     if (last && last.filter(Boolean).length / last.length < 0.7) N = Math.max(2, N - 1);
@@ -2086,55 +2113,120 @@ ${items[item]}</svg>`;
   // The file holds the learner store and every other "fl-" setting of this browser. Opening it on another device merges:
   // a child with the same id or the same name becomes one child (all practice from both devices, sessions counted again
   // by time); a new child is added. Per-child settings follow the device the child played on last.
-  const SKIP_KEYS = new Set([KEY, "fl-alive", "fl-hub-url", "fl-hourglass-ms"]);
+  const SKIP_KEYS = new Set([KEY, "fl-alive", "fl-hub-url", "fl-hourglass-ms", "fl-device-id", "fl-sync", "fl-sync-url"]);
   function exportAll() {
     load(); const other = {};
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("fl-") && !SKIP_KEYS.has(k)) other[k] = localStorage.getItem(k); } } catch (e) {}
     return { app: "FirstLearning", kind: "progress", v: 1, at: Date.now(), learner: db, other };
   }
+  // Golan 11.11 (family sync, step 1): one child seen by two devices becomes one child. Pure and repeatable: merging the
+  // same two again changes nothing, and A with B gives what B with A gives. Answers: all of both (the same answer once);
+  // sessions: each device's own, ranked by when they began; details (name, gender, age, companion) from the newer edit;
+  // levels and the rest from the copy played last.
+  const evKey = (e) => e.t + "|" + e.l + "|" + e.g + "|" + e.m, grpKey = (e) => (e.d || "") + ":" + (e.ds == null ? e.s : e.ds);
+  const EDIT_FIELDS = ["name", "gender", "birthYear", "color", "item", "dayMinutes", "levelLock"];
+  const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  function mergeChild(A, B) {
+    const em = new Map();
+    for (const e of [...(A.events || []), ...(B.events || [])]) { const k = evKey(e), o = em.get(k); if (!o || cmpStr(grpKey(e), grpKey(o)) < 0) em.set(k, e); }
+    let evs = [...em.values()].sort((a, b) => a.t - b.t || cmpStr(evKey(a), evKey(b))).slice(-MAX_EVENTS).map((e) => Object.assign({}, e));
+    const first = new Map(); for (const e of evs) { const g = grpKey(e); if (!first.has(g)) first.set(g, e.t); }
+    const rank = new Map([...first.entries()].sort((a, b) => a[1] - b[1] || cmpStr(a[0], b[0])).map(([g], i) => [g, i + 1]));
+    for (const e of evs) e.s = rank.get(grpKey(e));
+    const dev = {}; for (const src of [A.dev || {}, B.dev || {}]) for (const [d, v] of Object.entries(src)) { const o = dev[d] || { ds: 0, lastAt: 0 }; dev[d] = { ds: Math.max(o.ds, v.ds || 0), lastAt: Math.max(o.lastAt, v.lastAt || 0) }; }
+    const uniq = (list, key, n) => { const m = new Map(); for (const x of list) { const k = key(x); if (!m.has(k)) m.set(k, x); } return [...m.values()].sort((a, b) => a.t - b.t || cmpStr(key(a), key(b))).slice(-n); };
+    const tie = (x, y) => cmpStr(JSON.stringify([x.level, x.pace, x.isleLevels, x.gameLevels, x.roundSeq]), JSON.stringify([y.level, y.pace, y.isleLevels, y.gameLevels, y.roundSeq]));
+    const N = (A.lastAt || 0) !== (B.lastAt || 0) ? ((A.lastAt || 0) > (B.lastAt || 0) ? A : B) : tie(A, B) >= 0 ? A : B, O = N === A ? B : A;
+    const E = (A.editedAt || 0) !== (B.editedAt || 0) ? ((A.editedAt || 0) > (B.editedAt || 0) ? A : B) : N;
+    const out = Object.assign({}, O, N);
+    for (const k of EDIT_FIELDS) if (k in E) out[k] = E[k];
+    Object.assign(out, { id: cmpStr(A.id, B.id) <= 0 ? A.id : B.id, events: evs, dev,
+      rounds: uniq([...(A.rounds || []), ...(B.rounds || [])], (r) => r.t + "|" + r.g, 50),
+      checks: uniq([...(A.checks || []), ...(B.checks || [])], (x) => x.t + "|" + x.l + "|" + x.m, 600),
+      gameLevels: Object.assign({}, O.gameLevels || {}, N.gameLevels || {}), motor: (N.motor || []).slice(-12),
+      created: Math.min(A.created || Infinity, B.created || Infinity), lastAt: Math.max(A.lastAt || 0, B.lastAt || 0),
+      editedAt: Math.max(A.editedAt || 0, B.editedAt || 0), roundSeq: Math.max(A.roundSeq || 0, B.roundSeq || 0),
+      gender: E.gender || O.gender || null, birthYear: E.birthYear || O.birthYear || null });
+    if (out.created === Infinity) out.created = Date.now();
+    // this device's place: the session it is in now (its own last one), else the newest
+    const my = dev[DEV]; out.session = (my && rank.get(DEV + ":" + my.ds)) || rank.size;
+    return out;
+  }
+  const plainName = (n) => stripNikud(cleanName(n || "")).replace(/\s+/g, " ").trim();
+  const sameKid = (a, b) => plainName(a.name) === plainName(b.name) && (!a.gender || !b.gender || a.gender === b.gender);
+  // merges a whole store into this device's store (db). Returns {ids: their id -> the id kept, added, merged}.
+  function mergeStore(other) {
+    const ids = {}, added = [], merged = [], renamed = {};
+    const TOMB_DAYS = 90 * DAY, now = Date.now();
+    db.deleted = db.deleted || {};
+    for (const [id, t] of Object.entries(other.deleted || {})) db.deleted[id] = Math.max(db.deleted[id] || 0, t);
+    for (const [id, t] of Object.entries(db.deleted)) if (now - t > TOMB_DAYS) delete db.deleted[id];
+    for (const id of Object.keys(db.deleted)) if (db.profiles[id]) { delete db.profiles[id]; if (db.current === id) db.current = null; }
+    for (const ip0 of Object.values(other.profiles || {})) {
+      if (db.deleted[ip0.id]) continue;
+      const ip = JSON.parse(JSON.stringify(ip0));
+      const lp = db.profiles[ip.id] || Object.values(db.profiles).find((q) => sameKid(q, ip));
+      if (!lp) { ip.roundSeq = ip.roundSeq || 0; db.profiles[ip.id] = ip; ids[ip0.id] = ip.id; added.push(ip.name); continue; }
+      const m = mergeChild(lp, ip);
+      if (m.id !== lp.id) { delete db.profiles[lp.id]; renamed[lp.id] = m.id; if (db.current === lp.id) db.current = m.id; }
+      db.profiles[m.id] = m; ids[ip0.id] = m.id; merged.push(m.name);
+    }
+    // two children never share a companion: by id order the first keeps it, the next takes the first free one (the same on every device)
+    { const used = new Set(); for (const q of Object.values(db.profiles).sort((a, b) => cmpStr(a.id, b.id))) {
+        if (used.has(q.color + ":" + q.item)) for (let i = 0; i < 48; i++) { const c = i % 8, it = Math.floor(i / 8) % 6; if (!used.has(c + ":" + it)) { q.color = c; q.item = it; break; } }
+        used.add(q.color + ":" + q.item); q.roundSeq = q.roundSeq || 0; } }
+    if (db.current && !db.profiles[db.current]) db.current = Object.keys(db.profiles)[0] || null;
+    return { ids, added, merged, renamed };
+  }
+  // a child kept under the other device's id: its keys on this device (fl-...-<id>, the speed table) follow it
+  function renameLocalKeys(renamed) {
+    const pairs = Object.entries(renamed); if (!pairs.length) return;
+    try {
+      const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      for (const k of keys) { if (!k || !k.startsWith("fl-")) continue; let n = k; for (const [a, b] of pairs) if (n.includes(a)) n = n.split(a).join(b);
+        if (n !== k) { if (localStorage.getItem(n) == null) localStorage.setItem(n, localStorage.getItem(k)); localStorage.removeItem(k); } }
+      const sp = JSON.parse(localStorage.getItem(SPEED_KEY) || "{}") || {};
+      for (const [a, b] of pairs) if (sp[a]) { sp[b] = Object.assign({}, sp[a], sp[b] || {}); delete sp[a]; }
+      localStorage.setItem(SPEED_KEY, JSON.stringify(sp)); speedDb = null;
+    } catch (e) {}
+  }
   function importAll(file) {
     if (!file || file.app !== "FirstLearning" || file.kind !== "progress" || !file.learner || !file.learner.profiles) throw new Error("not a progress file");
-    const ids = {}, added = [], merged = [];
+    // answers in a file from before 11.11 carry no device: they count as one device of their own (named by the file's time)
+    const tag = "f" + (+file.at || 0).toString(36);
+    for (const ip of Object.values(file.learner.profiles)) { for (const e of ip.events || []) if (!e.d) { e.d = tag; e.ds = e.s; } if (!ip.dev) ip.dev = {}; }
+    let res;
     mutate(() => {
-      const plain = (n) => stripNikud(cleanName(n || "")).replace(/\s+/g, " ").trim();
-      for (const ip0 of Object.values(file.learner.profiles)) {
-        const ip = JSON.parse(JSON.stringify(ip0));
-        const lp = db.profiles[ip.id] || Object.values(db.profiles).find((q) => plain(q.name) === plain(ip.name) && (!q.gender || !ip.gender || q.gender === ip.gender));
-        if (!lp) {
-          if (db.profiles[ip.id]) ip.id = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-          db.profiles[ip.id] = ip; if (taken(ip.id).includes(ip.color + ":" + ip.item)) Object.assign(ip, freeCombo(ip.id));
-          ids[ip0.id] = ip.id; added.push(ip.name); continue;
-        }
-        ids[ip0.id] = lp.id; merged.push(lp.name);
-        const newer = (ip.lastAt || 0) > (lp.lastAt || 0) ? ip : lp;
-        // Golan 29.10 19:53 (fix): a session is kept whole as it was on its own device ("another session" is what makes a letter
-        // known), so sessions are renumbered by device and order, never merged by time. A practice in both copies keeps the
-        // file's session, so opening an untouched file again repairs a device merged by the first version.
-        const seen = new Set(), evs = [];
-        for (const [src, list] of [["i", ip.events || []], ["l", lp.events || []]]) for (const e of list) { const k = e.t + "|" + e.l + "|" + e.g + "|" + e.m; if (!seen.has(k)) { seen.add(k); evs.push(Object.assign({}, e, { _src: src + e.s })); } }
-        evs.sort((a, b) => a.t - b.t);
-        const num = new Map(); for (const e of evs) { if (!num.has(e._src)) num.set(e._src, num.size + 1); e.s = num.get(e._src); delete e._src; }
-        const sess = num.size;
-        const rs = new Set(), rounds = [...(lp.rounds || []), ...(ip.rounds || [])].filter((r) => { const k = r.t + "|" + r.g; return rs.has(k) ? false : (rs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-50);
-        const keep = { id: lp.id, name: lp.name, color: lp.color, item: lp.item, created: Math.min(lp.created || Infinity, ip.created || Infinity) };
-        Object.assign(lp, newer === lp ? {} : ip, keep, {
-          events: evs.slice(-MAX_EVENTS), rounds, checks: (() => { const cs = new Set(); return [...(lp.checks || []), ...(ip.checks || [])].filter((x) => { const k = x.t + "|" + x.l + "|" + x.m; return cs.has(k) ? false : (cs.add(k), true); }).sort((a, b) => a.t - b.t).slice(-600); })(), session: sess + 1,   /* a fresh number: play after the merge never joins an old session */ lastAt: Math.max(lp.lastAt || 0, ip.lastAt || 0), levelChangedSession: -1, isleLevels: Object.assign({}, (newer === lp ? ip : lp).isleLevels || {}, newer.isleLevels || {}), isleChanged: {},
-          motor: [...(lp.motor || []), ...(ip.motor || [])].slice(-12), gameLevels: Object.assign({}, (newer === lp ? ip : lp).gameLevels || {}, newer.gameLevels || {}),
-          gender: lp.gender || ip.gender || null, birthYear: lp.birthYear || ip.birthYear || null });
-      }
-      if (!db.current && file.learner.current) db.current = ids[file.learner.current] || null;
+      res = mergeStore(file.learner);
+      if (!db.current && file.learner.current) db.current = res.ids[file.learner.current] || null;
     });
+    renameLocalKeys(res.renamed);
+    const ids = Object.assign({}, res.ids), added = res.added, merged = res.merged;
     // the other settings: keys named for a child follow the child; a setting this device already has stays as it is,
     // but the speed table (per child) merges
     const rename = (k) => { for (const [a, b] of Object.entries(ids)) if (a !== b && k.includes(a)) k = k.split(a).join(b); return k; };
+    // the other settings (Golan 11.11): the newer value wins (fl-keytimes; an equal time: the larger value, so both devices
+    // agree); a game's settings keep this device's own fields (sound, quality, balloon...); speeds merge, "seen" takes the most
+    const DEVICE_FIELDS = ["quality", "perf", "voice", "stress", "balloon"], isSet = (k) => /^fl-[a-z]+-settings$/.test(k);
+    const strip = (k, v) => { if (!isSet(k) || v == null) return v; try { const o = JSON.parse(v); for (const f of DEVICE_FIELDS) delete o[f]; return JSON.stringify(o); } catch (e) { return v; } };
+    const LT = keyTimes(), RT0 = (() => { try { return JSON.parse((file.other || {})[KEYT] || "{}") || {}; } catch (e) { return {}; } })();
+    const put = (k, v, t) => { rawWrite = true; try { localStorage.setItem(k, v); } finally { rawWrite = false; } LT[k] = Math.max(LT[k] || 0, t || 0); };
     try {
-      for (const [k0, v] of Object.entries(file.other || {})) { const k = rename(k0); if (SKIP_KEYS.has(k)) continue;
-        if (k === SPEED_KEY) { let a = {}, b = {}; try { a = JSON.parse(localStorage.getItem(k) || "{}") || {}; b = JSON.parse(v || "{}") || {}; } catch (e) {}
-          for (const [id, m] of Object.entries(b)) { const j = ids[id] || id; a[j] = Object.assign({}, m, a[j] || {}); }
-          localStorage.setItem(k, JSON.stringify(a)); speedDb = null; continue; }
-        if (/^fl-map-seen-/.test(k)) { localStorage.setItem(k, String(Math.max(+localStorage.getItem(k) || 0, +v || 0))); continue; }
-        if (localStorage.getItem(k) == null) localStorage.setItem(k, v);
+      for (const [k0, v] of Object.entries(file.other || {})) { const k = rename(k0); if (SKIP_KEYS.has(k) || k === KEYT || v == null) continue;
+        const rt = RT0[k0] || 0, lt = LT[k] || 0, lv = localStorage.getItem(k);
+        if (k === SPEED_KEY) { let a = {}, b0 = {}; const b = {}; try { a = JSON.parse(lv || "{}") || {}; b0 = JSON.parse(v || "{}") || {}; } catch (e) {}
+          for (const [id, m] of Object.entries(b0)) b[ids[id] || id] = m;
+          const remoteNewer = rt > lt || (rt === lt && JSON.stringify(b) > JSON.stringify(a)), out = {};
+          for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) out[id] = Object.assign({}, remoteNewer ? a[id] : b[id], remoteNewer ? b[id] : a[id]);
+          put(k, JSON.stringify(out), rt); speedDb = null; continue; }
+        if (/^fl-map-seen-/.test(k)) { put(k, String(Math.max(+lv || 0, +v || 0)), rt); continue; }
+        if (lv == null) { put(k, v, rt); continue; }
+        const ls = strip(k, lv), rs = strip(k, v); if (ls === rs) { LT[k] = Math.max(lt, rt); continue; }
+        if (!(rt > lt || (rt === lt && rs > ls))) continue;   // this device's value is the newer one
+        if (isSet(k)) { try { const o = JSON.parse(v), lo = JSON.parse(lv); for (const f of DEVICE_FIELDS) { if (f in lo) o[f] = lo[f]; else delete o[f]; } put(k, JSON.stringify(o), rt); continue; } catch (e) {} }
+        put(k, v, rt);
       }
+      rawWrite = true; try { localStorage.setItem(KEYT, JSON.stringify(LT)); } finally { rawWrite = false; }
     } catch (e) {}
     cache = null; return { added, merged };
   }
@@ -2181,7 +2273,7 @@ ${items[item]}</svg>`;
     roundLength: () => { const p = (load(), cur()); return roundLengthFor(p && p.birthYear ? new Date().getFullYear() - p.birthYear : null); },
     age: () => { const p = cur(); return p && p.birthYear ? new Date().getFullYear() - p.birthYear : null; },
     renderParentTable, renderChildLetters, endPanel, letterPicker, PICKER_TITLE, setGame, autoCount: () => autoCount(cur()), setPalette, palettes: () => Object.keys(PALETTES), autoLetters, withAutoForce, autoForce: () => ({ in: [...autoForce.in], out: [...autoForce.out] }), visit, childMedianRt: (game) => (cardsFor(cur()), cache ? cache.gameMedian[game || cache.lastG] ?? null : null),
-    fromHub: FROM_HUB, hubUrl: HUB_URL, markHub, exportAll, importAll, transferRow,
+    fromHub: FROM_HUB, hubUrl: HUB_URL, markHub, exportAll, importAll, transferRow, deviceId: DEV, mergeChild,
     sessionId: () => SESSION.sid, freshSession: () => SESSION.fresh,
     _reset: () => { db = { v: 1, current: null, profiles: {} }; save(); cache = null; },
   };

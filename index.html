@@ -158,6 +158,7 @@
 <script src="games/shared/letter-pairs.js"></script>
 <script src="games/shared/love-balloon.js"></script>
 <script src="games/shared/learner.js"></script>
+<script src="games/shared/family-sync.js"></script>
 <script src="games/shared/learning-map.js?v=20261105"></script>
 <script src="hub-cards-animated/hub-cards-animated.js"></script>
 <script src="hub-cards-animated/map-balloon.js"></script>
@@ -481,6 +482,12 @@
     // Golan 29.10: the progress of all the children goes to another device as a file, and merges there
     if (LRN && LRN.transferRow) { const sec = document.createElement("section"); o.querySelector(".set-body").append(sec);
       LRN.transferRow(sec, { onDone: () => { drawKids(); LRN.renderParentTable(o.querySelector(".set-table")); drawSummary(); refreshWho(); } }); }
+    // Family code sync (family-sync.js): shown only when the server answers or this device is already connected.
+    const FS = window.FL && FL.familySync;
+    if (FS) { const sec = document.createElement("section"); sec.hidden = true; o.querySelector(".set-body").append(sec);
+      const show = () => { if (!sec.hidden) return; sec.hidden = false;
+        FS.settingsRow(sec, { onDone: () => { drawKids(); LRN.renderParentTable(o.querySelector(".set-table")); drawSummary(); refreshWho(); } }); };
+      if (FS.status().connected) show(); else FS.available().then((ok) => { if (ok && sec.isConnected) show(); }); }
   }
   // ---------- parent summary and letter check round (Golan 20.10): both come from the game "תגיד לי" ----------
   // The summary reads that game's record on this device (the current child's rows; rows from before 20.10 carry no child).
