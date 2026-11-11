@@ -83,7 +83,7 @@
   const FL = window.FL || {}, LRN = FL.learner || null;
   const KIND = (() => { const k = new URLSearchParams(location.search).get("kind"); return ["print", "cursive", "sound"].includes(k) ? k : "print"; })();
   const SOUND = KIND === "sound";
-  const QUICK_MS = 3000;   // Golan 11.11 14:32: 3 s (was 2.5); right within it from the END of the question = known with confidence; slower = "מוכרת"
+  const QUICK_MS = 6000, SLOW_MS = 9000;   // Golan 11.11 17:27: right within 6 s = known with confidence; within 9 s = "מוכרת" (wrong tone); later = new.   // Golan 11.11 14:32: 3 s (was 2.5); right within it from the END of the question = known with confidence; slower = "מוכרת"
   // Golan 11.11: letters in 5 circles of 5, 5, 5, 6, 6 (was 3 of 9); sounds in 2 parts of 6
   const SIZES = SOUND ? [6, 6] : [5, 5, 5, 6, 6], STARTS = SIZES.map((_, i) => SIZES.slice(0, i).reduce((a, b) => a + b, 0));
   const partIndex = (n) => { let i = 0; while (i < SIZES.length - 1 && n >= STARTS[i + 1]) i++; return i; };
@@ -288,7 +288,7 @@
     if (!cur || busy) return; busy = true; clearTimeout(idleT);
     const rt = performance.now() - askEnd;   // negative (tapped while the question was still heard) = quick
     stopVoice();
-    const right = l === cur, st = !right ? "new" : rt <= QUICK_MS ? "known" : "almost";
+    const right = l === cur, st = !right ? "new" : rt <= QUICK_MS ? "known" : rt <= SLOW_MS ? "almost" : "new";
     (st === "known" ? sfx.right : sfx.wrong)();   // Golan 11.11: right but after 3 s sounds like a mistake (it still counts as "מוכרת")
     el.classList.add("hit"); setTimeout(() => el.classList.remove("hit"), 160);
     run.done[cur] = st; save();
