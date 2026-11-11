@@ -318,6 +318,7 @@
   }
   function leave(toSettings) {
     stopVoice(); clearTimeout(idleT); clearTimeout(outT);
+    if (doneCount() > 0 && LRN && LRN.checkLevel) LRN.checkLevel(KIND);   // Golan 11.11 17:22: leaving early keeps what was checked so far, and the island level follows it now
     const hub = (LRN && LRN.hubUrl) || "../../index.html";
     location.replace(hub.split("#")[0] + (toSettings === true ? "#settings" : "#games"));   // Golan 11.11: replace, so a later "back" in the hub or a game never lands here again
   }
