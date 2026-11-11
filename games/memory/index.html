@@ -388,6 +388,12 @@
   .boards { display: flex; gap: max(calc(30 * var(--u, 1px)), 16px); justify-content: center; align-items: flex-end; margin-top: 10px; }
   .boards button { border: 3px solid #d5dde6; background: #eaf6ff; border-radius: 22px; padding: 10px; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
   .boards button svg { display: block; }
+  /* Golan 11.11: only the bigger board, and under it a big red X (right: stay) and a big green V (left: the bigger board) */
+  .yn { display: flex; justify-content: center; gap: max(calc(70 * var(--u, 1px)), 40px); margin-top: max(calc(18 * var(--u, 1px)), 10px); }
+  .yn button { width: max(calc(96 * var(--u, 1px)), 64px); height: max(calc(96 * var(--u, 1px)), 64px); border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; box-shadow: 0 5px 0 #0002; }
+  .yn button svg { width: 62%; height: 62%; }
+  .yn .yn-no { background: #e03131; } .yn .yn-yes { background: #34b36b; }
+  .yn button.flash { animation: boardFlash 1s ease-in-out; }
   .boards button.flash { animation: boardFlash 1s ease-in-out; }   /* Golan 30.10: the boards never grow (no scale); only the frame lights up */
   @keyframes boardFlash { 50% { border-color: #ff8a3d; box-shadow: 0 0 0 4px #ffb27a88; } }
   @media (hover: hover) and (pointer: fine) { .boards button:hover { border-color: #ffb27a; } }
@@ -430,6 +436,7 @@
   <div class="panel">
     <h1 id="levelText">רוצים לוח גדול יותר?</h1>
     <div class="boards" id="boards"></div>
+    <div class="yn"><button type="button" class="yn-no" id="ynNo" aria-label="לֹא"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/></svg></button><button type="button" class="yn-yes" id="ynYes" aria-label="כֵּן"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 6.5" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
   </div>
 </div>
 
@@ -952,7 +959,7 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
   function askLevel() {
     state.mode = "levelask";
     const R = curRung(), box = $("boards"); box.innerHTML = "";
-    const pair = [[RUNGS[R], false], [RUNGS[R + 1], true]];
+    const pair = [[RUNGS[R + 1], true]];   // Golan 11.11: only the bigger board; the X and V buttons under it answer
     for (const [n, up] of pair) {
       const b = document.createElement("button"); b.type = "button"; b.dataset.up = up ? "1" : "0";
       b.setAttribute("aria-label", up ? "לוח גדול" : "לוח קטן");
@@ -964,11 +971,12 @@ ${st.map(([x, y, r]) => `<path transform="translate(${x} ${y}) scale(${r})" d="M
     const shapes = pair.map(([n]) => cellsOf(BOARDS[n].wide)), btn = box.firstChild, cs = getComputedStyle(btn);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) * 2;
     const gap = parseFloat(getComputedStyle(box).columnGap) || 16;
-    const roomW = box.clientWidth - gap - padX * 2, roomH = innerHeight * 0.42 - btn.querySelector(".bcount").offsetHeight;
-    const cell = Math.max(8, Math.min(Math.min(innerWidth, innerHeight) * 0.11, roomW / (shapes[0].cols + shapes[1].cols), roomH / Math.max(shapes[0].rows, shapes[1].rows)));
+    const roomW = box.clientWidth - padX, roomH = innerHeight * 0.34 - btn.querySelector(".bcount").offsetHeight;
+    const cell = Math.max(8, Math.min(Math.min(innerWidth, innerHeight) * 0.11, roomW / shapes[0].cols, roomH / shapes[0].rows));
     [...box.children].forEach((b, i) => { const sv = b.querySelector("svg"); sv.style.width = Math.floor(cell * shapes[i].cols) + "px"; sv.style.height = Math.floor(cell * shapes[i].rows) + "px"; });
     say("mem_next");
-    const flash = () => { [...box.children].forEach((b, i) => askT.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 500))); };
+    $("ynNo").onclick = () => answerLevel(false); $("ynYes").onclick = () => answerLevel(true);
+    const flash = () => { [...box.children, $("ynYes"), $("ynNo")].forEach((b, i) => askT.push(setTimeout(() => { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }, i * 500))); };
     askT.push(setTimeout(flash, 2500));
   }
   function answerLevel(up) {
