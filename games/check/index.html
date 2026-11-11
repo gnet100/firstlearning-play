@@ -259,9 +259,9 @@
     curIds = ids;
     playIds(ids, () => { if (askEnd === Infinity) askEnd = performance.now(); armIdle(); });
   }
-  // Golan 11.11: 10 s with no tap after the question -> "להמשיך בבדיקה?"; no answer there for 5 s -> back to the settings.
+  // Golan 11.11: 10 s with no tap after the question -> "להמשיך בבדיקה?"; no answer there for 10 s -> back to the settings.
   // The letter is not counted; it stays to be asked (now, or when the check is continued).
-  const IDLE_MS = 10000, IDLE_OUT_S = 5; let idleT = 0, outT = 0;
+  const IDLE_MS = 10000, IDLE_OUT_S = 10;   /* Golan 11.11 14:47: 10 s to answer the window (was 5) */ let idleT = 0, outT = 0;
   function armIdle() { clearTimeout(idleT); idleT = setTimeout(idleAsk, IDLE_MS); }
   function idleAsk() {
     if (!cur || busy) return; stopVoice(); busy = true;
