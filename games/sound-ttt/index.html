@@ -219,6 +219,11 @@
     width: var(--bs, 300px); height: var(--bs, 300px); gap: calc(var(--bs, 300px) * .035); padding: calc(var(--bs, 300px) * .045);
     background: #dcecfb; border-radius: calc(var(--bs, 300px) * .08); box-shadow: 0 8px 26px #0002, inset 0 0 0 3px #ffffffaa; z-index: 2; }
   #board[hidden], .chip[hidden] { display: none; }
+  /* Golan 11.11: the child's sound can also be dragged from its card onto the board */
+  #chipK.turn { cursor: grab; touch-action: none; }
+  .ttt-ghost { position: fixed; z-index: 30; pointer-events: none; display: grid; place-items: center; border-radius: 18%; background: var(--kid-bg); color: var(--kid); font-weight: 800; box-shadow: 0 8px 22px #0003; transform: translate(-50%, -50%) scale(1.05); }
+  .ttt-fly { position: fixed; z-index: 30; pointer-events: none; display: grid; place-items: center; border-radius: 18%; background: var(--pc-bg); color: var(--pc); font-weight: 800; box-shadow: 0 8px 22px #0003; transform: translate(-50%, -50%); }
+  .cell.drop { background: #fff1de; box-shadow: 0 0 0 4px var(--kid-rim) inset; }
   .cell { position: relative; border: 0; padding: 0; border-radius: 18%; background: #fff; cursor: pointer; box-shadow: 0 calc(var(--bs, 300px) * .012) 0 #b9cde3;
     display: grid; place-items: center; font: 800 calc(var(--bs, 300px) * .17)/1 "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif; color: var(--ink); -webkit-tap-highlight-color: transparent; }
   .cell.k { background: var(--kid-bg); color: var(--kid); box-shadow: 0 calc(var(--bs, 300px) * .012) 0 var(--kid-rim); cursor: default; }
@@ -602,6 +607,23 @@
     $("board").insertBefore(b, $("winLine")); cells.push(b);
   }
   const sylOf = (l) => (SOUNDS[l] ? SOUNDS[l].syl : "");
+  // Golan 11.11: drag the sound from the child's card onto an empty square (tapping a square still works)
+  (() => {
+    let ghost = null, over = -1;
+    const cellAt = (x, y) => { const el = document.elementFromPoint(x, y), c = el && el.closest(".cell"); return c ? +c.dataset.i : -1; };
+    const mark = (i) => { if (over >= 0) cells[over].classList.remove("drop"); over = i >= 0 && !state.board[i] ? i : -1; if (over >= 0) cells[over].classList.add("drop"); };
+    const end = (e, drop) => { if (!ghost) return; const i = over; mark(-1); ghost.remove(); ghost = null; if (drop && i >= 0) tapCell(i); };
+    $("chipK").addEventListener("pointerdown", (e) => {
+      if (paused || state.mode !== "kid" || ghost) return; e.preventDefault(); unlockAudio();
+      const sz = cells[0].getBoundingClientRect().width * 0.8;
+      ghost = document.createElement("div"); ghost.className = "ttt-ghost"; ghost.textContent = sylOf(state.kidL);
+      Object.assign(ghost.style, { width: sz + "px", height: sz + "px", fontSize: sz * 0.5 + "px", left: e.clientX + "px", top: e.clientY + "px" });
+      document.body.append(ghost); try { $("chipK").setPointerCapture(e.pointerId); } catch (x) {}
+    });
+    $("chipK").addEventListener("pointermove", (e) => { if (!ghost) return; ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; mark(cellAt(e.clientX, e.clientY)); });
+    $("chipK").addEventListener("pointerup", (e) => { if (ghost) { mark(cellAt(e.clientX, e.clientY)); end(e, state.mode === "kid"); } });
+    $("chipK").addEventListener("pointercancel", (e) => end(e, false));
+  })();
   const clipOfL = (l) => (SOUNDS[l] ? SOUNDS[l].s : null);
   function clearBoard() {
     state.board = Array(9).fill(null);
@@ -702,16 +724,31 @@
     if (r) return finish(r);
     state.mode = "pc"; setTurn("c"); pcTurn();
   }
+  // Golan 11.11: the computer's sound leaves its card and flies in an arc to the square it takes
+  function flyPc(i, done) {
+    const from = $("sylC").getBoundingClientRect(), to = cells[i].getBoundingClientRect();
+    if (!from.width || !to.width || !document.body.animate) return done();
+    const sz = to.width * 0.8, el = document.createElement("div"); el.className = "ttt-fly"; el.textContent = sylOf(state.pcL);
+    Object.assign(el.style, { width: sz + "px", height: sz + "px", fontSize: sz * 0.5 + "px", left: "0px", top: "0px" });
+    document.body.append(el);
+    const x0 = from.left + from.width / 2, y0 = from.top + from.height / 2, x1 = to.left + to.width / 2, y1 = to.top + to.height / 2, lift = Math.max(60, Math.abs(x1 - x0) * 0.25);
+    const at = (k, sc) => `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k - Math.sin(k * Math.PI) * lift}px) translate(-50%, -50%) scale(${sc})`;
+    const a = el.animate([0, 0.25, 0.5, 0.75, 1].map((k) => ({ transform: at(k, 0.55 + 0.45 * Math.min(1, k * 1.6)) })), { duration: ms(650), easing: "ease-in-out", fill: "forwards" });
+    a.onfinish = () => { el.parentNode && el.parentNode.removeChild(el); done(); };
+  }
   function pcTurn(then) {
     const my = epoch;
     whenQuiet(() => later(ms(650), () => {
       if (my !== epoch || !(state.mode === "pc" || state.mode === "demo")) return;
       const i = aiPick(); if (i == null || i < 0) return;
+      flyPc(i, () => {   /* Golan 11.11: the computer's sound flies from its card to the square */
+      if (my !== epoch || !(state.mode === "pc" || state.mode === "demo")) return;
       put(i, "c");
       if (then) return then();
       const r = winner(state.board);
       if (r) return finish(r);
       later(ms(250), () => { if (state.mode !== "pc") return; state.mode = "kid"; setTurn("k"); });
+      });
     }));
   }
   function startMatch() {
