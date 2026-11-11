@@ -1103,9 +1103,9 @@
   async function swimTo(x, z) {
     const p0 = bunny.root.position.clone(), dx = x - p0.x, dz = z - p0.z, dist = Math.hypot(dx, dz); if (dist < 0.05) return;
     const ty = Math.atan2(-dx, -dz), y0 = bunny.yaw.rotation.y; let dy = ((ty - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-    await tween(0.3, (k) => (bunny.yaw.rotation.y = y0 + dy * k));
-    bunny.yawV = y0 + dy;
-    await tween(dist / 2.4, (k) => { bunny.root.position.x = lerp(p0.x, x, k); bunny.root.position.z = lerp(p0.z, z, k);
+    bunny.yawV = y0 + dy;   // Golan 11.11 21:43: no stop before a turn: it turns while it keeps swimming
+    const turnK = Math.min(1, 0.5 / Math.max(0.01, dist));   // the turn takes about the first half unit of the way
+    await tween(dist / 2.4, (k) => { bunny.yaw.rotation.y = y0 + dy * ease(Math.min(1, k / turnK)); bunny.root.position.x = lerp(p0.x, x, k); bunny.root.position.z = lerp(p0.z, z, k);
       bunny.root.position.y = -0.42 + Math.sin(k * dist * 7) * 0.04; bunny.hop.rotation.z = Math.sin(k * dist * 9) * 0.14;
       bunny.ears.forEach((e) => (e.pivot.rotation.x = 0.35 + Math.sin(k * dist * 9 + e.s) * 0.15)); });
     bunny.hop.rotation.z = 0;
