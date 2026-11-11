@@ -96,7 +96,7 @@
   .set-kid { flex-wrap: wrap; } .set-kid .n { min-width: 6em; }
   .set-kid { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 16px; background: #f5f9ff; margin-bottom: 6px; }
   .set-kid.cur { outline: 2px solid #9cc8f5; }
-  .set-kid .c svg { display: block; } .set-kid .n { flex: 1; font-size: 20px; font-weight: 700; }
+  .set-kid .c svg { display: block; } .set-kid .n { flex: 1; font-size: 20px; font-weight: 800; }   /* Golan 11.11: every heading in settings 20px / 800 */
   .set-kid button, .set-row button { border: 0; border-radius: 999px; background: #fff; box-shadow: 0 1px 4px #0002; padding: 6px 12px; font-weight: 700; font-size: 16px; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
   .set-kid .dl { color: #c92a2a; }
   .set-gate { display: inline-flex; align-items: center; gap: 8px; }
@@ -120,11 +120,11 @@
   .set-sum .leg i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; vertical-align: -2px; margin-inline-end: 4px; }
   .set-sum .note { font-size: 16px; line-height: 1.5; color: var(--muted); background: #f3f8fd; border-radius: 14px; padding: 8px 12px; }
   .set-chk .hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }   /* title and button in one line (Golan 20.10) */
-  .set-chk h3 { margin: 4px 0; font-size: 20px; }
+  .set-chk h3 { margin: 4px 0; font-size: 20px; font-weight: 800; }
   .set-chk .hd.col { flex-direction: column; align-items: stretch; }   /* Golan 11.11: the title on one line, the two buttons under it, same size */
   .set-chk .hd.col h3 { white-space: nowrap; }
   .set-chk .chk2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 10px 20px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 48px; }
+  .set-chk button { border: 0; border-radius: 999px; background: #ff922b; color: #fff; box-shadow: 0 1px 4px #0002; padding: 5px 18px; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; min-height: 38px; }   /* Golan 11.11: lower buttons */
   .set-form, .set-confirm { background: #f5f9ff; border-radius: 16px; padding: 10px; margin-bottom: 6px; text-align: center; }
   .set-form .prev svg { display: block; margin: 0 auto; }
   .set-in { font-size: 22px; font-family: inherit; text-align: center; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; width: min(260px, 100%); }
@@ -470,7 +470,7 @@
       ${isleNow === 1 ? `<section class="set-chk"><div class="hd"><h3>סְבַב בְּדִיקַת צְלִילִים</h3><button type="button" class="go" data-kind="sound">בְּדִיקַת צְלִילִים</button></div>
         <p class="set-ex">בדיקה של הורה או מורה: בכל פעם צליל אחד ו-3 תמונות, והילד בוחר את התמונה שמתחילה בצליל. כל צליל פעם אחת. התוצאה קובעת את הצלילים ואת רמת האי.</p></section>`
       : `<section class="set-chk"><div class="hd col"><h3>סְבַב בְּדִיקַת אוֹתִיּוֹת</h3><span class="chk2"><button type="button" class="go" data-kind="print">אוֹתִיּוֹת דְּפוּס</button><button type="button" class="go" data-kind="cursive">אוֹתִיּוֹת כְּתַב יָד</button></span></div>
-        <p class="set-ex">בדיקה של הורה או מורה: המערכת אומרת שם של אות, והילד לוחץ עליה. 27 האותיות עם הסופיות, ב-5 מעגלים של 5 עד 6 אותיות, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.</p></section>`}</div></div>`;
+        <p class="set-ex">בדיקה של הורה או מורה: המערכת אומרת שם של אות, והילד לוחץ עליה. 27 האותיות (כולל סופיות), ב-5 מעגלים של 5 עד 6 אותיות, כל אות פעם אחת. התוצאה קובעת את האותיות ואת רמת האי.</p></section>`}</div></div>`;
     document.body.append(o); o.querySelector(".set-body").scrollTop = 0;
     o.querySelector(".set-x").onclick = back;
     o.addEventListener("click", (e) => { if (e.target === o) back(); });
