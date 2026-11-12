@@ -1,5 +1,5 @@
 // FL.familySync: the family code (thread "סנכרון בין מכשירים עם קוד משפחה", Golan 11.11.2026).
-// One permanent 6-digit code per family (Golan 12.11 chose 6, shown 482-109). A device that has it pulls from the cloud, merges with
+// One permanent 8-digit code per family (Golan 12.11: back to 8 after the security review, shown 4821-0937). A device that has it pulls from the cloud, merges with
 // FL.learner.importAll (nothing is lost, the same merge as the progress file), and pushes back what it has.
 // Play never waits for the network: without it the game runs as usual, and the next sync sends the changes.
 // Spec: transfer-4-11/family-sync-spec.md. Server: transfer-4-11/sync-server (Fly.io app firstlearning-sync).
@@ -13,16 +13,18 @@
   "use strict";
   const FL = (root.FL = root.FL || {});
   const STATE_KEY = "fl-sync", URL_KEY = "fl-sync-url";
-  const DEFAULT_URL = "https://firstlearning-sync.fly.dev";
+  // No address until the server really exists under our own Fly account (security review 12.11: a name we do not
+  // own could be taken by a stranger, who would then receive the children's progress). Set it when deploying.
+  const DEFAULT_URL = "";
   const EVERY_MS = 60000, CHECK_MS = 15000, START_MS = 1500, TIMEOUT_MS = 15000, RETRIES = 3;
 
   const read = () => { try { return JSON.parse(localStorage.getItem(STATE_KEY) || "null") || {}; } catch (e) { return {}; } };
   const write = (s) => { try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch (e) {} };
   const patch = (p) => { const s = Object.assign(read(), p); write(s); emit(); return s; };
-  const baseUrl = () => { try { return (localStorage.getItem(URL_KEY) || root.FL_SYNC_URL || DEFAULT_URL).replace(/\/+$/, ""); } catch (e) { return DEFAULT_URL; } };
+  const baseUrl = () => { try { return String(localStorage.getItem(URL_KEY) || root.FL_SYNC_URL || DEFAULT_URL).replace(/\/+$/, ""); } catch (e) { return DEFAULT_URL; } };
   const digits = (c) => String(c || "").replace(/\D/g, "");
-  const CODE_LEN = 6;   // must match the server (SYNC_CODE_DIGITS)
-  const group = (d) => d.replace(/(\d{3})(?=\d)/g, "$1-");
+  const CODE_LEN = 8;   // must match the server (SYNC_CODE_DIGITS)
+  const group = (d) => d.replace(/(\d{4})(?=\d)/g, "$1-");
   const formatCode = (c) => { const d = digits(c); return d.length === CODE_LEN ? group(d) : d; };
   function newCode() {   // CODE_LEN random digits (crypto when there is one)
     const a = new Uint8Array(CODE_LEN * 2), c = root.crypto;
@@ -61,6 +63,7 @@
   const fingerprint = (f) => { const t = canon(shared(f)); let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return t.length + ":" + h; };
 
   async function call(path, body) {
+    if (!baseUrl()) return { status: 0, ok: false, code: "offline" };
     let ctl = null, timer = null;
     try {
       ctl = root.AbortController ? new AbortController() : null; timer = ctl && setTimeout(() => ctl.abort(), TIMEOUT_MS);
@@ -161,13 +164,13 @@
   const T = {
     title: "סִנְכְּרוּן בֵּין מַכְשִׁירִים",
     intro: "קוֹד אֶחָד לַמִּשְׁפָּחָה. מַקְלִידִים אוֹתוֹ פַּעַם אַחַת בְּכָל מַכְשִׁיר, וּמֵאָז הַהִתְקַדְּמוּת מִתְעַדְכֶּנֶת לְבַד.",
-    create: "יְצִירַת קוֹד מִשְׁפָּחָה", have: "יֵשׁ לִי קוֹד", connect: "חִבּוּר", place: "6 סְפָרוֹת",
+    create: "יְצִירַת קוֹד מִשְׁפָּחָה", have: "יֵשׁ לִי קוֹד", connect: "חִבּוּר", place: "8 סְפָרוֹת",
     codeIs: "קוֹד הַמִּשְׁפָּחָה:", ok: "מְעֻדְכָּן", syncing: "מִתְעַדְכֵּן…", offline: "יִתְעַדְכֵּן כְּשֶׁתַּחְזֹר הָרֶשֶׁת", error: "יִתְעַדְכֵּן בְּהֶמְשֵׁךְ",
     disconnect: "נִתּוּק הַמַּכְשִׁיר", del: "מְחִיקַת הַמִּשְׁפָּחָה מֵהֶעָנָן", delAgain: "לְחִיצָה נוֹסֶפֶת מוֹחֶקֶת מֵהֶעָנָן לְתָמִיד",
     created: "הַקּוֹד מוּכָן. מַקְלִידִים אוֹתוֹ בְּכָל מַכְשִׁיר נוֹסָף.", joined: "הַמַּכְשִׁיר מְחֻבָּר וּמְעֻדְכָּן.",
     disconnected: "הַמַּכְשִׁיר נֻתַּק. הַהִתְקַדְּמוּת נִשְׁאֲרָה בּוֹ.", deleted: "הַמִּשְׁפָּחָה נִמְחֲקָה מֵהֶעָנָן. מַה שֶּׁבַּמַּכְשִׁירִים נִשְׁאַר בָּהֶם.",
     deletedElsewhere: "הַמִּשְׁפָּחָה נִמְחֲקָה מֵהֶעָנָן, וְהַמַּכְשִׁיר נֻתַּק. הַהִתְקַדְּמוּת נִשְׁאֲרָה בּוֹ.",
-    not_found: "הַקּוֹד לֹא נִמְצָא. כְּדַאי לִבְדֹּק אוֹתוֹ שׁוּב.", bad_code: "צָרִיךְ 6 סְפָרוֹת.",
+    not_found: "הַקּוֹד לֹא נִמְצָא. כְּדַאי לִבְדֹּק אוֹתוֹ שׁוּב.", bad_code: "צָרִיךְ 8 סְפָרוֹת.",
     offlineNow: "אֵין אִינְטֶרְנֶט כָּרֶגַע. אֶפְשָׁר לְנַסּוֹת שׁוּב אַחַר כָּךְ.", too_many_wrong_codes: "יוֹתֵר מִדַּי נִסְיוֹנוֹת. אֶפְשָׁר לְנַסּוֹת שׁוּב בְּעוֹד שָׁעָה.",
     rate_limited: "יוֹתֵר מִדַּי בַּקָּשׁוֹת. אֶפְשָׁר לְנַסּוֹת שׁוּב בְּעוֹד דַּקָּה.",
     failed: "מַשֶּׁהוּ לֹא הִצְלִיחַ. אֶפְשָׁר לְנַסּוֹת שׁוּב.",
@@ -182,7 +185,7 @@
       if (!st.connected) {
         box.innerHTML = `<div class="fl-sy-title">${T.title}</div><div class="fl-sy-intro">${T.intro}</div>
           <div class="fl-sy-btns"><button type="button" class="fl-sy-create">${T.create}</button><button type="button" class="fl-sy-have">${T.have}</button></div>
-          <div class="fl-sy-join"${joinOpen ? "" : " hidden"}><input class="fl-sy-in" inputmode="numeric" autocomplete="off" dir="ltr" maxlength="7" placeholder="${T.place}"><button type="button" class="fl-sy-go">${T.connect}</button></div>
+          <div class="fl-sy-join"${joinOpen ? "" : " hidden"}><input class="fl-sy-in" inputmode="numeric" autocomplete="off" dir="ltr" maxlength="9" placeholder="${T.place}"><button type="button" class="fl-sy-go">${T.connect}</button></div>
           <div class="fl-sy-msg" aria-live="polite"></div>`;
         const joinBox = box.querySelector(".fl-sy-join"), inp = box.querySelector(".fl-sy-in");
         inp.value = typed;
@@ -235,6 +238,7 @@
   // Is there a server to talk to? (MAIN 11.11: the hub shows the settings row only when this answers,
   // or the device is already connected; until Golan sets up the server the row stays hidden.)
   async function available() {
+    if (!baseUrl()) return false;   // no server address yet: nothing is sent anywhere
     let ctl = null, timer = null;
     try {
       ctl = root.AbortController ? new AbortController() : null; timer = ctl && setTimeout(() => ctl.abort(), 5000);
