@@ -36,7 +36,7 @@
   // Golan 7.11 (2nd ask): every exit stays INSIDE its card, like the hot-air balloon on the memory game's hint card (memRise):
   // the card clips the picture, which moves on its own path until it has passed the card's edge, so it disappears bit by bit
   // as it goes out. Slower than before (SLOW multiplies every length, also a game's own dur). It starts gently and speeds up.
-  const SLOW = 1.5;
+  const SLOW = 2.25;   // Golan 12.11: 1.5 times slower again (was 1.5)
   const DUR = { dance: 4200, twirl: 3400, wind: 3200, plod: 3400, grab: 2800, walk: 3000, waddle: 3000, slither: 3000, hop: 2600, run: 2200, roll: 2600, bounce: 2600 };   // the rest 2400; a game passes its own dur
   const steps = (n, fn) => Array.from({ length: n + 1 }, (_, i) => fn(i / n, i));
   const fade = (t) => (t > 0.96 ? 0 : 1);   // no fade on the way: the card's edge hides it; only made invisible at the very end

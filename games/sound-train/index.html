@@ -1501,7 +1501,7 @@
   const starCount = () => (LRN && LRN.starCounter ? LRN.starCounter($("stars")) : null);   // shared counter: gold count + silver count (learner.js)
   const rightCar = () => activeCars().find((x) => x.letter === state.letter);
   // Golan 7.11: the right wagon's picture comes alive (its moving drawing, pictures-animated) over the wagon's card for WAKE_S seconds
-  const WAKE_S = 3.6;
+  const WAKE_S = 5.3;   // Golan 12.11: room for the slower exit (600 + 1900 × 2.25 ms)
   let wakeC = null;
   function wakeUp(c) {
     const el = $("wake"), a = PA && PA.svg && PA.svg[c.pic]; if (!a) { wakeC = null; return; }

@@ -1025,8 +1025,7 @@
       if (state.q !== q) return;
       $("balls").textContent = "";
       if (q.demo && demoAfter) { const f = demoAfter; return playIds(["demo_back"], () => { if (demoAfter !== f) return; demoAfter = null; f(); }); }   /* Golan 10.11: "נחזור לשחק" first */
-      if (HG && HG.done()) return endRound();
-      readySpin();
+      afterExit(() => { if (state.q !== q) return; if (HG && HG.done()) return endRound(); readySpin(); });
     })), 700);
   }
   function autoSolve() {
@@ -1040,10 +1039,15 @@
   // a very short rest with the card empty, then the still picture is back, with no motion
   // Golan 7.11: the same exits as the other sound games (shared/pic-exit.js): slower, inside the card, no sounds, the
   // character moves its own body on the way out; a very short rest with the card empty, then the still picture is back
+  // Golan 12.11 (slower exits): the next spin waits until the picture has fully left its card (at most 8 s)
+  let exitBusy = false, exitWait = null, exitSafe = 0;
+  function exitDone() { exitBusy = false; clearTimeout(exitSafe); const f = exitWait; exitWait = null; if (f) f(); }
+  function afterExit(f) { if (!exitBusy) return f(); exitWait = f; clearTimeout(exitSafe); exitSafe = setTimeout(exitDone, 8000); }
   function exitPic(k) {
     const p = $("starPic"), q = state.q; if (!(window.FL && FL.picExit && FL.picExit.has(k))) return false;
     p.classList.remove("wake"); p.innerHTML = awake(k) || picHtml(k);
-    FL.picExit.play(p.firstElementChild, k, { dur: 2400, delay: 300, actx, onDone: () => setTimeout(() => { if (state.q === q) p.innerHTML = picHtml(k); }, ms(250)) });
+    exitBusy = true;
+    FL.picExit.play(p.firstElementChild, k, { dur: 2400, delay: 300, actx, onDone: () => { exitDone(); setTimeout(() => { if (state.q === q) p.innerHTML = picHtml(k); }, ms(250)); } });
     return true;
   }
   function wake(k) {

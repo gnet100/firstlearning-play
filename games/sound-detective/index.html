@@ -1251,7 +1251,7 @@
     okLetter = letter; const m = $("sylMark"), cur = state.q && state.q.letter === letter ? !!state.q.cur : false;   // the same script as in the bar
     m._txt = SOUNDS[letter].syl; m._cur = cur; m._size = 0; m.classList.toggle("cur", cur);   // כתב יד only by "סוג כתב", only for a letter whose cursive is open (spec sec 6)
     m.classList.remove("show"); void m.offsetWidth; m.classList.add("show");
-    clearTimeout(okT); okT = setTimeout(hideOk, 4200);
+    clearTimeout(okT); okT = setTimeout(hideOk, 5300);   // Golan 12.11: room for the slower picture exit (700 + 1900 × 2.25 ms)
     wakeOk(letter);
     placeOk();
   }
