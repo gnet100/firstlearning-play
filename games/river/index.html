@@ -189,13 +189,6 @@
   @media (prefers-reduced-motion: reduce) { .go-btn.pressed, .balloons button.flash, .count span { animation-duration: .01s; } }
   #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
   .prompt .target { width: auto; min-width: var(--lp-lw); }
-  /* the small speaker at the bottom left of every picture says its word (as the sound detective's clouds) */
-  #picSpks { position: absolute; inset: 0; pointer-events: none; }
-  .pic-spk { position: absolute; z-index: 6; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 0; padding: 0;
-    background: var(--accent); color: #fff; box-shadow: 0 3px 0 #c45f1d, 0 4px 10px #0003; cursor: pointer; display: none; pointer-events: auto;
-    line-height: 44px; font-size: 22px; text-align: center; }
-  .pic-spk.on { display: block; }
-  .pic-spk:active { transform: scale(.92); }
   /* the right picture wakes up: its moving drawing over the sign for a moment (pictures-animated, as in sound memory) */
   #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 16%; background: #fffaf0;
     box-shadow: 0 0 0 5px #ffc233, 0 6px 18px #0003; }
@@ -280,7 +273,6 @@
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
 <div class="hud" id="hud" hidden>
   <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
-  <div id="picSpks"></div>
   <!-- the sign: the sound with its nikud (as the sound mole); 🔊 says it (syl_*) -->
   <div class="prompt listen" id="prompt" role="status">
     <span class="target" id="target"></span>
@@ -853,6 +845,30 @@
       }
       for (const [c, list] of Object.entries(parts)) { const m = BABYLON.Mesh.MergeMeshes(list, true, true); if (!m) continue; m.parent = world; m.isPickable = false; if (name === "hedgeB") hedgeParts.push({ c: +c, m, z: m.position.z }); }
     }
+    // Golan 12.11: a short row of bushes on each side of the start spot, from the bank's hedge back over the grass, so the bunny
+    // cannot hop sideways along the bank (a side arrow before the first forward bumps into them)
+    startBush = [];
+    for (const side of [-1, 1]) {
+      const list = [], x = colX(P.c0) + side * SP * 0.5;
+      for (let k = 0; k < 3; k++) { const d = 0.62 + (k % 2) * 0.1, b = BABYLON.MeshBuilder.CreateSphere("startBush", { diameter: d, segments: 8 }, scene);
+        b.material = ms[(k + (side > 0 ? 1 : 0)) % 3]; b.position.set(x + (k % 2 ? side * 0.06 : 0), BANK_Y + d * 0.3, BANK_EDGE - 0.35 - k * 0.42); b.scaling.y = 0.85; list.push(b); }
+      const m = BABYLON.Mesh.MergeMeshes(list, true, true); if (!m) continue; m.parent = world; m.isPickable = false; startBush.push({ side, m, x: m.position.x });
+    }
+  }
+  let startBush = [];
+  function shakeStartBush(side) {
+    const b = startBush.find((h) => h.side === side); if (!b) return;
+    tween(0.6, (k) => { b.m.position.x = b.x + Math.sin(k * Math.PI) * 0.12 * side; b.m.position.y = Math.sin(k * Math.PI * 5) * 0.03 * (1 - k); });
+  }
+  // the bunny hops toward the bushes, bumps into them and bounces back to its spot (no water)
+  async function bumpBush(side) {
+    const p0 = bunny.root.position.clone(), dx = side * 0.5;
+    sfx.hopSoft();
+    await tween(0.3, (k) => { bunny.root.position.x = p0.x + dx * ease(k); bunny.root.position.y = p0.y + Math.sin(k * Math.PI) * 0.32; });
+    shakeStartBush(side); vibrate(30);
+    await tween(0.4, (k) => { bunny.root.position.x = p0.x + dx * (1 - ease(k)); bunny.root.position.y = p0.y + Math.sin(k * Math.PI) * 0.14;
+      bunny.hop.rotation.z = -side * Math.sin(k * Math.PI) * 0.25; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * (0.12 + Math.sin(k * Math.PI) * 0.4))); });
+    bunny.root.position.copyFrom(p0); bunny.hop.rotation.z = 0; bunny.ears.forEach((e) => (e.pivot.rotation.z = -e.s * 0.12));
   }
   function shakeHedge(c) {   // the bushes the bunny bumped into give way a little and spring back
     const near = hedgeParts.filter((h) => Math.abs(h.c - c) <= 1);
@@ -946,7 +962,7 @@
       let res;
       if (nc < 0 || nc >= COLS) res = "off";
       else if (nr >= q.P.R) res = nc === q.P.cEnd ? "bank" : "hedge";   // Golan 11.11: the far bank has a hedge; only its gap lets the bunny through
-      else if (nr < 0) res = "home";
+      else if (nr < 0) res = side ? "block" : "home";   // Golan 12.11: on the start bank a side hop bumps into the bushes beside the start
       else { const cell = grid[nr][nc]; res = cell.type === "good" ? "ok" : cell.type; }
       // Golan 6.11 19:50: the spring is only for jumping over a stone that does not hold. Over a good stone it is a short cut:
       // the spring throws the bunny too far, past the stone, into the water
@@ -1086,6 +1102,8 @@
       shakeHedge(last.to.c); await splashDown(true);
     } else if (sim.result === "water" || sim.result === "off" || sim.result === "over") {
       await splashDown(true);
+    } else if (sim.result === "block") {
+      return false;
     } else if (sim.result === "short") {
       // the plan ended in the middle: the bunny looks left and right, ... and slips off its stone backwards
       const y = bunny.yawV;
@@ -1221,6 +1239,7 @@
     for (const s of sim.steps) {
       runIdx = s.i; renderPlan();
       if (s.k === "turn") await turnBy(s.dd, s.d);
+      else if (s.res === "block") await bumpBush(s.to.c > s.from.c ? 1 : -1);
       else { const into = !["ok", "home", "bank"].includes(s.res) || (s.res === "sink");
         await hopTo(s.res === "sink" ? new BABYLON.Vector3(colX(s.to.c), grid[s.to.r][s.to.c].stone.top + 0.06, rowZ(s.to.r)) : s.res === "over" || s.res === "hedge" ? new BABYLON.Vector3(colX(s.to.c), -0.45, rowZ(Math.min(s.to.r, q.P.R - 1)) + SP * 0.45) : spotOf(s.to.r, s.to.c), s.len, into && s.res !== "sink");
         bunny.r = s.to.r; bunny.c = s.to.c; if (s.res === "ok") rockStone(s.to.r, s.to.c); }
@@ -1234,11 +1253,15 @@
     if (sim.result === "sink" && !q.sinkWrong) { const l = sim.steps[sim.steps.length - 1]; q.sinkWrong = grid[l.to.r][l.to.c].letter || "?"; }
     q.fails++;
     const wet = await fall(sim); if (!alive()) return;
-    if (wet) await swimBack(); else { await hopTo(new BABYLON.Vector3(colX(q.P.c0), BANK_Y, START_Z), 1); await turnBy(0, 0); placeBunnyStart(q); }
+    if (wet) await swimBack();
+    else if (sim.result === "block") { const y0 = bunny.yaw.rotation.y; let dy = ((yawOfDir(0) - y0) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI; sfx.turn(); await tween(0.3, (k) => (bunny.yaw.rotation.y = y0 + dy * ease(k))); }
+    else { await hopTo(new BABYLON.Vector3(colX(q.P.c0), BANK_Y, START_Z), 1); await turnBy(0, 0); placeBunnyStart(q); }
     if (!alive()) return;
     raiseStones(); placeBunnyStart(q);
     // after 3 wrong runs the right stones glow (as the sound detective's help after 3 mistakes); the star is then silver
     if (q.fails >= 3 && !q.hint) { q.hint = true; for (const st of stones) if (st.type === "good") st.plate.material = picMat(st.pic, true); }
+    // Golan 12.11: after the bushes stopped it, the arrows go away one by one (last first), each with the mistake sound
+    if (sim.result === "block") { badIdx = -1; while (plan.length) { await wait(0.3); if (!alive()) return; plan.pop(); sfx.oops(); renderPlan(); } }
     resetPlan(); badIdx = -1;   // Golan 7.11: after a mistake the arrows are cleared, a fresh path from the start
     state.mode = "plan"; renderPlan();
     if (q.demo) return;   // Golan 11.11 21:47: time up never ends a river in the middle; the child finishes it
@@ -1511,17 +1534,7 @@
     return { x0, y0, x1, y1 };
   }
 
-  // ---------- the small speaker at the bottom left of every picture says its word; a tap on a stone does too ----------
-  const spkPool = [];
-  function spkFor(i) {
-    if (!spkPool[i]) {
-      const b = document.createElement("button"); b.className = "pic-spk"; b.type = "button"; b.setAttribute("aria-label", "שם התמונה"); b.textContent = "🔊";
-      b.addEventListener("pointerdown", (e) => e.stopPropagation());
-      b.addEventListener("click", (e) => { e.stopPropagation(); const st = b._st; if (state.demo || !st || st.sunk) return; unlockAudio(); playSeq([wordOf(st.pic)]); });
-      $("picSpks").append(b); spkPool[i] = b;
-    }
-    return spkPool[i];
-  }
+  // ---------- a tap on a stone says its word (Golan 12.11: no speaker badges on the stones) ----------
   canvas.addEventListener("pointerdown", (e) => {
     if (state.demo || $("hud").hidden || !["plan", "run", "between"].includes(state.mode)) return;
     const r = canvas.getBoundingClientRect(), hit = scene.pick(e.clientX - r.left, e.clientY - r.top, (m) => !!(m.metadata && m.metadata.stone) && m.isEnabled());
@@ -1560,17 +1573,6 @@
   let coneTick = 0;
   scene.onAfterRenderObservable.add(() => {
     if (++coneTick % 20 === 0) placeCone();
-    const live = !state.demo && !$("hud").hidden && ["plan", "run", "between"].includes(state.mode) && !!state.q;
-    if (live) cam.getViewMatrix().multiplyToRef(cam.getProjectionMatrix(), tmpM);
-    let i = 0;
-    if (live) for (const st of stones) {
-      if (st.sunk) continue;
-      const b = spkFor(i++), r = plateRect(st), w = r.x1 - r.x0, h = r.y1 - r.y0, d = Math.round(Math.max(16, Math.min(36, w * 0.28)));
-      b._st = st; b.classList.add("on");
-      if (b._d !== d) { b._d = d; Object.assign(b.style, { width: d + "px", height: d + "px", margin: -d / 2 + "px 0 0 " + -d / 2 + "px", lineHeight: d + "px", fontSize: Math.round(d / 2) + "px" }); }
-      b.style.left = Math.round(r.x0 + w * 0.12) + "px"; b.style.top = Math.round(r.y1 - h * 0.14) + "px";
-    }
-    for (; i < spkPool.length; i++) if (spkPool[i]) { spkPool[i].classList.remove("on"); spkPool[i]._st = null; }
   });
   const renderFrame = () => scene.render();
   engine.runRenderLoop(renderFrame);
