@@ -189,6 +189,11 @@
   @media (prefers-reduced-motion: reduce) { .go-btn.pressed, .balloons button.flash, .count span { animation-duration: .01s; } }
   #settings .panel.settings { height: 100%; }   /* the settings window is always the same size (Golan 19.10, all games + hub) */
   .prompt .target { width: auto; min-width: var(--lp-lw); }
+  /* Golan 12.11: in the demo, a red arrow on the river from where the bunny stands to where the tapped arrow takes it */
+  #demoPath { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; z-index: 5; pointer-events: none; overflow: visible; }
+  #demoPath line { stroke-linecap: round; }
+  #demoPath .dp-in { animation: dpIn .35s ease-out both; }
+  @keyframes dpIn { from { opacity: 0; } to { opacity: 1; } }
   /* the right picture wakes up: its moving drawing over the sign for a moment (pictures-animated, as in sound memory) */
   #wake { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; display: none; border-radius: 16%; background: #fffaf0;
     box-shadow: 0 0 0 5px #ffc233, 0 6px 18px #0003; }
@@ -270,6 +275,7 @@
 </style>
 
 <canvas id="game" aria-label="לַחֲצוֹת אֶת הַנָּהָר"></canvas>
+  <svg id="demoPath" aria-hidden="true"><defs><marker id="dpHead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e53935" stroke="#fff" stroke-width="1.2"/></marker></defs></svg>
 <div class="demo-hand" id="demoHand" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M26 6c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l2-1c2-5 9-4 9 1l1 0c3-3 8-1 8 3v14c0 9-7 16-16 16h-6c-6 0-10-3-13-8L9 37c-2-3 1-7 5-6 2 0 4 2 6 4V11c0-3 3-5 6-5z" fill="#ffd9b8" stroke="#7a4a22" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
 <div class="hud" id="hud" hidden>
   <button id="helpCard" type="button" aria-label="איך משחקים?" title="איך משחקים?">?</button>
@@ -332,7 +338,7 @@
     <div class="set-body">
     <!-- Golan 19.10: ONE settings form for every game (learner.js settingsForm, summaries/settings-form-spec.md) -->
     <div id="flForm"></div>
-    <div style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ איך משחקים?</button></div>
+    <div hidden style="text-align:center;margin-top:16px"><button class="big-btn small ghost demo-btn" id="demoSettings" type="button">▶ איך משחקים?</button></div>
     <div style="text-align:center;margin-top:16px"><button class="big-btn" id="closeSettings">חזרה למשחק</button></div>
     </div>
   </div>
@@ -1413,7 +1419,7 @@
     if (!LRN || !LRN.settingsForm) return;
     const seg = (key, after) => ({ get: () => settings[key], set: (v) => { settings[key] = v; saveSettings(); syncSeg(); if (after) after(); } });
     form = LRN.settingsForm($("flForm"), { game: GAME, lettersId: "letters",
-      levelsText: "ככל שרמת הקושי עולה, הנהר ארוך יותר ויש בו יותר פניות וקפיצים.",
+      levelsText: "ככל שרמת הקושי עולה, מסלול החצייה ארוך יותר ויש בו יותר פניות וקפיצים.",
       levels: ["נהר ראשון: 4 צעדים ישר. נהר שני: 5 צעדים עם פניות.",
         "נהר ראשון: 6 צעדים עם פניות. נהר שני: 7 צעדים עם קפיץ.",
         "נהר ראשון: 8 צעדים, שני: 9, ומהשלישי: 10. עם פניות וקפיצים."],
@@ -1573,6 +1579,7 @@
   let coneTick = 0;
   scene.onAfterRenderObservable.add(() => {
     if (++coneTick % 20 === 0) placeCone();
+    placeDemoPath();
   });
   const renderFrame = () => scene.render();
   engine.runRenderLoop(renderFrame);
@@ -1645,7 +1652,34 @@
       if (k < 1) demoRaf = requestAnimationFrame(step); else if (then) then(); };
     hand.classList.add("show"); step();
   }
-  function endDemoMarks() { demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
+  // ---------- Golan 12.11: the demo's red path arrows (each from the bunny's spot to the next one, a moment after the tap) ----------
+  const demoPath = [];
+  function demoSpot(r, c) { return r <= -1 ? new BABYLON.Vector3(colX(c), BANK_Y + 0.05, START_Z) : spotOf(r, c).add(new BABYLON.Vector3(0, 0.05, 0)); }
+  function addDemoArrow(q, n) {   // the n-th arrow of the plan (0 = first)
+    let r = -1, c = q.P.c0, a = null;
+    for (let i = 0; i <= n; i++) { const k = plan[i]; a = { r, c }; if (k === "R") c++; else if (k === "L") c--; else r += k === "J" ? 2 : 1; }
+    if (!a) return;
+    const NS = "http://www.w3.org/2000/svg", g = document.createElementNS(NS, "g"); g.setAttribute("class", "dp-in");
+    const out = document.createElementNS(NS, "line"), ln = document.createElementNS(NS, "line");
+    out.setAttribute("stroke", "#fff"); out.setAttribute("stroke-width", "13"); ln.setAttribute("stroke", "#e53935"); ln.setAttribute("stroke-width", "8"); ln.setAttribute("marker-end", "url(#dpHead)");
+    g.append(out, ln); $("demoPath").append(g);
+    demoPath.push({ a: demoSpot(a.r, a.c), b: demoSpot(r, c), out, ln }); placeDemoPath();
+  }
+  function clearDemoPath() { demoPath.length = 0; $("demoPath").querySelectorAll("g").forEach((g) => g.remove()); }
+  function placeDemoPath() {
+    if (!demoPath.length) return;
+    const rc = canvas.getBoundingClientRect(), vp = cam.viewport.toGlobal(canvas.clientWidth, canvas.clientHeight), M = scene.getTransformMatrix();
+    // the demo shrinks the page (a CSS scale): canvas pixels -> screen -> the svg's own pixels
+    const svg = $("demoPath"), ctm = svg.getScreenCTM(), inv = ctm ? ctm.inverse() : null, kx = rc.width / (canvas.clientWidth || 1), ky = rc.height / (canvas.clientHeight || 1);
+    const toSvg = (v) => { const x = rc.left + v.x * kx, y = rc.top + v.y * ky; if (!inv) return { x, y }; const pt = svg.createSVGPoint(); pt.x = x; pt.y = y; const o = pt.matrixTransform(inv); return { x: o.x, y: o.y }; };
+    for (const d of demoPath) {
+      const p = BABYLON.Vector3.Project(d.a, BABYLON.Matrix.IdentityReadOnly, M, vp), q = BABYLON.Vector3.Project(d.b, BABYLON.Matrix.IdentityReadOnly, M, vp);
+      const P0 = toSvg(p), P1 = toSvg(q), x0 = P0.x, y0 = P0.y, x1 = P1.x, y1 = P1.y, L = Math.hypot(x1 - x0, y1 - y0) || 1, cut = Math.min(L * 0.3, 34);   // from edge to edge, not over the pictures
+      const ux = (x1 - x0) / L, uy = (y1 - y0) / L, ax = x0 + ux * cut, ay = y0 + uy * cut, bx = x1 - ux * (cut + 10), by = y1 - uy * (cut + 10);
+      for (const l of [d.out, d.ln]) { l.setAttribute("x1", ax.toFixed(1)); l.setAttribute("y1", ay.toFixed(1)); l.setAttribute("x2", bx.toFixed(1)); l.setAttribute("y2", by.toFixed(1)); }
+    }
+  }
+  function endDemoMarks() { clearDemoPath(); demoTok++; demoCont = null; if (window.FL && FL.demoFrame) FL.demoFrame(false); if (window.FL && FL.demoArrow) FL.demoArrow(null); hideHand(); state.demo = false; }
   function runDemo(done) {
     const my = ++demoTok; hush(); state.demo = true; demoCont = null;
     // the demo's door (Golan 5.11): stop the demo now, it all flies up, then the game
@@ -1674,10 +1708,11 @@
           if (!alive() || state.q !== q) return;
           last = p; btn.classList.add("tap"); setTimeout(() => btn.classList.remove("tap"), 180);
           if (i < cmds.length) { const k = cmds[i]; addStep(k, true); i++;
+            { const n = i - 1; setTimeout(() => { if (alive() && state.q === q && plan.length > n) addDemoArrow(q, n); }, 350); }   /* Golan 12.11: the red path arrow, a moment after the tap */
             if (k === "J" && !q.springSaid) { q.springSaid = true; return playSeq([LINES.spring], 1, () => setTimeout(tapNext, 200)); }   /* "הקפיץ מדלג מרחק כפול" */
             setTimeout(tapNext, 260); return; }
           if (window.FL && FL.demoArrow) FL.demoArrow(null);
-          setTimeout(hideHand, 400); last = null;
+          setTimeout(hideHand, 400); last = null;   /* the red path stays while the bunny hops it, to the far bank; cleared when the demo ends */
           demoCont = () => { if (!alive()) return; setTimeout(finish, 500); /* Golan 8.11: one example per press */ };
           go(true);
         }, 220));
