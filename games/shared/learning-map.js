@@ -8,8 +8,8 @@
 (() => {
   "use strict";
   const FL = (window.FL = window.FL || {});
-  const BJS = "https://cdn.jsdelivr.net/npm/babylonjs@9.27.1/babylon.js";
-  try { const u = new URLSearchParams(location.search).get("isles"); if (u !== null) localStorage.setItem("fl-isles-open", u); } catch (e) {}   // Golan 5.11: ?isles=2 / ?isles=0, read as soon as the hub loads
+  const BJS = (() => { try { return new URL("vendor/babylon.js", document.currentScript.src).href; } catch (e) { return "games/shared/vendor/babylon.js"; } })();   // security review 12.11: Babylon served from the site itself, not a CDN
+  try { const u = new URLSearchParams(location.search).get("isles"); if (u !== null && (+u === 0 || navigator.webdriver)) localStorage.setItem("fl-isles-open", u); } catch (e) {}   // security review 12.11: the address can only close islands; opening them is the parent-gated button in settings   // Golan 5.11: ?isles=2 / ?isles=0, read as soon as the hub loads
   const UNLOCK_AT = 15;   // letters recognised with confidence that open island 2 (Golan 20.10)
   // Golan 20.10: every title says "מִשְׂחֲקֵי ..." (the island holds the games of that topic)
   // Golan 5.11 17:40 / 8.11: the island order (10 islands). t / d = the name clip and the "what it holds" clip

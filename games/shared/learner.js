@@ -1265,9 +1265,10 @@ ${items[item]}</svg>`;
   const SCRIPT = (() => { try { return document.currentScript || null; } catch (e) { return null; } })();
   const clean = (u) => { try { const x = new URL(u, location.href); x.search = ""; x.hash = ""; return x.href; } catch (e) { return null; } };
   const sharedHub = (() => { try { const s = SCRIPT && SCRIPT.src; return s && /\/games\/shared\/learner\.js(\?|#|$)/.test(s) ? new URL("../../index.html", s).href : null; } catch (e) { return null; } })();
+  const sameSite = (u) => { try { const x = new URL(u, location.href); return location.protocol === "file:" ? x.protocol === "file:" : x.origin === location.origin; } catch (e) { return false; } };
   const HUB_URL = (() => { try {
     const q = new URLSearchParams(location.search).get("hub");
-    if (q && /^(file|https?):/i.test(q)) return clean(q);
+    if (q && /^(file|https?):/i.test(q) && sameSite(q)) return clean(q);   // security review 12.11: never a hub on another site
     const d = SCRIPT && SCRIPT.getAttribute("data-fl-hub"); if (d) return clean(d);
     const saved = root.localStorage && localStorage.getItem(HUB_KEY); if (saved) return saved;
     return sharedHub;
