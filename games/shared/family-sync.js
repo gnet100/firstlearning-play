@@ -1,5 +1,5 @@
 // FL.familySync: the family code (thread "סנכרון בין מכשירים עם קוד משפחה", Golan 11.11.2026).
-// One permanent 8-digit code per family (Golan 12.11: shorter than the first 12). A device that has it pulls from the cloud, merges with
+// One permanent 6-digit code per family (Golan 12.11 chose 6, shown 482-109). A device that has it pulls from the cloud, merges with
 // FL.learner.importAll (nothing is lost, the same merge as the progress file), and pushes back what it has.
 // Play never waits for the network: without it the game runs as usual, and the next sync sends the changes.
 // Spec: transfer-4-11/family-sync-spec.md. Server: transfer-4-11/sync-server (Fly.io app firstlearning-sync).
@@ -21,11 +21,15 @@
   const patch = (p) => { const s = Object.assign(read(), p); write(s); emit(); return s; };
   const baseUrl = () => { try { return (localStorage.getItem(URL_KEY) || root.FL_SYNC_URL || DEFAULT_URL).replace(/\/+$/, ""); } catch (e) { return DEFAULT_URL; } };
   const digits = (c) => String(c || "").replace(/\D/g, "");
-  const CODE_LEN = 8;   // must match the server (SYNC_CODE_DIGITS)
-  const formatCode = (c) => { const d = digits(c); return d.length === CODE_LEN ? d.replace(/(\d{4})(?=\d)/g, "$1-") : d; };
-  function newCode() {
-    const a = new Uint32Array(CODE_LEN / 4); (root.crypto || {}).getRandomValues ? root.crypto.getRandomValues(a) : a.forEach((_, i) => (a[i] = Math.random() * 1e4));
-    return Array.from(a, (n) => String(n % 10000).padStart(4, "0")).join("");
+  const CODE_LEN = 6;   // must match the server (SYNC_CODE_DIGITS)
+  const group = (d) => d.replace(/(\d{3})(?=\d)/g, "$1-");
+  const formatCode = (c) => { const d = digits(c); return d.length === CODE_LEN ? group(d) : d; };
+  function newCode() {   // CODE_LEN random digits (crypto when there is one)
+    const a = new Uint8Array(CODE_LEN * 2), c = root.crypto;
+    if (c && c.getRandomValues) c.getRandomValues(a); else for (let i = 0; i < a.length; i++) a[i] = Math.random() * 256;
+    let out = ""; for (let i = 0; i < a.length && out.length < CODE_LEN; i++) if (a[i] < 250) out += a[i] % 10;   // 250 = 25 x 10: no bias
+    while (out.length < CODE_LEN) out += Math.floor(Math.random() * 10);
+    return out;
   }
 
   // Canonical text (sorted keys) of what this device would share, without the export time. Two devices that
@@ -157,13 +161,13 @@
   const T = {
     title: "סִנְכְּרוּן בֵּין מַכְשִׁירִים",
     intro: "קוֹד אֶחָד לַמִּשְׁפָּחָה. מַקְלִידִים אוֹתוֹ פַּעַם אַחַת בְּכָל מַכְשִׁיר, וּמֵאָז הַהִתְקַדְּמוּת מִתְעַדְכֶּנֶת לְבַד.",
-    create: "יְצִירַת קוֹד מִשְׁפָּחָה", have: "יֵשׁ לִי קוֹד", connect: "חִבּוּר", place: "8 סְפָרוֹת",
+    create: "יְצִירַת קוֹד מִשְׁפָּחָה", have: "יֵשׁ לִי קוֹד", connect: "חִבּוּר", place: "6 סְפָרוֹת",
     codeIs: "קוֹד הַמִּשְׁפָּחָה:", ok: "מְעֻדְכָּן", syncing: "מִתְעַדְכֵּן…", offline: "יִתְעַדְכֵּן כְּשֶׁתַּחְזֹר הָרֶשֶׁת", error: "יִתְעַדְכֵּן בְּהֶמְשֵׁךְ",
     disconnect: "נִתּוּק הַמַּכְשִׁיר", del: "מְחִיקַת הַמִּשְׁפָּחָה מֵהֶעָנָן", delAgain: "לְחִיצָה נוֹסֶפֶת מוֹחֶקֶת מֵהֶעָנָן לְתָמִיד",
     created: "הַקּוֹד מוּכָן. מַקְלִידִים אוֹתוֹ בְּכָל מַכְשִׁיר נוֹסָף.", joined: "הַמַּכְשִׁיר מְחֻבָּר וּמְעֻדְכָּן.",
     disconnected: "הַמַּכְשִׁיר נֻתַּק. הַהִתְקַדְּמוּת נִשְׁאֲרָה בּוֹ.", deleted: "הַמִּשְׁפָּחָה נִמְחֲקָה מֵהֶעָנָן. מַה שֶּׁבַּמַּכְשִׁירִים נִשְׁאַר בָּהֶם.",
     deletedElsewhere: "הַמִּשְׁפָּחָה נִמְחֲקָה מֵהֶעָנָן, וְהַמַּכְשִׁיר נֻתַּק. הַהִתְקַדְּמוּת נִשְׁאֲרָה בּוֹ.",
-    not_found: "הַקּוֹד לֹא נִמְצָא. כְּדַאי לִבְדֹּק אוֹתוֹ שׁוּב.", bad_code: "צָרִיךְ 8 סְפָרוֹת.",
+    not_found: "הַקּוֹד לֹא נִמְצָא. כְּדַאי לִבְדֹּק אוֹתוֹ שׁוּב.", bad_code: "צָרִיךְ 6 סְפָרוֹת.",
     offlineNow: "אֵין אִינְטֶרְנֶט כָּרֶגַע. אֶפְשָׁר לְנַסּוֹת שׁוּב אַחַר כָּךְ.", too_many_wrong_codes: "יוֹתֵר מִדַּי נִסְיוֹנוֹת. אֶפְשָׁר לְנַסּוֹת שׁוּב בְּעוֹד שָׁעָה.",
     rate_limited: "יוֹתֵר מִדַּי בַּקָּשׁוֹת. אֶפְשָׁר לְנַסּוֹת שׁוּב בְּעוֹד דַּקָּה.",
     failed: "מַשֶּׁהוּ לֹא הִצְלִיחַ. אֶפְשָׁר לְנַסּוֹת שׁוּב.",
@@ -178,12 +182,12 @@
       if (!st.connected) {
         box.innerHTML = `<div class="fl-sy-title">${T.title}</div><div class="fl-sy-intro">${T.intro}</div>
           <div class="fl-sy-btns"><button type="button" class="fl-sy-create">${T.create}</button><button type="button" class="fl-sy-have">${T.have}</button></div>
-          <div class="fl-sy-join"${joinOpen ? "" : " hidden"}><input class="fl-sy-in" inputmode="numeric" autocomplete="off" dir="ltr" maxlength="9" placeholder="${T.place}"><button type="button" class="fl-sy-go">${T.connect}</button></div>
+          <div class="fl-sy-join"${joinOpen ? "" : " hidden"}><input class="fl-sy-in" inputmode="numeric" autocomplete="off" dir="ltr" maxlength="7" placeholder="${T.place}"><button type="button" class="fl-sy-go">${T.connect}</button></div>
           <div class="fl-sy-msg" aria-live="polite"></div>`;
         const joinBox = box.querySelector(".fl-sy-join"), inp = box.querySelector(".fl-sy-in");
         inp.value = typed;
         box.querySelector(".fl-sy-have").onclick = () => { joinOpen = true; joinBox.hidden = false; inp.focus(); };
-        inp.oninput = () => { const d = digits(inp.value).slice(0, CODE_LEN); inp.value = typed = d.replace(/(\d{4})(?=\d)/g, "$1-"); };
+        inp.oninput = () => { const d = digits(inp.value).slice(0, CODE_LEN); inp.value = typed = group(d); };
         box.querySelector(".fl-sy-create").onclick = () => act(create, (r) => (msg = T.created));
         const go = () => act(() => join(inp.value), () => (msg = T.joined));
         box.querySelector(".fl-sy-go").onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
