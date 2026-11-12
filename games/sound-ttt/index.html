@@ -651,7 +651,15 @@
     const hc = $("helpCard").getBoundingClientRect(), rs = $("flRestart"), rsR = rs && rs.offsetParent ? rs.getBoundingClientRect() : null;
     const hgH = Math.max(40, Math.min(80, pill.height * 1.35)), colW = Math.max(hgH * 1.012 + 8, Math.min(64, Math.max(38, hgH * 1.06)) + 8);
     const g = Math.max(8, px("--gap", 10) * 0.6), left = Math.max(door.right, gear.right, rsR ? rsR.right : 0, hc.width ? hc.right : 0, el + 60) + g;
-    return [{ x0: left, x1: pill.left - g, y0: et, y1: H - eb }, { x0: left, x1: W - er - colW - g, y0: pill.bottom + g, y1: H - eb }];
+    const rooms = [{ x0: left, x1: pill.left - g, y0: et, y1: H - eb }, { x0: left, x1: W - er - colW - g, y0: pill.bottom + g, y1: H - eb }];
+    if (H > W) {   /* phone upright (12.11): the full width between the top buttons and the "?" card, so the board is much bigger */
+      const hg = document.querySelector(".fl-hg"), hgR = hg && hg.offsetParent ? hg.getBoundingClientRect() : null;
+      const top = Math.max(gear.bottom, rsR ? rsR.bottom : 0, hgR ? hgR.bottom : pill.bottom + hgH * 2) + g, bot = (hc.width ? hc.top : H - eb) - g;
+      const lv = document.querySelector(".fl-cs"), lvR = lv && lv.offsetParent ? lv.getBoundingClientRect() : null;
+      const side = lvR && lvR.width ? Math.max(er + g, W - lvR.left + g) : er + g;   /* never under the level slider on the right */
+      rooms.push({ x0: Math.max(el + g, side), x1: W - side, y0: top, y1: bot });
+    }
+    return rooms;
   }
   // the biggest board that fits with a player card on each side (lying) or above and below it (standing)
   function layout() {

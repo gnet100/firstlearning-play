@@ -1611,7 +1611,7 @@ ${items[item]}</svg>`;
 .fl-end-btn{display:inline-flex;align-items:center;justify-content:center;gap:calc(12 * var(--u,1px) * var(--k));white-space:nowrap;padding:0 calc(22 * var(--u,1px))}
 .fl-end-btn .fl-end-2l{display:flex;flex-direction:column;align-items:center;line-height:1.02;font-size:.82em}
 .fl-end-btn .fl-end-door{width:1.1em;height:1.1em;flex:none}
-.fl-end-spk{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:#ffffff33;font-size:.8em;flex:none}
+.fl-end-spk{display:inline-flex;align-items:center;justify-content:center;width:max(1.5em,32px);height:max(1.5em,32px);border-radius:50%;background:#ffffff33;font-size:.8em;flex:none}
 .fl-end [hidden]{display:none!important}`;
     document.head.append(st);
   }
@@ -1716,7 +1716,7 @@ ${items[item]}</svg>`;
       el.innerHTML = "";
       // Golan 8.11: a round with no answer at all (time ran out) gets a soft panel: "נגמר הזמן", no stars, no letter rows
       const pr0 = o.practiced || practicedThisRound();
-      const empty = !(o.stars || []).length && !Object.keys(pr0).length && !Object.keys(lastSounds).length && !Array.isArray(o.letters);
+      const empty = o.empty !== false && !(o.stars || []).length && !Object.keys(pr0).length && !Object.keys(lastSounds).length && !Array.isArray(o.letters);
       emptyNow = empty; FL._endEmptyAt = empty ? Date.now() : 0;
       const h = document.createElement("h1"); h.textContent = empty ? "נִגְמַר הַזְּמַן" : o.title || "יש! סיימנו סיבוב"; el.append(h);
       // stars in two centred rows (Golan 17.10), the top row one longer when odd; each row shrinks to fit
@@ -1903,7 +1903,8 @@ ${items[item]}</svg>`;
     if (hgOne) { hgOne.opt = opt; return hgOne; }
     if (!document.getElementById("fl-hg-css")) {
       const st = document.createElement("style"); st.id = "fl-hg-css";
-      st.textContent = `.fl-hg{position:fixed;z-index:30;pointer-events:none;width:calc(var(--fl-hg,46px)*1.012);height:calc(var(--fl-hg,46px)*1.725);filter:drop-shadow(0 3px 4px #0004);transition:opacity .4s}
+      st.textContent = `body:has(#settings:not([hidden])) .fl-hg{visibility:hidden}/* Golan 12.11: never over the settings window */
+.fl-hg{position:fixed;z-index:30;pointer-events:none;width:calc(var(--fl-hg,46px)*1.012);height:calc(var(--fl-hg,46px)*1.725);filter:drop-shadow(0 3px 4px #0004);transition:opacity .4s}
 .fl-hg[hidden]{display:none}.fl-hg svg{width:100%;height:100%;overflow:visible}
 .fl-hg.fl-hg-end{animation:fl-hg-glow 1.2s ease-in-out 2}
 @keyframes fl-hg-glow{0%,100%{filter:drop-shadow(0 3px 4px #0004)}50%{filter:drop-shadow(0 0 14px #ffd54f) drop-shadow(0 0 4px #fff)}}

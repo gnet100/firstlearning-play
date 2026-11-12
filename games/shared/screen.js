@@ -174,6 +174,10 @@
     html[data-screen] #start { --h: max(calc(76 * var(--u)), var(--tap)); place-items: center; padding: var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l); }
     html[data-screen] #start #go { font-size: max(calc(36 * var(--u)), 22px); min-height: var(--h); height: var(--h); padding-block: 0; }
     html[data-screen] #start #hear { width: var(--h); min-width: var(--h); height: var(--h); min-height: 0; padding: 0; }
+    /* Golan 12.11, standing phone: the start window takes the width, and "go" and the speaker sit side by side inside it */
+    html[data-screen~="portrait"] #start > .panel { width: 100%; }
+    html[data-screen~="portrait"] #start .start-row { display: flex !important; justify-content: center; align-items: center; gap: 12px !important; margin: 0 !important; }
+    html[data-screen~="portrait"] #start .start-row > * { grid-column: auto !important; }
     #flRestart { background: var(--card, #fff); box-shadow: 0 4px 16px #0002; display: grid; place-items: center; padding: 0; }
     body:has(#end:not([hidden])) #flRestart { visibility: hidden; }
     /* until the game starts: the page's clean light blue, nothing of the 3D world behind (Golan 23.10, all games but the song) */

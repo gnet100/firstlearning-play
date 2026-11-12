@@ -359,6 +359,11 @@
     font: 900 max(calc(56 * var(--u, 1px)), 42px) "Noto Sans Hebrew", system-ui, sans-serif; display: grid; place-items: center; z-index: 8; }
   #helpCard:active { box-shadow: 0 1px 0 #5a3fd1; }
   html.fl-demo-mode .judge { pointer-events: none; }
+  /* Golan 12.11, standing phone: the "?" card sits above the adult's buttons (it covered "נסו שוב"), and the label between them may wrap */
+  html[data-screen~="portrait"] #helpCard { bottom: calc(var(--edge-b, 12px) + max(calc(96 * var(--u)), var(--tap, 84px)) + 14px); }
+  html[data-screen~="portrait"] .jbtn { min-width: 0; flex: 0 1 auto; }
+  html[data-screen~="portrait"] .judge { gap: 8px; }
+  html[data-screen~="portrait"] .judge .who { white-space: normal; text-align: center; max-width: 30%; }
 </style>
 <canvas id="game" aria-label="משחקים ביחד"></canvas>
 

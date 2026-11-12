@@ -73,7 +73,7 @@
   .game.go { transform: scale(1.12); z-index: 2; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); }
   /* standing: 2 columns x 3 rows; the title sits beside the door at the top, the cards start under the gear */
   html[data-screen~="portrait"] #games { justify-content: flex-start; gap: var(--g);
-    padding: var(--e-t) var(--e-r) var(--e-b) var(--e-l); }
+    padding: var(--e-t) calc(var(--e-r) + 6px) var(--e-b) calc(var(--e-l) + 14px); }   /* Golan 12.11: room for the speaker that sits on each card's left edge */
   html[data-screen~="portrait"] .who { align-self: flex-start; margin-inline-end: calc(var(--btn) + var(--g)); min-height: var(--btn); max-width: calc(100% - var(--btn) - var(--g)); }
   /* Golan 24.10: the island's topic at the top right of the game list (the speaker reads its map name, map_t<n>) */
   #topic { position: fixed; top: var(--e-t); right: calc(var(--e-r) + 8px); display: flex; align-items: center; gap: calc(6 * var(--u, 1px));
@@ -86,6 +86,11 @@
   html[data-screen~="portrait"] .grid { grid-template-columns: repeat(var(--cols, 2), minmax(0, min(calc(330 * var(--u, 1px)), var(--cw, 9999px)))); margin-top: var(--btn); }
   html[data-screen~="portrait"] .game .pic { aspect-ratio: var(--pa, 16 / 8.5); }
   html[data-screen~="portrait"] .game b { font-size: max(calc(30 * var(--u, 1px)), 16px); }
+  /* Golan 12.11: a standing phone's cards are narrow: the speaker sits on the picture's top corner, so the name has the whole width and nothing sticks out of the card */
+  html[data-screen~="portrait"] .game .name { grid-template-columns: 1fr; }
+  html[data-screen~="portrait"] .game .spk { position: absolute; top: 2px; left: 2px; margin: 0; min-width: 40px; min-height: 40px; font-size: 18px; }
+  html[data-screen~="portrait"] .game .spk::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fffd; box-shadow: 0 1px 4px #0003; z-index: -1; }
+  html[data-screen~="portrait"] .game .spk { isolation: isolate; }
   .set-ov { position: fixed; inset: 0; z-index: 10001; background: rgba(20, 40, 70, .55); display: grid; place-items: center;
     padding: var(--e-t) calc(var(--e-r) + var(--btn) + var(--g)) var(--e-b) calc(var(--e-l) + var(--btn) + var(--g)); }
   .set-box { position: relative; background: #fff; border-radius: 28px; padding: 28px 24px; width: min(100%, max(calc(520 * var(--u, 1px)), 460px)); height: 100%; max-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px #0004; }
@@ -322,7 +327,9 @@
   // ---------- screens ----------
   const PREVIEW = !!window.HUB_PREVIEW;   // the artifact preview: cards can't open the game files there
   function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (el.style.display = "none"), 2600); }
+  let gamesShownAt = -1e9;
   function showGames() {
+    gamesShownAt = performance.now();
     const p = LRN && LRN.profile();
     document.querySelector(".who .comp").innerHTML = p ? LRN.companionSvg(p, 64) : "";
     document.querySelector(".who").setAttribute("aria-label", (p ? p.name + ", " : "") + "במה נשחק?");
@@ -342,7 +349,7 @@
         const quiet = (f) => { const was = LA.sound; LA.sound = false; f(); LA.sound = was; };
         const cycle = (awake) => { if (!sleeper.isConnected) return; quiet(awake ? sleeper.sleep : sleeper.wake); setTimeout(() => cycle(!awake), awake ? 6000 : (sleeper.wakeTime + 3.5) * 1000); };
         setTimeout(() => cycle(false), 4000); }
-      b.onclick = (e) => { if (e.target.closest(".spk")) return; openGame(g, b); }; grid.append(b);
+      b.onclick = (e) => { if (e.target.closest(".spk")) return; if (performance.now() - gamesShownAt < 600) return; openGame(g, b); }; grid.append(b);   // Golan 12.11: the tap that opened this list (on the map) must not also open the game under the finger
     }
     if (window.FL && FL.map) FL.map.hide();
     screen = "games"; $("door").hidden = $("gear").hidden = false; $("games").classList.add("on"); fitNikud(); fitGrid(); fitNikud();
@@ -397,7 +404,8 @@
     let best = null;
     // a low screen keeps the cards wide (the title on one line) by making the pictures flatter, then shrinks the cards: the biggest card wins
     const cols = base; grid.style.setProperty("--cols", cols);
-    for (const pa of [9, 8, 7, 6, 5, 4, 3]) {
+    const tallScr = innerHeight > innerWidth;   // Golan 12.11: a standing phone has height to spare, so the pictures may be taller (bigger cards)
+    for (const pa of tallScr ? [13, 12, 11, 10, 9, 8, 7, 6] : [9, 8, 7, 6, 5, 4, 3]) {
       grid.style.setProperty("--pa", "16 / " + pa); grid.style.removeProperty("--cw");
       let cw = grid.children[0].getBoundingClientRect().width;
       for (let k = 0; k < 24 && bottom() > room && cw > 60; k++) { cw *= 0.94; grid.style.setProperty("--cw", cw + "px"); }

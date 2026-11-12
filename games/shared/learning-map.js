@@ -30,7 +30,7 @@
   // so several islands show, each one farther and smaller
   // Golan 20.10: a standing phone has its own layout: the trail goes straight up the screen with a narrower zigzag
   let tall = innerHeight > innerWidth;
-  const lay = () => (tall ? { gap: 8, dir: { x: 0.1, z: 0.995 }, w: 2.3, lat: { x: -1, z: 0 } } : { gap: 6.4, dir: { x: 0.55, z: 0.835 }, w: 2.4, lat: { x: -0.954, z: 0.299 } });   // Golan 8.11: islands closer (was gap 10 / 8.5)
+  const lay = () => (tall ? { gap: 8, dir: { x: 0.1, z: 0.995 }, w: 1.5, lat: { x: -1, z: 0 } } : { gap: 6.4, dir: { x: 0.55, z: 0.835 }, w: 2.4, lat: { x: -0.954, z: 0.299 } });   // Golan 8.11: islands closer (was gap 10 / 8.5)
   // Golan 20.10: the zigzag goes across the screen (lat = left on screen), so an island is never straight above the one before it
   // Golan 20.10: a winding trail, the islands zigzag left and right of the way ahead so each one shows
   const far0 = (v) => (v <= 1 ? v * 0.65 : v - 0.35);   // Golan 20.10: the second island sits closer to the first
@@ -282,13 +282,15 @@
   // Golan 11.11: keep the islands in view inside 20%..80% of the screen's width: the view slides sideways (isleFit.x, world
   // units along the screen's right) and, when they do not fit, steps back (isleFit.back), so they look smaller. Islands
   // low enough to meet the start button keep to its right. The view eases back only while there is room to spare.
-  const isleFit = { x: 0, back: 0 }, FIT_LO = 0.2, FIT_HI = 0.8;
+  const isleFit = { x: 0, back: 0 }, FIT_LO_W = 0.2, FIT_HI_W = 0.8, FIT_LO_T = 0.05, FIT_HI_T = 0.95;   // Golan 12.11: a standing phone is narrow, so there the islands may use almost all its width
   function fitIsles(dt) {
     const cv = engine.getRenderingCanvas(), k = cv.clientWidth / engine.getRenderWidth(), vp = cam.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
     const M = scene.getTransformMatrix(), I = BABYLON.Matrix.IdentityReadOnly, R = cam.getDirection(BABYLON.Axis.X); R.y = 0; R.normalize();
     const W = cv.clientWidth, b = ui && ui.querySelector(".sys"), c0 = cv.getBoundingClientRect();
     const br = b && b.offsetWidth ? b.getBoundingClientRect() : null, bx1 = br ? br.right - c0.left + 16 : 0, by0 = br ? br.top - c0.top - 20 : Infinity;
-    let needR = -Infinity, needL = -Infinity, needT = -Infinity, ppuR = 1, ppuL = 1, n = 0; const top = cv.clientHeight * 0.1;   // and under the island name at the top
+    const FIT_LO = tall ? FIT_LO_T : FIT_LO_W, FIT_HI = tall ? FIT_HI_T : FIT_HI_W;
+    const ttl = tall && ui && ui.querySelector(".top"), tb = ttl && ttl.offsetWidth ? ttl.getBoundingClientRect().bottom - c0.top + 6 : 0;
+    let needR = -Infinity, needL = -Infinity, needT = -Infinity, ppuR = 1, ppuL = 1, n = 0; const top = Math.max(cv.clientHeight * 0.1, tb);   // and under the island name at the top
     for (const it of isles) { if (!it.root.isEnabled() || it.vis < 0.3) continue;
       const c = it.root.position, q = BABYLON.Vector3.Project(c, I, M, vp); if (q.z < 0 || q.z > 1) continue;
       const kk = it.root.scaling.x / ISLE, ppu = Math.abs(BABYLON.Vector3.Project(c.add(R), I, M, vp).x - q.x) * k; if (ppu < 1e-3) continue;
@@ -364,8 +366,8 @@
     let want, look;
     if (tall) {   // standing phone: the camera stays over the middle of the trail and looks up it; islands zigzag around the middle
       const M = mid(Math.max(0, sc - BACK_TALL)), cx = lerp(M.x, C.x, zoom * 0.6);
-      want = new BABYLON.Vector3(cx, C.y + lerp(11, 6, zoom), C.z - lerp(7.5, 6.5, zoom));
-      look = new BABYLON.Vector3(cx + lerp(0.6, 0.2, zoom), C.y + lerp(2.6, 1.2, zoom), C.z + lerp(11, 5, zoom));
+      want = new BABYLON.Vector3(cx, C.y + lerp(8.5, 5, zoom), C.z - lerp(5.5, 5, zoom));   // Golan 12.11: closer on a standing phone (bigger islands)
+      look = new BABYLON.Vector3(cx + lerp(0.6, 0.2, zoom), C.y + lerp(4.4, 2.4, zoom), C.z + lerp(11, 5, zoom));
     } else {
       want = new BABYLON.Vector3(C.x + lerp(1.0, 0.4, zoom) + SHIFT, C.y + lerp(5.2, 3.5, zoom), C.z - lerp(9.5, 7.3, zoom));
       look = new BABYLON.Vector3(C.x + lerp(6.8, 3.8, zoom) + SHIFT, C.y + lerp(0.7, 0.2, zoom), C.z + lerp(9, 4.5, zoom));

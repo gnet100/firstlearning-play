@@ -1392,7 +1392,7 @@
     if (!paused && q && !q.done && state.mode === "play" && ringGeo && ringGeo.n === q.letters.length) {
       const lap = RING_LAP_S[lvl()];   /* Golan 8.11 (levels table): still / slow / fast */
       if (lap) q.spin = (q.spin || 0) + dt * ringGeo.n / lap;
-      ringPoints(ringGeo.n, ringGeo.rx, ringGeo.ry, (q.rot || 0) + q.spin).forEach((pt, i) => {
+      ringPoints(ringGeo.n, ringGeo.rx, ringGeo.ry, (q.rot || 0) + (q.spin || 0)).forEach((pt, i) => {   // Golan 12.11: a still ring (level 1) has no spin: it was NaN and every cloud vanished
         const c = clouds[i], w = skyAt(ringGeo.cx + pt.x, ringGeo.cy + pt.y); if (!c || !c.home) return;
         c.home = { x: w.x, y: w.y, size: c.home.size, fx: pt.fx, fy: pt.fy };
       });
