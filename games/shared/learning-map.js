@@ -222,6 +222,65 @@
       if (k === 4 && !tall) g.position.addInPlace(new BABYLON.Vector3(-2.4, -1.3, 0.8));   /* Golan 20.10: this cloud a little lower and to the left */
       if (k === 14) g.position.copyFrom(far[13].position).addInPlace(tall ? new BABYLON.Vector3(1, 6.5, 2) : new BABYLON.Vector3(3.5, 7.5, 3));   /* and one more in the top right corner */
       g.metadata = { home: g.position.clone(), ph: k * 1.7 }; }); }
+
+  // ---------- Golan 13.11: big 3D Hebrew letters float in the sky around the islands, drifting farther and closer ----------
+  // Each letter is a short stack of letter-shaped planes (a bright face + darker layers behind it), so it has thickness when it
+  // turns. They live in the camera's space, always farther than the islands, never pickable, and fade into the fog far away.
+  // Golan 13.11 05:51: they keep to the open sky AROUND the islands: each letter wanders on the screen and is pushed out of the
+  // islands' screen area (and the balloon's), so it never floats across an island. Golan 05:51: mainly at the screen's sides.
+  const SKY_ABC = "אבגדהוזחטיכלמנסעפצקרשת", SKY_COL = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#38d9a9"];
+  let skyL = [];
+  function shade(hex, k) { const c = BABYLON.Color3.FromHexString(hex); return new BABYLON.Color3(c.r * k, c.g * k, c.b * k); }
+  function skyLetters() {
+    const phone = Math.min(innerWidth, innerHeight) < 600, N = phone ? 8 : 12, LAYERS = phone ? 6 : 8;
+    const pool = SKY_ABC.split("").sort(() => Math.random() - 0.5);
+    for (let k = 0; k < N; k++) {
+      const ch = pool[k % pool.length], col = SKY_COL[k % SKY_COL.length], S = 256;
+      const dt = new BABYLON.DynamicTexture("skyT" + k, { width: S, height: S }, scene, true), ctx = dt.getContext();
+      ctx.clearRect(0, 0, S, S); ctx.font = `900 ${S * 0.82}px "Noto Sans Hebrew", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff"; ctx.fillText(ch, S / 2, S * 0.53); dt.hasAlpha = true; dt.update();
+      const face = new BABYLON.StandardMaterial("skyF" + k, scene); face.diffuseTexture = dt;
+      face.diffuseColor = shade(col, 1); face.emissiveColor = shade(col, 0.55); face.specularColor = new BABYLON.Color3(.25, .25, .25); face.backFaceCulling = false;
+      const side = face.clone("skyS" + k); side.diffuseColor = shade(col, 0.68); side.emissiveColor = shade(col, 0.3); side.specularColor = BABYLON.Color3.Black();
+      const root = new BABYLON.TransformNode("skyL" + k, scene), size = 1, dep = 0.09, big = 0.8 + Math.random() * 0.4;   // size 1: scaled to the screen each frame
+      const front = BABYLON.MeshBuilder.CreatePlane("skyP" + k, { size }, scene); front.material = face; front.parent = root; front.isPickable = false;
+      const back = BABYLON.MeshBuilder.CreatePlane("skyB" + k, { size }, scene); back.material = side; back.parent = root; back.isPickable = false; back.position.z = dep / (LAYERS - 1);
+      for (let j = 2; j < LAYERS; j++) { const ins = back.createInstance("skyI" + k + "_" + j); ins.parent = root; ins.isPickable = false; ins.position.z = dep * j / (LAYERS - 1); }
+      const sd = k % 2 ? 1 : -1;   // Golan 13.11 05:51: mainly at the screen's sides: half the letters on each side, spread top to bottom
+      root.metadata = { size, big, sd, x: sd * (0.8 + Math.random() * 0.1), y: ((k >> 1) + 0.5) / Math.ceil(N / 2) * 1.8 - 0.9, vx: 0, vy: 0, wa: Math.random() * 6.28,
+        ph: Math.random() * 6.28, sp: 0.8 + Math.random() * 0.5, rp: Math.random() * 6.28, rs: 0.8 + Math.random() * 0.5 };
+      skyL.push(root);
+    }
+  }
+  function skyTick(dt) {
+    if (!skyL.length || !dt) return;
+    const F = cam.getDirection(BABYLON.Axis.Z), R = cam.getDirection(BABYLON.Axis.X), U = cam.getDirection(BABYLON.Axis.Y);
+    const ar = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight());
+    const tx = cam.fovMode === BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED ? Math.tan(cam.fov / 2) : Math.tan(cam.fov / 2) * ar, ty = tx / ar;
+    // the islands (and the balloon) as circles on the screen, in -1..1 units (x right, y up)
+    const no = []; const P = cam.position;
+    const add = (c, r) => { const v = c.subtract(P), z = BABYLON.Vector3.Dot(v, F); if (z < 0.5) return;
+      no.push({ x: BABYLON.Vector3.Dot(v, R) / (z * tx), y: BABYLON.Vector3.Dot(v, U) / (z * ty), rx: r / (z * tx), ry: r / (z * ty) }); };
+    for (const it of isles) if (it.root.isEnabled() && it.vis > 0.05) add(it.root.position.add(new BABYLON.Vector3(0, -0.6 * it.root.scaling.y, 0)), 3.2 * it.root.scaling.x);
+    if (balloon) add(balloon.position.add(new BABYLON.Vector3(0, 0.6, 0)), 1.7);
+    const NEAR = 18 + isleFit.back, FAR = 52 + isleFit.back, DM = (NEAR + FAR) / 2, kk = Math.min(tx, ty) * 2 * DM * (tall ? 0.2 : 0.13);   // at mid depth a letter is ~20% of a standing phone's width, ~13% of a wide screen's height   // always farther than the islands; far ones melt into the fog
+    for (const g of skyL) { const m = g.metadata; m.ph += dt * m.sp * 0.07; m.rp += dt * m.rs * 0.1; m.wa += (Math.random() - 0.5) * dt * 1.2;
+      const sz = kk * m.big, d = NEAR + (FAR - NEAR) * (0.5 - 0.5 * Math.cos(m.ph)), lr = (sz * 0.5) / (d * tx), lry = (sz * 0.5) / (d * ty); g.scaling.setAll(sz);
+      let ax = Math.cos(m.wa) * 0.008, ay = Math.sin(m.wa) * 0.03;   // a slow wander, mostly up and down
+      ax += (m.sd * Math.max(0.55, 1 - lr * 0.9) - m.x) * 0.25;   // a soft pull back to its side of the screen
+      for (const o of no) { const dx = (m.x - o.x) / (o.rx + lr), dy = (m.y - o.y) / (o.ry + lry), q = Math.hypot(dx, dy);
+        if (q < 1.25) { const f = (1.25 - q) * 0.9 / Math.max(q, 0.05); ax += dx * f; ay += dy * f; } }
+      for (const h of skyL) if (h !== g) { const dx = m.x - h.metadata.x, dy = m.y - h.metadata.y, q = Math.hypot(dx, dy * 0.6);   // letters keep apart
+        if (q < 0.35) { const f = (0.35 - q) * 0.25 / Math.max(q, 0.05); ax += dx * f; ay += dy * f; } }
+      const ex = 1 - lr * 0.6, ey = 1 - lry * 0.6;   // stay on the screen (a little may peek past the edge)
+      if (m.x > ex) ax -= (m.x - ex) * 2; if (m.x < -ex) ax += (-ex - m.x) * 2; if (m.y > ey) ay -= (m.y - ey) * 2; if (m.y < -ey) ay += (-ey - m.y) * 2;
+      m.vx = (m.vx + ax * dt) * Math.pow(0.35, dt); m.vy = (m.vy + ay * dt) * Math.pow(0.35, dt);
+      const vmax = 0.12; const vs = Math.hypot(m.vx, m.vy); if (vs > vmax) { m.vx *= vmax / vs; m.vy *= vmax / vs; }
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      const x = m.x * tx * d, y = m.y * ty * d;
+      g.position.set(P.x + F.x * d + R.x * x + U.x * y, P.y + F.y * d + R.y * x + U.y * y, P.z + F.z * d + R.z * x + U.z * y);
+      g.rotation.set(cam.rotation.x + Math.sin(m.rp * 0.7) * 0.15, cam.rotation.y + Math.sin(m.rp) * 0.7, Math.sin(m.rp * 0.5) * 0.12); }
+  }
   let dots = [];
   function build() {
     const canvas = ui.querySelector("canvas");
@@ -237,7 +296,7 @@
     const fm = mat("far", "#ffffff", { emissive: "#ffffff" }); fm.disableLighting = true; fm.fogEnabled = false;
     for (let k = 0; k < 15; k++) { const g = new BABYLON.TransformNode("far", scene); far.push(g);   /* Golan 20.10: plain clouds stay away from the path, so they never look like a closed island's cloud */
       for (let j = 0; j < 3; j++) { const p = BABYLON.MeshBuilder.CreateSphere("fp", { diameter: 2 + j * 0.7, segments: 8 }, scene); p.material = fm; p.position.x = j * 1.3; p.parent = g; p.isPickable = false; } }
-    placeFar();
+    placeFar(); skyLetters();
     balloon = makeBalloon(opt.colour || "#ff6b6b");
     scene.onBeforeRenderObservable.add(tick);
     pointer(canvas);
@@ -330,6 +389,7 @@
   }
   function tick() {
     const dt = Math.min(0.05, engine.getDeltaTime() / 1000); T += dt;
+    skyTick(dt);
     // Golan 20.10: the balloon glides softly from island to island (eases in and out); a drag moves it gently too
     // Golan 29.10: rebuilt: a soft start and a soft stop over any distance, along the dots; a new target on the way
     // keeps the speed the balloon already has, so it never jerks
