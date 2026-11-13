@@ -564,7 +564,7 @@
       ["tiger", "נ"], ["rabbit", "א"], ["donkey", "ח"], ["rooster", "ת"], ["crocodile", "ת"], ["duck", "ב"]] },   // + duck (Golan 7.11: the new pictures in every game)
     { id: "transport", name: "תַּחְבּוּרָה", clip: "sw_cat_transport", pics: [["ר", "ר"], ["plane", "מ"], ["helicopter", "מ"], ["truck", "מ"], ["fireTruck", "כ"], ["ambulance", "א"], ["spaceship", "ח"], ["drone", "ר"], ["pilot", "ט"]] },   // + drone, pilot (Golan 7.11)
     { id: "toys", name: "צַעֲצוּעִים", clip: "sw_cat_toys", pics: [["כ", "כ"], ["ן", "ב"], ["rattle", "ר"],
-      ["swing", "נ"], ["slide", "מ"], ["kite", "ע"], ["trumpet", "ח"], ["mask", "מ"], ["puzzle", "פ"]] },
+      ["swing", "נ"], ["kite", "ע"], ["trumpet", "ח"], ["mask", "מ"], ["puzzle", "פ"]] },   // Golan 13.11: no slide (מִגְלָשָׁה opens with מִ, not מַ)
   ];
   const topic = () => TOPICS.find((t) => t.id === settings.topic && !t.soon) || TOPICS[0];
   const soundOf = (k) => (topic().pics.find((p) => p[0] === k) || [])[1];

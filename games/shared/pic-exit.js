@@ -31,7 +31,7 @@
     plane: ["fly", -1], helicopter: ["up", -1], truck: ["drive", -1], fireTruck: ["drive", -1],
     slide: ["sink", 1], kite: ["fly", 1], mask: ["float", 1], puzzle: ["hop", 1], windmill: ["up", 1], stream: ["flow", 1], fence: ["sink", 1],   // Golan 7.11: the places leave too: the windmill flies off on its sails, the stream flows away down, the fence sinks into the ground
     "ן": ["float", 1], diamond: ["grab", 1], oven: ["hop", 1], socks: ["hop", 1], shoe: ["hop", -1],
-    bottle: ["hop", 1], banana: ["hop", -1],
+    bottle: ["hop", 1], banana: ["hop", -1], fork: ["bounce", 1],   // 13.11: the new מַ picture
   };
   // Golan 7.11 (2nd ask): every exit stays INSIDE its card, like the hot-air balloon on the memory game's hint card (memRise):
   // the card clips the picture, which moves on its own path until it has passed the card's edge, so it disappears bit by bit
